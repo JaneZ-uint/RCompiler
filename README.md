@@ -1,7 +1,7 @@
 # RCompiler
 
 ## Overview
-A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.\
+A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 
 ## Structure
 
