@@ -37,6 +37,7 @@ private:
         bool isSingle = false;// is in ''
         bool isDouble = false;// is in ""
         bool trans = false;// is in trans /
+        bool isBlank = false;// is in blank
         int multi_comment_cnt = 0;//is in /* */
         for(int i = 0;i < tokens.size();i ++){
             std::string current = tokens[i];
@@ -82,14 +83,56 @@ private:
                         }else if(current[j] == '\''){
                             isSingle = true;
                             result += current[j];
+                        }else{
+                            if(isBlank){
+                                if(current[j] != ' ' && current[j] != '\t'){
+                                    result += current[j];
+                                    isBlank = false;
+                                }else{
+                                    if(current[j] == ' '){
+                                        isBlank = true;
+                                    }else{
+                                        isBlank = false;
+                                    }
+                                }
+                            }else{
+                                if(current[j] == ' '){
+                                    isBlank = true;
+                                    result += ' ';
+                                }else if(current[j] == '\t'){
+                                    isBlank = false;
+                                    result += ' ';
+                                }else{
+                                    isBlank = false;
+                                    result += current[j];
+                                }
+                            }
                         }
                     }
                     
-                }else{ //muti_comment_case
-
+                }else{ //multi_comment_case
+                    if(current[j] == '*' && nextChar == '/'){
+                        multi_comment_cnt --;
+                        j ++;
+                    }
+                    if(multi_comment_cnt == 0){ // add " "
+                        if(!result.empty() && result.back() != ' '){
+                            result += ' ';
+                        }
+                    }
+                    if(current[j] == '/' && nextChar == '*'){
+                        multi_comment_cnt ++;
+                        j ++;
+                    }
                 }
             }
         }
+        size_t start = result.find_first_not_of(" \t");
+        if(start == std::string::npos) {
+            start = 0;
+        }
+        size_t end = result.find_last_not_of(" \t");
+        result = result.substr(start, end - start + 1);
     }
 
 public:
@@ -108,12 +151,8 @@ public:
 
     //debug function
     void print(){
-        for(int i = 0;i < result.size();i ++){
-            std::cout << result[i];
-            if(result[i] == ';'){
-                std::cout << std::endl;
-            }
-        }
+        std::cout << "Simplify Program Below:" << std::endl;
+        std::cout << result;
     }
 };
 
