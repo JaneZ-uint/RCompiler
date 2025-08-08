@@ -5,10 +5,12 @@ Mainly read files,separate lines.
 Move blank and comments.
 */
 
+#include <cstdio>
 #include <ostream>
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <system_error>
 #include <vector>
 
 namespace JaneZ{
@@ -24,6 +26,7 @@ private:
         if(file.is_open()){
             std::string line;
             while(std::getline(file,line)){
+                line += '\n';
                 tokens.push_back(line);
             }
             file.close();
@@ -43,32 +46,54 @@ private:
             std::string current = tokens[i];
             for(int j = 0;j < current.size();j ++){
                 char nextChar;
-                if(j == current.size()){
+                if(j == current.size() - 1){
                     nextChar = '\0';
                 }else{
                     nextChar = current[j + 1];
                 }
                 if(multi_comment_cnt == 0){
                     if(isDouble){
-                        result += current[j];
                         if(trans){
+                            if(current[j] == 'n'){
+                                result += '\n';
+                            }else if(current[j] == 't'){
+                                result += '\t';
+                            }else if(current[j] == 'r'){
+                                result += '\r';
+                            }else {
+                                result += current[j];
+                            }
                             trans = false;
                         }else {
                             if(current[j] == '"'){
+                                result += current[j];
                                 isDouble = false;
                             }else if(current[j] == '\\'){
                                 trans = true;
+                            }else{
+                                result += current[j];
                             }
                         }
                     }else if(isSingle){
-                        result += current[j];
                         if(trans){
+                            if(current[j] == 'n'){
+                                result += '\n';
+                            }else if(current[j] == 't'){
+                                result += '\t';
+                            }else if(current[j] == 'r'){
+                                result += '\r';
+                            }else {
+                                result += current[j];
+                            }
                             trans = false;
                         }else{
                             if(current[j] == '\''){
+                                result += '\'';
                                 isSingle = false;
                             }else if(current[j] == '\\') {
                                 trans = true;
+                            }else{
+                                result += current[j];
                             }
                         }
                     }else {
@@ -85,24 +110,20 @@ private:
                             result += current[j];
                         }else{
                             if(isBlank){
-                                if(current[j] != ' ' && current[j] != '\t'){
+                                if(current[j] != ' ' && current[j] != '\t' && current[j] != '\n'){
                                     result += current[j];
                                     isBlank = false;
                                 }else{
-                                    if(current[j] == ' '){
-                                        isBlank = true;
-                                    }else{
-                                        isBlank = false;
-                                    }
+                                    isBlank = true;
                                 }
                             }else{
                                 if(current[j] == ' '){
                                     isBlank = true;
                                     result += ' ';
                                 }else if(current[j] == '\t'){
-                                    isBlank = false;
+                                    isBlank = true;
                                     result += ' ';
-                                }else{
+                                }else if(current[j] != '\n'){
                                     isBlank = false;
                                     result += current[j];
                                 }
