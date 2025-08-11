@@ -2,9 +2,10 @@
 #include "../token/token.h"
 #include <cctype>
 #include <endian.h>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <variant>
+#include <regex>
 #include <vector>
 #include <iostream>
 
@@ -130,9 +131,9 @@ private:
             }else{
                 nextnextChar = '\0';
             }
-            if(current == ' '){
+            /*if(current == ' '){
                 continue;
-            }
+            }*/
             if(isDouble){
                 tmp.value += current;
                 if(current == '"'){
@@ -380,7 +381,11 @@ private:
                 }else{
                     if(!checkIdentifier(current) && tmp.value.size() > 0){
                         if(checkNumber(tmp.value[0])){
-                            tmp.type = kINTEGER_LITERAL;
+                            if(checkIntegerliteral(tmp.value)){
+                                tmp.type = kINTEGER_LITERAL;
+                            }else{
+                                throw std::runtime_error("Compile error: Invalid Integer Literal.");
+                            }
                         }else {
                             tmp.type = kIDENTIFIER;
                         }
@@ -397,7 +402,7 @@ private:
     }
 
     void checkKeyword(){
-        for(auto token: result){
+        for(auto &token: result){
             if(token.type == kIDENTIFIER){
                 if(keywordTotokentype.find(token.value) != keywordTotokentype.end()){
                     token.type = keywordTotokentype.find(token.value)->second;
@@ -464,6 +469,15 @@ private:
                 }
             }
         }
+    }
+
+    bool checkIntegerliteral(std::string current){
+        std::regex integerRegex(R"((\b(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|\d+)
+        (?:(i32)?|(isize)?|(u32)?|(usize)?)\b))");
+        if(!std::regex_match(current,integerRegex)){
+            return false;  
+        }
+        return true;
     }
 
     bool checkIdentifier(char current){

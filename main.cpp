@@ -1,8 +1,13 @@
+#include "src/lexer/lexer.h"
 # include "src/simplifier/simplifier.h"
 #include <iostream>
+#include <string>
 
 int main(){
     JaneZ::Simplifier simplifier("helloworld.rs");
-    simplifier.work();
-    simplifier.print();
+    std::string source_code = simplifier.work();
+    //simplifier.print();
+    JaneZ::Lexer lexer(source_code);
+    lexer.work();
+    lexer.print();
 }
