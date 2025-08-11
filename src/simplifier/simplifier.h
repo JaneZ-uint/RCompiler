@@ -54,21 +54,14 @@ private:
                 if(multi_comment_cnt == 0){
                     if(isDouble){
                         if(trans){
-                            if(current[j] == 'n'){
-                                result += '\n';
-                            }else if(current[j] == 't'){
-                                result += '\t';
-                            }else if(current[j] == 'r'){
-                                result += '\r';
-                            }else {
-                                result += current[j];
-                            }
+                            result += current[j];
                             trans = false;
                         }else {
                             if(current[j] == '"'){
                                 result += current[j];
                                 isDouble = false;
                             }else if(current[j] == '\\'){
+                                result += current[j];
                                 trans = true;
                             }else{
                                 result += current[j];
@@ -76,21 +69,14 @@ private:
                         }
                     }else if(isSingle){
                         if(trans){
-                            if(current[j] == 'n'){
-                                result += '\n';
-                            }else if(current[j] == 't'){
-                                result += '\t';
-                            }else if(current[j] == 'r'){
-                                result += '\r';
-                            }else {
-                                result += current[j];
-                            }
+                            result += current[j];
                             trans = false;
                         }else{
                             if(current[j] == '\''){
                                 result += '\'';
                                 isSingle = false;
                             }else if(current[j] == '\\') {
+                                result += '\\';
                                 trans = true;
                             }else{
                                 result += current[j];

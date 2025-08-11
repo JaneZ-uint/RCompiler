@@ -1,7 +1,10 @@
 #pragma once
 #include "../token/token.h"
+#include <cctype>
+#include <endian.h>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 #include <iostream>
 
@@ -103,7 +106,7 @@ private:
 
     std::vector<Token> result;
 
-    std::vector<Token> raw_string;
+    //std::vector<Token> unraw_string;
 
     void process(){
         bool isDouble = false;
@@ -111,10 +114,10 @@ private:
         Token tmp;
         tmp.value = "";
         tmp.type = kUNKNOWN;
-        std::string test = "";
+        //std::string test = "";
         for(int i = 0;i < sourceCode.size();i ++){
             char current = sourceCode[i];
-            test += current;
+            //test += current;
             char nextChar;
             char nextnextChar;
             if(i == sourceCode.size() - 1){
@@ -143,15 +146,17 @@ private:
                     if(string_type == 'c'){
                         if(second_string_type == 'r'){
                             tmp.type = kRAW_CSTRING_LITERAL;
-                            raw_string.push_back(tmp);
+                            //raw_string.push_back(tmp);
                         }else{
                             tmp.type = kCSTRING_LITERAL;
+                            //unraw_string.push_back(tmp);
                         }
                     }else if(string_type == 'r'){
                         tmp.type = kRAW_STRING_LITERAL;
-                        raw_string.push_back(tmp);
+                        //raw_string.push_back(tmp);
                     }else{
                         tmp.type = kSTRING_LITERAL;
+                        //unraw_string.push_back(tmp);
                     }
                     result.push_back(tmp);
                     tmp.value = "";
@@ -172,6 +177,221 @@ private:
             }else if(current == '\''){
                 tmp.value += current;
                 isSingle = true;
+            }else {
+                std::string test = "";
+                test += current;
+                if(operatorTotokenType.find(test) != operatorTotokenType.end() && tmp.value.size() == 0){
+                    tmp.value += current;
+                    tokenType tp = operatorTotokenType.find(test)->second;
+                    if(tp == kPLUS){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kPLUSEQ;
+                            i ++;
+                        }else{
+                            tmp.type = kPLUS;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kMINUS){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kMINUSEQ;
+                            i ++;
+                        }else if(nextChar == '>'){
+                            tmp.value += nextChar;
+                            tmp.type = kRARROW;
+                            i ++;
+                        }else{
+                            tmp.type = kMINUS;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kSTAR){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kSTAREQ;
+                            i ++;
+                        }else{
+                            tmp.type = kSTAR;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kSLASH){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kSLASHEQ;
+                            i ++;
+                        }else{
+                            tmp.type = kSLASH;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kPERCENT){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kPERCENTEQ;
+                            i ++;
+                        }else{
+                            tmp.type = kPERCENT;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kCARET){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kCARETEQ;
+                            i ++;
+                        }else{
+                            tmp.type = kCARET;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kNOT){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kNE;
+                            i ++;
+                        }else{
+                            tmp.type = kNOT;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kAND){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kANDEQ;
+                            i ++;
+                        }else if(nextChar == '&'){
+                            tmp.value += nextChar;
+                            tmp.type = kANDAND;
+                            i ++;
+                        }else{
+                            tmp.type = kAND;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kOR){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kOREQ;
+                            i ++;
+                        }else if(nextChar == '|'){
+                            tmp.value += nextChar;
+                            tmp.type = kOROR;
+                            i ++;
+                        }else{
+                            tmp.type = kOR;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kEQ){
+                        if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kEQEQ;
+                            i ++;
+                        }else if(nextChar == '>'){
+                            tmp.value += nextChar;
+                            tmp.type = kFATARROW;
+                            i ++;
+                        }else {
+                            tmp.type = kEQ;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kGT){
+                        if(nextChar == '>'){
+                            tmp.value += nextChar;
+                            if(nextnextChar == '='){
+                                tmp.value += nextnextChar;
+                                tmp.type = kSHREQ;
+                                i ++;
+                            }else{
+                                tmp.type = kSHR;
+                            }
+                            i ++;
+                        }else if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kGE;
+                            i ++;
+                        }else{
+                            tmp.type = kGT;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kLT){
+                        if(nextChar == '<'){
+                            tmp.value += nextChar;
+                            if(nextnextChar == '='){
+                                tmp.value += nextnextChar;
+                                tmp.type = kSHLEQ;
+                                i ++;
+                            }else{
+                                tmp.type = kSHL;
+                            }
+                            i ++;
+                        }else if(nextChar == '='){
+                            tmp.value += nextChar;
+                            tmp.type = kLE;
+                            i ++;
+                        }else{
+                            tmp.type = kLT;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kQUESTION){
+                        tmp.type = kQUESTION;
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    } 
+                }else if(punctuationTotokenType.find(test) != punctuationTotokenType.end() && tmp.value.size() == 0){
+                    tmp.value += current;
+                    tokenType tp = punctuationTotokenType.find(test)->second;
+                    if(tp == kSEMI){
+                        if(nextChar == ':'){
+                            tmp.value += nextChar;
+                            tmp.type = kPATHSEP;
+                            i ++;
+                        }else{
+                            tmp.type = kSEMI;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else {
+                        tmp.type = tp;
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }
+                }else{
+                    if(!checkIdentifier(current) && tmp.value.size() > 0){
+                        if(checkNumber(tmp.value[0])){
+                            tmp.type = kINTEGER_LITERAL;
+                        }else {
+                            tmp.type = kIDENTIFIER;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                        i --;
+                    }else if(checkIdentifier(current)){
+                        tmp.value += current;
+                    }
+                }
             }
         }
     }
@@ -187,10 +407,78 @@ private:
     }
 
     void checkRAWSTRING(){   // independently deal with RAW_STRING RAW_CSTRING
-
+        for(auto& token: result){
+            if(token.type == kSTRING_LITERAL || token.type == kCSTRING_LITERAL){
+                std::string current = token.value;
+                std::string new_current = "";
+                bool trans = false;
+                if(token.type == kRAW_STRING_LITERAL){
+                    for(int i = 0;i < current.size();i ++){
+                        if(trans){
+                            if(current[i] == 'n'){
+                                new_current += '\n';
+                            }else if(current[i] == 'r'){
+                                new_current += '\r';
+                            }else if(current[i] == 't'){
+                                new_current += '\t';
+                            }else{
+                                new_current += current[i];
+                            }
+                            trans = false;
+                            continue;
+                        }
+                        if(current[i] == '\\'){
+                            trans = true;
+                            continue;
+                        }
+                        new_current += current[i];
+                    }
+                    token.value = new_current;
+                }else if(token.type == kRAW_CSTRING_LITERAL){
+                    for(int i = 0;i < current.size();i ++){
+                        if(trans){
+                            if(current[i] == 'n'){
+                                new_current += '\n';
+                            }else if(current[i] == 'r'){
+                                new_current += '\r';
+                            }else if(current[i] == 't'){
+                                new_current += '\t';
+                            }else{
+                                new_current += current[i];
+                            }
+                            trans = false;
+                            continue;
+                        }
+                        if(current[i] == '\\'){
+                            trans = true;
+                            continue;
+                        }
+                        if(i == current.size() - 1){
+                            new_current += '\0';
+                        }
+                        new_current += current[i];
+                    }
+                    token.value = new_current;
+                }else{
+                    continue;
+                }
+            }
+        }
     }
 
+    bool checkIdentifier(char current){
+        if(std::isalnum(current) || current == '_'){
+            return true;
+        }
+        return false;
+    }
 
+    bool checkNumber(char current){
+        if('0' <= current && current <= '9'){
+            return true;
+        }
+        return false;
+    }
 
 public:
     Lexer(const std::string source_code):sourceCode(source_code){}
@@ -201,6 +489,8 @@ public:
 
     std::vector<Token> work(){
         process();
+        checkKeyword();
+        checkRAWSTRING();
         return result;
     }
 
