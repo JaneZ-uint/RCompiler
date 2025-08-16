@@ -39,7 +39,7 @@ private:
         result = "";
         bool isSingle = false;// is in ''
         bool isDouble = false;// is in ""
-        bool trans = false;// is in trans /
+        //bool trans = false;// is in trans /
         bool isBlank = false;// is in blank
         int multi_comment_cnt = 0;//is in /* */
         for(int i = 0;i < tokens.size();i ++){
@@ -53,34 +53,14 @@ private:
                 }
                 if(multi_comment_cnt == 0){
                     if(isDouble){
-                        if(trans){
-                            result += current[j];
-                            trans = false;
-                        }else {
-                            if(current[j] == '"'){
-                                result += current[j];
-                                isDouble = false;
-                            }else if(current[j] == '\\'){
-                                result += current[j];
-                                trans = true;
-                            }else{
-                                result += current[j];
-                            }
+                        result += current[j];
+                        if(current[j] == '"'){
+                            isDouble = false;
                         }
                     }else if(isSingle){
-                        if(trans){
-                            result += current[j];
-                            trans = false;
-                        }else{
-                            if(current[j] == '\''){
-                                result += '\'';
-                                isSingle = false;
-                            }else if(current[j] == '\\') {
-                                result += '\\';
-                                trans = true;
-                            }else{
-                                result += current[j];
-                            }
+                        result += current[j];
+                        if(current[j] == '\''){
+                            isSingle = false;
                         }
                     }else {
                         if(current[j] == '/' && nextChar == '/'){
