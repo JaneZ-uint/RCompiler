@@ -1,9 +1,29 @@
 # pragma once
 
+#include "ItemConst.h"
+#include "ItemFn.h"
 #include "item.h"
+#include <memory>
+#include <vector>
 namespace JaneZ {
 class ItemTraitDecl : public Item {
-public:
+private:
+    std::string identifier;
+    std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
+    std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
 
+public:
+    ItemTraitDecl(std::string _identifier, 
+                   std::vector<std::unique_ptr<ItemConstDecl>> _item_trait_const,
+                   std::vector<std::unique_ptr<ItemFnDecl>> _item_trait_fn) 
+        : identifier(std::move(_identifier)), 
+          item_trait_const(std::move(_item_trait_const)),
+          item_trait_fn(std::move(_item_trait_fn)) {}
+
+    ~ItemTraitDecl() = default;
+
+    void accept(ASTVisitor &visitor) override {
+        visitor.visit(*this);
+    }
 };
 }
