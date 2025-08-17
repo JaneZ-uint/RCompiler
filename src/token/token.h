@@ -39,8 +39,8 @@ enum tokenType{
     //kPUB,
     kREF,
     kRETURN,
-    kSELF,
-    kSELF_TYPE,
+    kSELF,   // self
+    kSELF_TYPE, // Self
     kSTATIC,
     kSTRUCT,
     kSUPER,
