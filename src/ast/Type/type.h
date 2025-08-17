@@ -4,7 +4,7 @@
 namespace JaneZ {
 class Type : public ASTNode {
 public:
-    Type() = default;
+    Type() : ASTNode(){}
     virtual ~Type() = 0;
     virtual void accept(ASTVisitor &visitor) = 0;
 };

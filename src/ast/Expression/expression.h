@@ -5,7 +5,7 @@ namespace JaneZ {
 class Expression : public ASTNode{
 public:
 public:
-    Expression() = default;
+    Expression() : ASTNode() {}
     virtual ~Expression() = 0;
     virtual void accept(ASTVisitor &visitor) = 0;
 };

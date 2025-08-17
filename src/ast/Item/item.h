@@ -9,7 +9,7 @@ class Type;
 class Expression;
 class Item : public ASTNode{
 public:
-    Item() = default;
+    Item() : ASTNode() {}
     virtual ~Item() = 0;
     virtual void accept(ASTVisitor &visitor) = 0;
 };

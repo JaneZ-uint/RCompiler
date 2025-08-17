@@ -3,14 +3,15 @@
 #include "type.h"
 #include <memory>
 namespace JaneZ {
-class TypeSlice : public Type {
+class Path;
+class TypePath : public Type {
 private:
-    std::unique_ptr<Type> type;
+    std::unique_ptr<Path> typePath;
 
 public:
-    TypeSlice(std::unique_ptr<Type> t): type(std::move(t)) {}
+    TypePath(std::unique_ptr<Path> tp) : typePath(std::move(tp)) {}
 
-    ~TypeSlice() = default;
+    ~TypePath() = default;
 
     void accept(ASTVisitor &visitor) override {
         visitor.visit(*this);
