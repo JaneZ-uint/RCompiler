@@ -1,19 +1,33 @@
 # pragma once
 
 #include "ast.h"
-#include <memory>
 #include <string>
 #include <vector>
 
 namespace JaneZ {
-class Path{
+enum PathIdentSegmentType {
+    IDENTIFIER,
+    SELF_TYPE,
+    SELF,
+};
+
+struct PathIdentSegment{
+    PathIdentSegmentType type;
+    std::string identifier;
+};
+
+class Path : public ASTNode{
 private:
-    std::vector<std::string> pathSegments;
+    std::vector<PathIdentSegment> pathSegments;
 
 public:
-    Path(std::vector<std::string> ps): pathSegments(std::move(ps)){}
+    Path(std::vector<PathIdentSegment> segments)
+        : pathSegments(std::move(segments)) {}
 
     ~Path() = default;
 
+    void accept(ASTVisitor &visitor) override {
+        visitor.visit(*this);
+    }
 };
 }

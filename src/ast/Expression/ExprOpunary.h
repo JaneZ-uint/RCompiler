@@ -1,9 +1,33 @@
 # pragma once
 
 #include "expression.h"
-namespace JaneZ {
-class ExprOpunary : public Expression {
-public:
+#include <memory>
 
+
+namespace JaneZ {
+enum unaryOp {
+    BORROW,
+    BORROW_MUT,
+
+    DEREFERENCE,
+
+    NOT,
+    NEGATE,
+};
+
+class ExprOpunary : public Expression {
+private:
+    unaryOp op;
+    std::unique_ptr<Expression> right;
+
+public:
+    ExprOpunary(unaryOp operation, std::unique_ptr<Expression> rightExpr)
+        : op(operation), right(std::move(rightExpr)) {}
+
+    ~ExprOpunary() = default;
+
+    void accept(ASTVisitor &visitor) override {
+        visitor.visit(*this);
+    }
 };
 }

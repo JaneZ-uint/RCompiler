@@ -2,14 +2,15 @@
 
 #include "pattern.h"
 #include "../Path.h"
+#include <memory>
 
 namespace JaneZ {
 class PatternPath : public Pattern {
 private:
-    Path path;
+    std::unique_ptr<Path> path;
 
 public:
-    PatternPath(Path p): path(std::move(p)) {}
+    PatternPath(std::unique_ptr<Path> p) : path(std::move(p)) {}    
 
     ~PatternPath() = default;
 
