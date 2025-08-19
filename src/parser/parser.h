@@ -2,7 +2,34 @@
 
 #include <memory>
 #include <vector>
+#include "../ast/Item/item.h"
+#include "../ast/Item/ItemFn.h"
+#include "../ast/Item/ItemConst.h"
+#include "../ast/Item/ItemEnum.h"
+#include "../ast/Item/ItemImpl.h"
+#include "../ast/Item/ItemStruct.h"
+#include "../ast/Item/ItemTrait.h"
+#include "../ast/Pattern/pattern.h"
+#include "../ast/Pattern/PatternIdentifier.h"
+#include "../ast/Pattern/PatternLiteral.h"
+#include "../ast/Pattern/PatternPath.h"
+#include "../ast/Pattern/PatternReference.h"
+#include "../ast/Pattern/PatternStruct.h"
+#include "../ast/Pattern/PatternTuple.h"
+#include "../ast/Pattern/PatternWildcard.h"
+#include "../ast/Statement/statement.h"
+#include "../ast/Statement/StmtEmpty.h"
+#include "../ast/Statement/StmtExpr.h"
+#include "../ast/Statement/StmtItem.h"
+#include "../ast/Statement/StmtLet.h"
+#include "../ast/Type/type.h"
+#include "../ast/Type/TypeArray.h"
+#include "../ast/Type/TypeInferred.h"
+#include "../ast/Type/TypePath.h"
+#include "../ast/Type/TypeReference.h"
+#include "../ast/Type/TypeSlice.h"
 namespace JaneZ {
+class ASTRootNode;
 class Token;
 class Item;
 class ItemFnDecl;
@@ -34,8 +61,7 @@ class Parser{
 private:
     std::vector<Token> tokens;
 
-public:
-    Parser(std::vector<Token> t) : tokens(std::move(t)) {}
+    size_t currentPos = 0;
 
     //Pratt Parser
     //Top-Down Operator Precedence
@@ -63,10 +89,10 @@ public:
 
     // Statement
     std::unique_ptr<Statement> parse_statement();
-    std::unique_ptr<StmtEmpty> parse_stmt_empty();
-    std::unique_ptr<StmtExpr> parse_stmt_expr();
-    std::unique_ptr<StmtItem> parse_stmt_item();
-    std::unique_ptr<StmtLet> parse_stmt_let();
+    std::unique_ptr<StmtEmpty> parse_stmt_empty(Token current);
+    std::unique_ptr<StmtExpr> parse_stmt_expr(Token current);
+    std::unique_ptr<StmtItem> parse_stmt_item(Token current);
+    std::unique_ptr<StmtLet> parse_stmt_let(Token current);
 
     // Type
     std::unique_ptr<Type> parse_type();
@@ -76,6 +102,13 @@ public:
     std::unique_ptr<TypeReference> parse_type_reference();
     std::unique_ptr<TypeSlice> parse_type_slice();
 
+public:
+    Parser(std::vector<Token> t) : tokens(std::move(t)) {}
+
+    std::unique_ptr<ASTRootNode> parse();
+
 };
+
+
 
 }
