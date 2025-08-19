@@ -65,7 +65,7 @@ private:
 
     //Pratt Parser
     //Top-Down Operator Precedence
-
+    std::unique_ptr<Expression> parse_expr(); 
 
     //Recursive Descent Parser
     // Item
@@ -89,10 +89,10 @@ private:
 
     // Statement
     std::unique_ptr<Statement> parse_statement();
-    std::unique_ptr<StmtEmpty> parse_stmt_empty(Token current);
-    std::unique_ptr<StmtExpr> parse_stmt_expr(Token current);
-    std::unique_ptr<StmtItem> parse_stmt_item(Token current);
-    std::unique_ptr<StmtLet> parse_stmt_let(Token current);
+    std::unique_ptr<StmtEmpty> parse_stmt_empty();
+    std::unique_ptr<StmtExpr> parse_stmt_expr();
+    std::unique_ptr<StmtItem> parse_stmt_item();
+    std::unique_ptr<StmtLet> parse_stmt_let();
 
     // Type
     std::unique_ptr<Type> parse_type();
