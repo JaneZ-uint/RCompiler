@@ -6,7 +6,7 @@
 
 namespace JaneZ {
 std::unique_ptr<Statement> Parser::parse_statement() {
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     Token current = tokens[currentPos];
@@ -31,7 +31,7 @@ std::unique_ptr<Statement> Parser::parse_statement() {
 }
 
 std::unique_ptr<StmtEmpty> Parser::parse_stmt_empty() {
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     currentPos ++;
@@ -39,7 +39,7 @@ std::unique_ptr<StmtEmpty> Parser::parse_stmt_empty() {
 }
 
 std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     Token current = tokens[currentPos];
@@ -56,11 +56,11 @@ std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
 }
 
 std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     currentPos ++;
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Pattern> pattern = parse_pattern();
@@ -77,7 +77,7 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
 }
 
 std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {
-    if(currentPos == tokens.size()){
+    if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Expression> expr = parse_expr();

@@ -99,6 +99,7 @@ static std::unordered_map<std::string, tokenType> punctuationTotokenType = {
     {"]", kR_BRACKET},
     {"{", kL_BRACE},
     {"}", kR_BRACE},
+    {"_", kUNDERSCORE},
 };
 
 class Lexer{

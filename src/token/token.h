@@ -117,6 +117,7 @@ enum tokenType{
     kR_BRACKET, // ]
     kL_BRACE, // {
     kR_BRACE, // }
+    kUNDERSCORE, // _
 
     kEOF, // END OF FILE
     kUNKNOWN // ERROR
@@ -293,6 +294,8 @@ static void printTokenType(tokenType tmp){
         std::cout << "kL_BRACE";
     }else if(tmp == kR_BRACE){
         std::cout << "kR_BRACE";
+    }else if(tmp == kUNDERSCORE){
+        std::cout << "kUNDERSCORE";
     }else if(tmp == kEOF){
         std::cout << "kEOF";
     }else if(tmp == kUNKNOWN){
