@@ -7,8 +7,8 @@
 namespace JaneZ {
 enum PathIdentSegmentType {
     IDENTIFIER,
-    SELF_TYPE,
-    SELF,
+    SELF_TYPE, //Self
+    SELF,  // self
 };
 
 struct PathIdentSegment{

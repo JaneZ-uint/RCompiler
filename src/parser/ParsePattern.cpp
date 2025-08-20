@@ -100,6 +100,7 @@ std::unique_ptr<Pattern> Parser::parse_pattern_path() {
                 }
             }
         }while(tokens[currentPos].type != kR_PAREN);
+        currentPos ++;
         return std::make_unique<PatternTupleStruct>(std::move(pathInExpr),std::move(TupleStructItems)) ;
     }else{
         return std::make_unique<PatternPath>(std::move(pathInExpr));
