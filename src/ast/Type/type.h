@@ -2,10 +2,31 @@
 #include "../ast.h"
 
 namespace JaneZ {
+enum RustType{
+    BOOL,
+    U32,
+    I32,
+    USIZE,
+    ISIZE,
+    CHAR,
+    STR,
+    ARRAY,
+    STRUCT,
+    ENUM,
+    REF,
+};
+
 class Type : public ASTNode {
+private:
+    RustType type;
+
 public:
-    Type() : ASTNode(){}
-    virtual ~Type() = 0;
-    virtual void accept(ASTVisitor &visitor) = 0;
+    Type(RustType t) : type(t) {}
+
+    ~Type() = default;
+  
+    void accept(ASTVisitor &visitor) override {
+        visitor.visit(*this);
+    }
 };
 }

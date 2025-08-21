@@ -1,7 +1,6 @@
 # pragma once
 
 #include "item.h"
-#include <memory>
 #include <vector>
 namespace JaneZ {
 class ItemStructDecl : public Item {

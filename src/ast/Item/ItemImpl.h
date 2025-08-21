@@ -9,12 +9,12 @@ class ItemFnDecl;
 class ItemImplDecl : public Item {
 private:
     std::string identifier = "";
-    std::unique_ptr<Type> targetType;
+    std::unique_ptr<ASTNode> targetType;
     std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
     std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
 
 public:
-    ItemImplDecl(std::string _identifier, std::unique_ptr<Type> _targetType,
+    ItemImplDecl(std::string _identifier, std::unique_ptr<ASTNode> _targetType,
                  std::vector<std::unique_ptr<ItemConstDecl>> _item_trait_const,
                  std::vector<std::unique_ptr<ItemFnDecl>> _item_trait_fn) 
         : identifier(std::move(_identifier)), targetType(std::move(_targetType)),

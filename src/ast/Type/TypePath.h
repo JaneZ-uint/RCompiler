@@ -1,10 +1,10 @@
 # pragma once
 
-#include "type.h"
+#include "../ast.h"
 #include <memory>
 namespace JaneZ {
 class Path;
-class TypePath : public Type {
+class TypePath : public ASTNode {
 private:
     std::unique_ptr<Path> typePath;
 

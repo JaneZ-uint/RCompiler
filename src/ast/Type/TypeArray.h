@@ -1,16 +1,17 @@
 # pragma once
-
-#include "type.h"
+#include "../ast.h"
+#include "../Expression/expression.h"
 #include <memory>
+
 namespace JaneZ {
-class TypeArray : public Type {
-class Expression;
+class TypeArray : public ASTNode {
 private:
-    std::unique_ptr<Type> type;
+    std::unique_ptr<ASTNode> type;
     std::unique_ptr<Expression> expr;
 
 public:
-    TypeArray(std::unique_ptr<Type> t,std::unique_ptr<Expression> ex) : type(std::move(t)),expr(std::move(ex)) {}
+    TypeArray(std::unique_ptr<ASTNode> t,std::unique_ptr<Expression> ex) : 
+    type(std::move(t)),expr(std::move(ex)) {}
 
     ~TypeArray() = default;
     

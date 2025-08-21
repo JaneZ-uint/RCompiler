@@ -15,7 +15,7 @@ struct ShortSelf{
 };
 struct TypeSelf{
     bool is_mut = false;
-    std::unique_ptr<Type> type;
+    std::unique_ptr<ASTNode> type;
 };
 struct selfParam{
     bool isShortSelf = false;
@@ -24,7 +24,7 @@ struct selfParam{
 };
 struct functionParam{
     std::unique_ptr<Pattern> pattern;
-    std::unique_ptr<Type> type;
+    std::unique_ptr<ASTNode> type;
 };
 struct fnParameter{
     selfParam SelfParam;
@@ -35,12 +35,12 @@ private:
     std::string identifier = "";
     fnParameter fnParameters;
     std::unique_ptr<ExprBlock> fnBody;
-    std::unique_ptr<Type> returnType;
+    std::unique_ptr<ASTNode> returnType;
     bool is_const = false;
 
 public:
     ItemFnDecl(std::string _identifier, fnParameter fnP, 
-        std::unique_ptr<ExprBlock> fnB, std::unique_ptr<Type> returnT,bool isC = false): 
+        std::unique_ptr<ExprBlock> fnB, std::unique_ptr<ASTNode> returnT,bool isC = false): 
         identifier(std::move(_identifier)),fnParameters(std::move(fnP)),fnBody(std::move(fnB)),returnType(std::move(returnT)),is_const(isC){}
 
     ~ItemFnDecl() = default;

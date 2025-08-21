@@ -1,16 +1,17 @@
 # pragma once
 
-#include "type.h"
+#include "../ast.h"
 #include <memory>
 
 namespace JaneZ {
-class TypeReference : public Type {
+class TypeReference : public ASTNode {
 private:
-    std::unique_ptr<Type> typeNoBounds;
+    std::unique_ptr<ASTNode> typeNoBounds;
     bool is_mut;
 
 public:
-    TypeReference(std::unique_ptr<Type> tnb,bool im = false) : typeNoBounds(std::move(tnb)), is_mut(std::move(im)) {}
+    TypeReference(std::unique_ptr<ASTNode> tnb,bool im = false) : 
+    typeNoBounds(std::move(tnb)), is_mut(std::move(im)) {}
 
     ~TypeReference() = default;
 

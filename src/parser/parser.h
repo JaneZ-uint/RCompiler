@@ -45,10 +45,7 @@
 #include "../ast/Statement/StmtLet.h"
 #include "../ast/Type/type.h"
 #include "../ast/Type/TypeArray.h"
-#include "../ast/Type/TypeInferred.h"
-#include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
-#include "../ast/Type/TypeSlice.h"
 #include "../ast/Path.h"
 namespace JaneZ {
 class Parser{
@@ -108,12 +105,9 @@ private:
     std::unique_ptr<StmtLet> parse_stmt_let();
 
     // Type
-    std::unique_ptr<Type> parse_type();
+    std::unique_ptr<ASTNode> parse_type();
     std::unique_ptr<TypeArray> parse_type_array();
-    std::unique_ptr<TypeInferred> parse_type_inferred();
-    std::unique_ptr<TypePath> parse_type_path();
     std::unique_ptr<TypeReference> parse_type_reference();
-    std::unique_ptr<TypeSlice> parse_type_slice();
 
     // Path
     std::unique_ptr<Path> parse_path();

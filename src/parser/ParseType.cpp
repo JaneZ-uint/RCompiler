@@ -1,9 +1,85 @@
-# include "parser.h"
+#include "parser.h"
+#include <cstddef>
 #include <memory>
+#include <stdexcept>
 
 namespace JaneZ {
-std::unique_ptr<Type> parse_type() {
-    
+std::unique_ptr<ASTNode> Parser::parse_type() {
+    if(tokens[currentPos].value == "bool"){
+        currentPos ++;
+        return std::make_unique<Type>(BOOL);
+    }else if(tokens[currentPos].value == "u32"){
+        currentPos ++;
+        return std::make_unique<Type>(U32);
+    }else if(tokens[currentPos].value == "i32"){
+        currentPos ++;
+        return std::make_unique<Type>(I32);
+    }else if(tokens[currentPos].value == "usize"){
+        currentPos ++;
+        return std::make_unique<Type>(USIZE);
+    }else if(tokens[currentPos].value == "isize"){
+        currentPos ++;
+        return std::make_unique<Type>(ISIZE);
+    }else if(tokens[currentPos].value == "char"){
+        currentPos ++;
+        return std::make_unique<Type>(CHAR);
+    }else if(tokens[currentPos].value == "str"){
+        currentPos ++;
+        return std::make_unique<Type>(STR);
+    }else if(tokens[currentPos].value == "struct"){
+        currentPos ++;
+        return std::make_unique<Type>(STRUCT);
+    }else if(tokens[currentPos].value == "enum"){
+        currentPos ++;
+        return std::make_unique<Type>(ENUM);
+    }else if(tokens[currentPos].type == kL_BRACKET){
+        return parse_type_array();
+    }else if(tokens[currentPos].type == kAND){
+        return parse_type_reference();
+    }else{
+        throw std::runtime_error("Wrong type in type parsing.");
+    }
+}
+
+std::unique_ptr<TypeArray> Parser::parse_type_array() {
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<ASTNode> type = nullptr;
+    std::unique_ptr<Expression> expr = nullptr;
+    type = parse_type();
+    if(tokens[currentPos].type != kSEMI){
+        throw std::runtime_error("Wrong in type parsing, missing semi.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    expr = parse_expr();
+    if(tokens[currentPos].type != kR_BRACKET){
+        throw std::runtime_error("Wrong in type parsing, missing R_BRACKET.");
+    }
+    currentPos ++;
+    return std::make_unique<TypeArray>(std::move(type),std::move(expr));
+}
+
+std::unique_ptr<TypeReference> Parser::parse_type_reference() {
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    bool is_mut = false;
+    if(tokens[currentPos].type == kMUT){
+        is_mut = true;
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    std::unique_ptr<ASTNode> typeNoBounds = nullptr;
+    typeNoBounds = parse_type();
+    return std::make_unique<TypeReference>(std::move(typeNoBounds),std::move(is_mut));
 }
 
 }
