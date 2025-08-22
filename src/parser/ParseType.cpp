@@ -1,5 +1,4 @@
 #include "parser.h"
-#include <cstddef>
 #include <memory>
 #include <stdexcept>
 
@@ -36,6 +35,12 @@ std::unique_ptr<ASTNode> Parser::parse_type() {
         return parse_type_array();
     }else if(tokens[currentPos].type == kAND){
         return parse_type_reference();
+    }else if(tokens[currentPos].type == kIDENTIFIER){
+        return parse_path();
+    }else if(tokens[currentPos].type == kSELF_TYPE){
+        return parse_path();
+    }else if(tokens[currentPos].type == kSELF){
+        return parse_path();
     }else{
         throw std::runtime_error("Wrong type in type parsing.");
     }
