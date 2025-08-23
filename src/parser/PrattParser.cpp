@@ -360,23 +360,102 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call() {
 }
 
 std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
-
+    if(tokens[currentPos].type != kCONST){
+        throw std::runtime_error("Wrong in expr constblock parsing, missing CONST.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<ExprBlock> expr;
+    expr = parse_expr_block();
+    return std::make_unique<ExprConstBlock>(std::move(expr));
 }
 
 std::unique_ptr<ExprContinue> Parser::parse_expr_continue() {
-
+    if(tokens[currentPos].type != kCONTINUE){
+        throw std::runtime_error("Wrong in expr continue parsing, missing CONTINUE.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    return std::make_unique<ExprContinue>();
 }
 
 std::unique_ptr<ExprField> Parser::parse_expr_field() {
-
+    std::unique_ptr<Expression> expr;
+    std::string identifier;
+    expr = parse_expr();
+    if(tokens[currentPos].type != kDOT){
+        throw std::runtime_error("Wrong in expr field parsing, missing DOT.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    if(tokens[currentPos].type != kIDENTIFIER){
+        throw std::runtime_error("Wrong in expr field parsing, missing IDENTIFIER.");
+    }
+    identifier = tokens[currentPos].value;
+    currentPos ++;
+    return std::make_unique<ExprField>(std::move(expr),std::move(identifier));
 }
 
 std::unique_ptr<ExprGroup> Parser::parse_expr_group() {
-
+    if(tokens[currentPos].type != kL_PAREN){
+        throw std::runtime_error("Wrong in expr group parsing, missing L_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> expr;
+    expr = parse_expr();
+    if(tokens[currentPos].type != kR_PAREN){
+        throw std::runtime_error("Wrong in expr group parsing, missing R_PAREN.");
+    }
+    currentPos ++;
+    return std::make_unique<ExprGroup>(std::move(expr));
 }
 
 std::unique_ptr<ExprIf> Parser::parse_expr_if() {
-
+    if(tokens[currentPos].type != kIF){
+        throw std::runtime_error("Wrong in expr if parsing, missing IF.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> condition = nullptr;
+    std::unique_ptr<ExprBlock> thenBlock = nullptr;
+    std::unique_ptr<Expression> elseBlock = nullptr;
+    if(tokens[currentPos].type != kL_PAREN){
+        throw std::runtime_error("Wrong in expr if parsing, missing L_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    condition = parse_expr();
+    //TODO maybe left with a struct expr check.
+    if(tokens[currentPos].type != kR_PAREN){
+        throw std::runtime_error("Wrong in expr if parsing, missing R_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    thenBlock = parse_expr_block();
+    if(tokens[currentPos].type != kELSE){
+        return std::make_unique<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    elseBlock = parse_expr();
+    return std::make_unique<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
 }
 
 std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
