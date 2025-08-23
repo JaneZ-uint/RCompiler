@@ -3,6 +3,9 @@
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace JaneZ{
 struct bindingPower{
@@ -190,15 +193,115 @@ std::unique_ptr<Expression> Parser::parse_expr() {
 }
 
 std::unique_ptr<ExprArray> Parser::parse_expr_array() {
-
+    if(tokens[currentPos].type != kL_BRACKET){
+        throw std::runtime_error("Wrong in expr array parsing, missing L_BRACKET.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> type;
+    std::unique_ptr<Expression> size;
+    std::unique_ptr<Expression> expr = nullptr;
+    std::vector<std::unique_ptr<Expression>> arrayExpr;
+    expr = parse_expr();
+    if(tokens[currentPos].type == kSEMI){
+        type = std::move(expr);
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        size = parse_expr();
+        if(tokens[currentPos].type != kR_BRACKET){
+            throw std::runtime_error("Wrong in expr array parsing, missing R_BRACKET.");
+        }
+        currentPos ++;
+        return std::make_unique<ExprArray>(std::move(type),std::move(size));
+    }
+    arrayExpr.push_back(std::move(expr));
+    if(tokens[currentPos].type == kCOMMA){
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    if(tokens[currentPos].type == kR_BRACKET){
+        currentPos ++;
+        return std::make_unique<ExprArray>(std::move(arrayExpr));
+    }
+    while(tokens[currentPos].type != kR_BRACKET){
+        if(tokens[currentPos].type == kCOMMA){
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+        }
+        std::unique_ptr<Expression> tmp;
+        tmp = parse_expr();
+        arrayExpr.push_back(std::move(tmp));
+    }
+    return std::make_unique<ExprArray>(std::move(arrayExpr));
 }
 
 std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
-
+    if(tokens[currentPos].type != kL_BRACE){
+        throw std::runtime_error("Wrong in expr block parsing, missing L_BRACE.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::vector<std::unique_ptr<Statement>> statements;
+    std::unique_ptr<Expression> ExpressionWithoutBlock;
+    std::unique_ptr<Statement> tmp;
+    size_t originPos = currentPos;
+    bool isExprBlock = false;
+    try {
+        tmp = parse_statement();
+        statements.push_back(std::move(tmp));
+    } catch (...) {
+        currentPos = originPos;
+        isExprBlock = true;
+        ExpressionWithoutBlock = parse_expr();
+    }
+    if(isExprBlock){
+        if(tokens[currentPos].type != kR_BRACE){
+            throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+        }
+        currentPos ++;
+        return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
+    }
+    while(true){
+        originPos = currentPos;
+        try {
+            tmp = parse_statement();
+            statements.push_back(std::move(tmp));
+        } catch (...) {
+            currentPos = originPos;
+            isExprBlock = true;
+            ExpressionWithoutBlock = parse_expr();
+        }
+        if(isExprBlock){
+            break;
+        }
+    }
+    if(tokens[currentPos].type != kR_BRACE){
+        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+    }
+    currentPos ++;
+    return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
 }
 
 std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
-
+    if(tokens[currentPos].type != kBREAK){
+        throw std::runtime_error("Wrong in expr break parsing, missing BREAK.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> expr = nullptr;
+    //TODO 
 }
 
 std::unique_ptr<ExprCall> Parser::parse_expr_call() {

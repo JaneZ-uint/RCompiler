@@ -64,7 +64,7 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Pattern> pattern = parse_pattern();
-    std::unique_ptr<Type> type = nullptr;
+    std::unique_ptr<ASTNode> type = nullptr;
     if (tokens[currentPos].type == kCOLON) {
         type = parse_type();
     }

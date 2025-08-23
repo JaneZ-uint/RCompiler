@@ -248,7 +248,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
     if(currentPos >= tokens.size()){
        throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Type> returnType = nullptr;
+    std::unique_ptr<ASTNode> returnType = nullptr;
     if(tokens[currentPos].type != kL_PAREN){
         //exist fn return type
         if(tokens[currentPos].type != kRARROW){
@@ -304,7 +304,7 @@ std::unique_ptr<ItemConstDecl> Parser::parse_item_const() {
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Type> type;
+    std::unique_ptr<ASTNode> type;
     std::unique_ptr<Expression> expr = nullptr;
     type = parse_type();
     if(tokens[currentPos].type == kSEMI){
@@ -400,7 +400,7 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
         throw std::runtime_error("End of Program.");
     }
     std::string identifier = "";
-    std::unique_ptr<Type> targetType;
+    std::unique_ptr<ASTNode> targetType;
     std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
     std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
     // first : TraitImpl
