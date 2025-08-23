@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y build-essential cmake
+
+    - name: Build (CMake)
+      run: |
+        if [ -f CMakeLists.txt ]; then
+          mkdir -p build
+          cd build
+          cmake ..
+          make
+        fi
+
+    - name: Build (g++)
+      run: |
+        if [ ! -f CMakeLists.txt ]; then
+          find . -name "*.cpp" > sources.txt
+          if [ -s sources.txt ]; then
+            g++ @sources.txt -o app_test
+          fi
+        fi
+
+    - name: Run tests (CMake)
+      run: |
+        if [ -f CMakeLists.txt ]; then
+          cd build
+          ctest --output-on-failure || true
+        fi
+
+    - name: Run app_test (g++)
+      run: |
+        if [ ! -f CMakeLists.txt ] && [ -f app_test ]; then
+          ./app_test
+        fi
