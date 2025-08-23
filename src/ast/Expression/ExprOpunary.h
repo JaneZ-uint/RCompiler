@@ -7,12 +7,11 @@
 namespace JaneZ {
 enum unaryOp {
     BORROW,
-    BORROW_MUT,
 
     DEREFERENCE,
 
-    NOT,
-    NEGATE,
+    NOT, // !
+    NEGATE, // -
 };
 
 class ExprOpunary : public Expression {

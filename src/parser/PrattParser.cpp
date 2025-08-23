@@ -5,19 +5,63 @@
 #include <unordered_map>
 
 namespace JaneZ{
-struct ExprToken{
-    Token current;
-    size_t leftPower = 0;
-    size_t rightPower = 0;
-};
-
 struct bindingPower{
     size_t leftPower = 0;
     size_t rightPower = 0;
 };
 
 static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
+    {kMINUS,{0,22}},
+    {kNOT,{0,22}},
+    {kSTAR,{0,22}},
+    {kAND,{0,22}},
+    {kANDAND,{0,22}},
 
+    {kAS,{20,21}},
+
+    {kSTAR,{18,19}},
+    {kSLASH,{18,19}},
+    {kPERCENT,{18,19}},
+
+    {kPLUS,{16,17}},
+    {kMINUS,{16,17}},
+
+    {kSHL,{14,15}},
+    {kSHR,{14,15}},
+
+    {kAND,{12,13}},
+
+    {kCARET,{10,11}},
+
+    {kOR,{8,9}},
+
+    {kEQEQ,{7,7}},
+    {kNE,{7,7}},
+    {kLT,{7,7}},
+    {kLE,{7,7}},
+    {kGT,{7,7}},
+    {kGE,{7,7}},
+
+    {kANDAND,{5,6}},
+
+    {kOROR,{3,4}},
+
+    //right to left
+    {kEQ,{2,1}},
+    {kPLUSEQ,{2,1}},
+    {kMINUSEQ,{2,1}},
+    {kSTAREQ,{2,1}},
+    {kSLASHEQ,{2,1}},
+    {kPERCENTEQ,{2,1}},
+    {kCARETEQ,{2,1}},
+    {kANDEQ,{2,1}},
+    {kOREQ,{2,1}},
+    {kSHLEQ,{2,1}},
+    {kSHREQ,{2,1}},
+
+    {kL_PAREN,{0,0}},
+    {kR_PAREN,{0,0}},
+    //TODO 
 };
 
 binaryOp getBinaryOp(tokenType current){
@@ -118,8 +162,106 @@ binaryOp getBinaryOp(tokenType current){
     }
 }
 
+unaryOp getUnaryOp(tokenType current) {
+    switch (current) {
+        case kAND: {
+            return BORROW;
+        }
+        case kANDAND: {
+            return BORROW;
+        }
+        case kSTAR: {
+            return DEREFERENCE;
+        }
+        case kNOT: {
+            return NOT;
+        }
+        case kMINUS: {
+            return NEGATE;
+        }
+        default: {
+            throw std::runtime_error("Not an unary type.");
+        }
+    }
+}
+
 std::unique_ptr<Expression> Parser::parse_expr() {
     
 }
 
+std::unique_ptr<ExprArray> Parser::parse_expr_array() {
+
+}
+
+std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
+
+}
+
+std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
+
+}
+
+std::unique_ptr<ExprCall> Parser::parse_expr_call() {
+
+}
+
+std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
+
+}
+
+std::unique_ptr<ExprContinue> Parser::parse_expr_continue() {
+
+}
+
+std::unique_ptr<ExprField> Parser::parse_expr_field() {
+
+}
+
+std::unique_ptr<ExprGroup> Parser::parse_expr_group() {
+
+}
+
+std::unique_ptr<ExprIf> Parser::parse_expr_if() {
+
+}
+
+std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
+
+}
+
+std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
+
+}
+
+std::unique_ptr<ExprMatch> Parser::parse_expr_match() {
+
+}
+
+std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall() {
+
+}
+
+std::unique_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
+
+}
+
+std::unique_ptr<ExprOpunary> Parser::parse_expr_opunary() {
+
+}
+
+std::unique_ptr<ExprPath> Parser::parse_expr_path() {
+
+}
+
+std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
+
+}
+
+std::unique_ptr<ExprStruct> Parser::parse_expr_struct() {
+
+}
+
+std::unique_ptr<ExprUnderscore> Parser::parse_expr_underscore() {
+     
+}
 }
