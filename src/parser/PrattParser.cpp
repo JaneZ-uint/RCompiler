@@ -4,7 +4,6 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace JaneZ{
@@ -229,17 +228,22 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
         currentPos ++;
         return std::make_unique<ExprArray>(std::move(arrayExpr));
     }
+    bool flag = false;
     while(tokens[currentPos].type != kR_BRACKET){
         if(tokens[currentPos].type == kCOMMA){
+            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
+        }else if(flag){
+            throw std::runtime_error("Wrong in expr array parsing, missing COMMA.");
         }
         std::unique_ptr<Expression> tmp;
         tmp = parse_expr();
         arrayExpr.push_back(std::move(tmp));
     }
+    currentPos ++;
     return std::make_unique<ExprArray>(std::move(arrayExpr));
 }
 
@@ -301,11 +305,58 @@ std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Expression> expr = nullptr;
-    //TODO 
+    if(tokens[currentPos].type == kSEMI){
+        currentPos ++;
+        return std::make_unique<ExprBreak>(std::move(expr));
+    }
+    expr = parse_expr();
+    if(tokens[currentPos].type != kSEMI){
+        throw std::runtime_error("Wrong in expr break parsing, missing SEMI.");
+    }
+    currentPos ++;
+    return std::make_unique<ExprBreak>(std::move(expr));
 }
 
 std::unique_ptr<ExprCall> Parser::parse_expr_call() {
-
+    std::unique_ptr<Expression> expr;
+    std::vector<std::unique_ptr<Expression>> callPrograms;
+    expr = parse_expr();
+    if(tokens[currentPos].type != kL_PAREN){
+        throw std::runtime_error("Wrong in expr call parsing, missing L_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> tmp;
+    tmp = parse_expr();
+    callPrograms.push_back(std::move(tmp));
+    if(tokens[currentPos].type == kCOMMA) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    if(tokens[currentPos].type == kR_PAREN){
+        currentPos ++;
+        return std::make_unique<ExprCall>(std::move(expr),std::move(callPrograms));
+    }
+    bool flag = false;
+    while(tokens[currentPos].type != kR_PAREN){
+        if(tokens[currentPos].type == kCOMMA){
+            flag = true;
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+        }else if(flag){
+            throw std::runtime_error("Wrong in expr call parsing, missing COMMA.");
+        }
+        tmp = parse_expr();
+        callPrograms.push_back(std::move(tmp));
+    }
+    currentPos ++;
+    return std::make_unique<ExprCall>(std::move(expr),std::move(callPrograms));
 }
 
 std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {

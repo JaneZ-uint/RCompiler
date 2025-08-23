@@ -117,6 +117,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     }
                 }
                 param.FunctionParam.push_back(tmp);
+                bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
                     functionParam tp;
                     tp.pattern = parse_pattern();
@@ -130,10 +131,13 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     tp.type = parse_type();
                     param.FunctionParam.push_back(tp);
                     if(tokens[currentPos].type == kCOMMA){
+                        flag = true;
                         currentPos ++;
                         if(currentPos >= tokens.size()){
                             throw std::runtime_error("End of Program.");
                         }
+                    }else if(flag){
+                        throw std::runtime_error("Wrong in item fn with comma missing.");
                     }
                 }
             }
@@ -218,6 +222,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     }
                 }
                 param.FunctionParam.push_back(tmp);
+                bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
                     functionParam tp;
                     tp.pattern = parse_pattern();
@@ -231,10 +236,13 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     tp.type = parse_type();
                     param.FunctionParam.push_back(tp);
                     if(tokens[currentPos].type == kCOMMA){
+                        flag = true;
                         currentPos ++;
                         if(currentPos >= tokens.size()){
                             throw std::runtime_error("End of Program.");
                         }
+                    }else if(flag){
+                        throw std::runtime_error("Wrong in item fn with comma missing.");
                     }
                 }
             }
@@ -371,15 +379,19 @@ std::unique_ptr<ItemEnumDecl> Parser::parse_item_enum() {
             throw std::runtime_error("End of Program.");
         }
     }
+    bool flag = false;
     while(tokens[currentPos].type != kR_BRACE){
         if(tokens[currentPos].type != kIDENTIFIER && tokens[currentPos].type != kCOMMA){
             throw std::runtime_error("Wrong in item enum parsing, missing identifier or comma.");
         }
         if(tokens[currentPos].type == kCOMMA){
+            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()) {
                 throw std::runtime_error("End of Program.");
             }
+        }else if(flag){
+            throw std::runtime_error("Wrong in item enum parsing, missing comma.");
         }
         if(tokens[currentPos].type != kIDENTIFIER){
             throw std::runtime_error("Wrong in item enum parsing, missing identifier.");
@@ -527,15 +539,19 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
         }
     }
     item_struct.push_back(tmp);
+    bool flag = false;
     while (tokens[currentPos].type != kR_BRACE){
         if(tokens[currentPos].type != kIDENTIFIER && tokens[currentPos].type != kCOMMA){
             throw std::runtime_error("Wrong in item struct parsing, missing identifier or comma.");
         }
         if(tokens[currentPos].type == kCOMMA){
+            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()) {
                 throw std::runtime_error("End of Program.");
             }
+        }else if(flag){
+            throw std::runtime_error("Wrong in item struct parsing, missing comma.");
         }
         ItemStructVariant tp;
         tp.identifier = tokens[currentPos].value;
