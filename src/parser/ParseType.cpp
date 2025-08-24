@@ -41,6 +41,8 @@ std::unique_ptr<ASTNode> Parser::parse_type() {
         return parse_path();
     }else if(tokens[currentPos].type == kSELF){
         return parse_path();
+    }else if(tokens[currentPos].type == kL_PAREN){
+        return parse_type_unit();
     }else{
         throw std::runtime_error("Wrong type in type parsing.");
     }
@@ -55,7 +57,7 @@ std::unique_ptr<TypeArray> Parser::parse_type_array() {
     std::unique_ptr<Expression> expr = nullptr;
     type = parse_type();
     if(tokens[currentPos].type != kSEMI){
-        throw std::runtime_error("Wrong in type parsing, missing semi.");
+        throw std::runtime_error("Wrong in type array parsing, missing semi.");
     }
     currentPos ++;
     if(currentPos >= tokens.size()){
@@ -63,7 +65,7 @@ std::unique_ptr<TypeArray> Parser::parse_type_array() {
     }
     expr = parse_expr();
     if(tokens[currentPos].type != kR_BRACKET){
-        throw std::runtime_error("Wrong in type parsing, missing R_BRACKET.");
+        throw std::runtime_error("Wrong in type array parsing, missing R_BRACKET.");
     }
     currentPos ++;
     return std::make_unique<TypeArray>(std::move(type),std::move(expr));
@@ -85,6 +87,21 @@ std::unique_ptr<TypeReference> Parser::parse_type_reference() {
     std::unique_ptr<ASTNode> typeNoBounds = nullptr;
     typeNoBounds = parse_type();
     return std::make_unique<TypeReference>(std::move(typeNoBounds),std::move(is_mut));
+}
+
+std::unique_ptr<TypeUnit> Parser::parse_type_unit() {
+    if(tokens[currentPos].type != kL_PAREN){
+        throw std::runtime_error("Wrong in type unit parsing, missing L_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    if(tokens[currentPos].type != kR_PAREN) {
+        throw std::runtime_error("Wrong in type unit parsing, missing R_PAREN.");
+    }
+    currentPos ++;
+    return std::unique_ptr<TypeUnit>();
 }
 
 }

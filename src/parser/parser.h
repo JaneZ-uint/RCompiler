@@ -45,7 +45,9 @@
 #include "../ast/Statement/StmtLet.h"
 #include "../ast/Type/type.h"
 #include "../ast/Type/TypeArray.h"
+#include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
+#include "../ast/Type/TypeUnit.h"
 #include "../ast/Path.h"
 namespace JaneZ {
 class Parser{
@@ -68,7 +70,7 @@ private:
     std::unique_ptr<ExprIf> parse_expr_if();
     std::unique_ptr<ExprLiteral> parse_expr_literal();
     std::unique_ptr<ExprLoop> parse_expr_loop();
-    std::unique_ptr<ExprMatch> parse_expr_match();
+    //std::unique_ptr<ExprMatch> parse_expr_match();
     std::unique_ptr<ExprMethodcall> parse_expr_methodcall();
     std::unique_ptr<ExprOpbinary> parse_expr_opbinary();
     std::unique_ptr<ExprOpunary> parse_expr_opunary();
@@ -91,7 +93,7 @@ private:
     std::unique_ptr<Pattern> parse_pattern();
     std::unique_ptr<PatternIdentifier> parse_pattern_identifier();
     std::unique_ptr<PatternLiteral> parse_pattern_literal();
-    std::unique_ptr<Pattern> parse_pattern_path();
+    std::unique_ptr<PatternPath> parse_pattern_path();
     std::unique_ptr<PatternReference> parse_pattern_reference();
     //std::unique_ptr<PatternStruct> parse_pattern_struct();
     //std::unique_ptr<PatternTuple> parse_pattern_tuple_struct();
@@ -108,6 +110,7 @@ private:
     std::unique_ptr<ASTNode> parse_type();
     std::unique_ptr<TypeArray> parse_type_array();
     std::unique_ptr<TypeReference> parse_type_reference();
+    std::unique_ptr<TypeUnit> parse_type_unit();
 
     // Path
     std::unique_ptr<Path> parse_path();

@@ -1,7 +1,6 @@
 # include "parser.h"
 # include "../token/token.h"
 # include "../ast/Pattern/PatternPath.h"
-# include "../ast/Pattern/PatternTupleStruct.h"
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -73,38 +72,9 @@ std::unique_ptr<PatternLiteral> Parser::parse_pattern_literal() {
     return std::make_unique<PatternLiteral>(tokens[currentPos].value,std::move(res));
 }
 
-std::unique_ptr<Pattern> Parser::parse_pattern_path() {
-    std::unique_ptr<Path> pathInExpr = parse_path();
-    if(currentPos >= tokens.size()){
-        throw std::runtime_error("End of Program.");
-    }
-    if(tokens[currentPos].type == kL_PAREN) {
-        currentPos ++;
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
-        }
-        std::vector<std::unique_ptr<Pattern>> TupleStructItems;
-        do{
-            if(currentPos == tokens.size()) {
-                throw std::runtime_error("End of Program.");
-            }
-            std::unique_ptr<Pattern> pattern = parse_pattern();
-            TupleStructItems.push_back(std::move(pattern));
-            if(currentPos >= tokens.size()) {
-                throw std::runtime_error("End of Program.");
-            }
-            if(tokens[currentPos].type == kCOMMA){
-                currentPos ++;
-                if(currentPos >= tokens.size()){
-                    throw std::runtime_error("End of Program.");
-                }
-            }
-        }while(tokens[currentPos].type != kR_PAREN);
-        currentPos ++;
-        return std::make_unique<PatternTupleStruct>(std::move(pathInExpr),std::move(TupleStructItems)) ;
-    }else{
-        return std::make_unique<PatternPath>(std::move(pathInExpr));
-    }
+std::unique_ptr<PatternPath> Parser::parse_pattern_path() {
+    std::unique_ptr<ExprPath> pathInExpr = parse_expr_path();
+    return std::make_unique<PatternPath>(std::move(pathInExpr));
 }
 
 std::unique_ptr<PatternReference> Parser::parse_pattern_reference() {

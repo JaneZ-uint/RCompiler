@@ -354,7 +354,7 @@ std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
 
 std::unique_ptr<ExprCall> Parser::parse_expr_call() {
     std::unique_ptr<Expression> expr;
-    std::vector<std::unique_ptr<Expression>> callPrograms;
+    std::vector<std::unique_ptr<Expression>> callParams;
     expr = parse_expr();
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr call parsing, missing L_PAREN.");
@@ -365,7 +365,7 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call() {
     }
     std::unique_ptr<Expression> tmp;
     tmp = parse_expr();
-    callPrograms.push_back(std::move(tmp));
+    callParams.push_back(std::move(tmp));
     if(tokens[currentPos].type == kCOMMA) {
         currentPos ++;
         if(currentPos >= tokens.size()){
@@ -374,7 +374,7 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call() {
     }
     if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
-        return std::make_unique<ExprCall>(std::move(expr),std::move(callPrograms));
+        return std::make_unique<ExprCall>(std::move(expr),std::move(callParams));
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_PAREN){
@@ -388,10 +388,10 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call() {
             throw std::runtime_error("Wrong in expr call parsing, missing COMMA.");
         }
         tmp = parse_expr();
-        callPrograms.push_back(std::move(tmp));
+        callParams.push_back(std::move(tmp));
     }
     currentPos ++;
-    return std::make_unique<ExprCall>(std::move(expr),std::move(callPrograms));
+    return std::make_unique<ExprCall>(std::move(expr),std::move(callParams));
 }
 
 std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
@@ -496,28 +496,143 @@ std::unique_ptr<ExprIf> Parser::parse_expr_if() {
 std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
     std::string literal;
     LiteralType type;
-    literal = tokens[currentPos].value;
-    if(literal[0] == '\''){
-        type = CHAR_LITERAL;
-    }else if(literal[0] == '"'){
-        type = STRING_LITERAL;
-    }else if(literal[0] == 'r'){
-        type = RAW_STRING_LITERAL;
-    }else if(literal[0] == 'c' && literal[1] == 'r'){
-        type = RAW_C_STRING_LITERAL;
+    switch (tokens[currentPos].type) {
+        case kCHAR_LITERAL: {
+            literal = tokens[currentPos].value;
+            type = CHAR_LITERAL;
+            break;
+        }
+        case kSTRING_LITERAL: {
+            literal = tokens[currentPos].value;
+            type = STRING_LITERAL;
+            break;
+        }
+        case kRAW_STRING_LITERAL: {
+            literal = tokens[currentPos].value;
+            type = RAW_STRING_LITERAL;
+            break;
+        }
+        case kCSTRING_LITERAL: {
+            literal = tokens[currentPos].value;
+            type = C_STRING_LITERAL;
+            break;
+        }
+        case kRAW_CSTRING_LITERAL: {
+            literal = tokens[currentPos].value;
+            type = RAW_C_STRING_LITERAL;
+            break;
+        }
+        case kINTEGER_LITERAL :{
+            literal = tokens[currentPos].value;
+            type = INTEGER_LITERAL;
+            break;
+        }
+        case kTRUE:{
+            literal = "true";
+            type = TRUE;
+            break;
+        }
+        case kFALSE:{
+            literal = "false";
+            type = FALSE;
+            break;
+        }
+        default:{
+            throw std::runtime_error("Wrong in expr literal parsing, missing literal.");
+        }
     }
+    currentPos ++;
+    return std::make_unique<ExprLiteral>(std::move(literal),type);
 }
 
 std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
-
-}
-
-std::unique_ptr<ExprMatch> Parser::parse_expr_match() {
-
+    std::unique_ptr<ExprBlock> infinitieLoop;
+    std::unique_ptr<Expression> condition;
+    std::unique_ptr<ExprBlock> PredicateLoopExpression;
+    if(tokens[currentPos].type == kLOOP){
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        infinitieLoop = parse_expr_block();
+        return std::make_unique<ExprLoop>(std::move(infinitieLoop));
+    }else if(tokens[currentPos].type == kWHILE){
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kL_PAREN){
+            throw std::runtime_error("Wrong in expr loop parsing, missing L_PAREN.");
+        }
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        condition = parse_expr();
+        //TODO maybe left with a struct expr check.
+        if(tokens[currentPos].type != kR_PAREN){
+            throw std::runtime_error("Wrong in expr loop parsing, missing R_PAREN.");
+        }
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        PredicateLoopExpression = parse_expr_block();
+        return std::make_unique<ExprLoop>(std::move(condition),std::move(PredicateLoopExpression));
+    }else {
+        throw std::runtime_error("Wrong in expr loop parsing, missing LOOP or WHILE.");
+    }
 }
 
 std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall() {
-
+    std::unique_ptr<Expression> expr;
+    std::unique_ptr<Path> PathExprSegment;
+    std::vector<std::unique_ptr<Expression>> callParams;
+    expr = parse_expr();
+    if(tokens[currentPos].type != kDOT){
+        throw std::runtime_error("Wrong in expr methodcall parsing, missing DOT.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    PathExprSegment = parse_path();
+    if(tokens[currentPos].type != kL_PAREN){
+        throw std::runtime_error("Wrong in expr methodcall parsing, missing L_PAREN.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> tmp;
+    tmp = parse_expr();
+    callParams.push_back(std::move(tmp));
+    if(tokens[currentPos].type == kCOMMA) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    if(tokens[currentPos].type == kR_PAREN){
+        currentPos ++;
+        return std::make_unique<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
+    }
+    bool flag = false;
+    while(tokens[currentPos].type != kR_PAREN){
+        if(tokens[currentPos].type == kCOMMA){
+            flag = true;
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+        }else if(flag){
+            throw std::runtime_error("Wrong in expr methodcall parsing, missing COMMA.");
+        }
+        tmp = parse_expr();
+        callParams.push_back(std::move(tmp));
+    }
+    currentPos ++;
+    return std::make_unique<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
 }
 
 std::unique_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
