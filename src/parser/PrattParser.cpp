@@ -1,4 +1,5 @@
 # include "parser.h"
+#include <cctype>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -258,8 +259,9 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
     std::vector<std::unique_ptr<Statement>> statements;
     std::unique_ptr<Expression> ExpressionWithoutBlock;
     std::unique_ptr<Statement> tmp;
-    size_t originPos = currentPos;
     bool isExprBlock = false;
+    size_t ptr = currentPos;
+    /*
     try {
         tmp = parse_statement();
         statements.push_back(std::move(tmp));
@@ -286,6 +288,39 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
             ExpressionWithoutBlock = parse_expr();
         }
         if(isExprBlock){
+            break;
+        }
+    }
+    if(tokens[currentPos].type != kR_BRACE){
+        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+    }
+    currentPos ++;*/
+    size_t bracePair = 1;
+    while(tokens[ptr].type != kSEMI){
+        ptr ++;
+        if(tokens[ptr].type == kR_BRACE){
+            bracePair --;
+        }else if(tokens[ptr].type == kL_BRACE){
+            bracePair ++;
+        }
+        if(bracePair == 0){
+            isExprBlock = true;
+            break;
+        }
+    }
+    if(isExprBlock){
+        ExpressionWithoutBlock = parse_expr();
+        if(tokens[currentPos].type != kR_BRACE){
+            throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+        }
+        currentPos ++;
+        return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
+    }
+    while(tokens[currentPos].type != kR_BRACE){
+        tmp = parse_statement();
+        statements.push_back(std::move(tmp));
+        if(tokens[currentPos - 1].type != kSEMI){
+            ExpressionWithoutBlock = parse_expr();
             break;
         }
     }
