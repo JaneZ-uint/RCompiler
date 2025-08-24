@@ -459,7 +459,18 @@ std::unique_ptr<ExprIf> Parser::parse_expr_if() {
 }
 
 std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
-
+    std::string literal;
+    LiteralType type;
+    literal = tokens[currentPos].value;
+    if(literal[0] == '\''){
+        type = CHAR_LITERAL;
+    }else if(literal[0] == '"'){
+        type = STRING_LITERAL;
+    }else if(literal[0] == 'r'){
+        type = RAW_STRING_LITERAL;
+    }else if(literal[0] == 'c' && literal[1] == 'r'){
+        type = RAW_C_STRING_LITERAL;
+    }
 }
 
 std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
