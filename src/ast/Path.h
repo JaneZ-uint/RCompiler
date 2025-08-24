@@ -2,7 +2,6 @@
 
 #include "ast.h"
 #include <string>
-#include <vector>
 
 namespace JaneZ {
 enum PathIdentSegmentType {
@@ -18,11 +17,11 @@ struct PathIdentSegment{
 
 class Path : public ASTNode{
 private:
-    std::vector<PathIdentSegment> pathSegments;
+    PathIdentSegment pathSegments;
 
 public:
-    Path(std::vector<PathIdentSegment> segments)
-        : pathSegments(std::move(segments)) {}
+    Path(PathIdentSegment segments)
+        : pathSegments(segments) {}
 
     ~Path() = default;
 

@@ -644,7 +644,18 @@ std::unique_ptr<ExprOpunary> Parser::parse_expr_opunary() {
 }
 
 std::unique_ptr<ExprPath> Parser::parse_expr_path() {
-
+    std::unique_ptr<Path> pathFirst = nullptr;
+    std::unique_ptr<Path> pathSecond = nullptr;
+    pathFirst = parse_path();
+    if(tokens[currentPos].type == kPATHSEP){
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        pathSecond = parse_path();
+        return std::make_unique<ExprPath>(std::move(pathFirst),std::move(pathSecond));
+    }
+    return std::make_unique<ExprPath>(std::move(pathFirst),std::move(pathSecond));
 }
 
 std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
