@@ -1,5 +1,6 @@
 # pragma once
 
+#include "ExprPath.h"
 #include "expression.h"
 #include <memory>
 #include <string>
@@ -14,11 +15,11 @@ struct StructExprField{
 
 class ExprStruct : public Expression {
 private:
-    std::unique_ptr<Path> pathInExpr;
+    std::unique_ptr<ExprPath> pathInExpr;
     std::vector<StructExprField> structExprFields;
 
 public:
-    ExprStruct(std::unique_ptr<Path> path, std::vector<StructExprField> fields)
+    ExprStruct(std::unique_ptr<ExprPath> path, std::vector<StructExprField> fields)
         : pathInExpr(std::move(path)), structExprFields(std::move(fields)) {}
 
     ~ExprStruct() = default;

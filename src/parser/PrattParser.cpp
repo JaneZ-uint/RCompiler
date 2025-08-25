@@ -237,6 +237,9 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
+            if(tokens[currentPos].type == kR_BRACKET) {
+                break;
+            }
         }else if(flag){
             throw std::runtime_error("Wrong in expr array parsing, missing COMMA.");
         }
@@ -383,6 +386,9 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call() {
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kR_PAREN){
+                break;
             }
         }else if(flag){
             throw std::runtime_error("Wrong in expr call parsing, missing COMMA.");
@@ -625,6 +631,9 @@ std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall() {
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
+            if(tokens[currentPos].type == kR_PAREN){
+                break;
+            }
         }else if(flag){
             throw std::runtime_error("Wrong in expr methodcall parsing, missing COMMA.");
         }
@@ -659,14 +668,97 @@ std::unique_ptr<ExprPath> Parser::parse_expr_path() {
 }
 
 std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
-
+    if(tokens[currentPos].type != kRETURN){
+        throw std::runtime_error("Wrong in expr return parsing, missing return.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    std::unique_ptr<Expression> expr;
+    expr = parse_expr();
+    return std::make_unique<ExprReturn>(std::move(expr));
 }
 
 std::unique_ptr<ExprStruct> Parser::parse_expr_struct() {
-
+    std::unique_ptr<ExprPath> pathInExpr;
+    std::vector<StructExprField> structExprFields;
+    pathInExpr = parse_expr_path();
+    if(tokens[currentPos].type != kL_BRACE) {
+        throw std::runtime_error("Wrong in expr struct parsing, missing L_BRACE.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    StructExprField tmp;
+    if(tokens[currentPos].type != kIDENTIFIER){
+        throw std::runtime_error("Wrong in expr struct parsing, missing IDENTIFIER.");
+    }
+    tmp.identifier = tokens[currentPos].value;
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    //TODO Left with struct expr fields parsing.
+    if(tokens[currentPos].type == kCOLON) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        tmp.expr = parse_expr();
+    }
+    structExprFields.push_back(tmp);
+    if(tokens[currentPos].type == kCOMMA) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    if(tokens[currentPos].type == kR_BRACE) {
+        currentPos ++;
+        return std::make_unique<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
+    }
+    bool flag = false;
+    while(tokens[currentPos].type != kR_BRACE) {
+        if(tokens[currentPos].type == kCOMMA){
+            flag = true;
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kR_BRACE){
+                break;
+            }
+        }else if(flag){
+            throw std::runtime_error("Wrong in expr struct parsing, missing COMMA.");
+        }
+        if(tokens[currentPos].type != kIDENTIFIER){
+            throw std::runtime_error("Wrong in expr struct parsing, missing IDENTIFIER.");
+        }
+        tmp.identifier = tokens[currentPos].value;
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type == kCOLON) {
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            tmp.expr = parse_expr();
+        }
+        structExprFields.push_back(tmp);
+    }
+    currentPos ++;
+    return std::make_unique<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
 }
 
 std::unique_ptr<ExprUnderscore> Parser::parse_expr_underscore() {
-     
+    if(tokens[currentPos].type != kUNDERSCORE){
+        throw std::runtime_error("Wrong in expr underscore parsing, missing UNDERSCORE.");
+    }
+    currentPos ++;
+    return std::make_unique<ExprUnderscore>();
 }
 }

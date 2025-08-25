@@ -119,6 +119,18 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                 param.FunctionParam.push_back(tmp);
                 bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
+                    if(tokens[currentPos].type == kCOMMA){
+                        flag = true;
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                        if(tokens[currentPos].type == kR_PAREN) {
+                            break;
+                        }
+                    }else if(flag){
+                        throw std::runtime_error("Wrong in item fn with comma missing.");
+                    }
                     functionParam tp;
                     tp.pattern = parse_pattern();
                     if(tokens[currentPos].type != kCOLON){
@@ -129,16 +141,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("End of Program.");
                     }
                     tp.type = parse_type();
-                    param.FunctionParam.push_back(tp);
-                    if(tokens[currentPos].type == kCOMMA){
-                        flag = true;
-                        currentPos ++;
-                        if(currentPos >= tokens.size()){
-                            throw std::runtime_error("End of Program.");
-                        }
-                    }else if(flag){
-                        throw std::runtime_error("Wrong in item fn with comma missing.");
-                    }
+                    param.FunctionParam.push_back(tp); 
                 }
             }
         }
@@ -224,6 +227,18 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                 param.FunctionParam.push_back(tmp);
                 bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
+                    if(tokens[currentPos].type == kCOMMA){
+                        flag = true;
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                        if(tokens[currentPos].type == kR_PAREN) {
+                            break;
+                        }
+                    }else if(flag){
+                        throw std::runtime_error("Wrong in item fn with comma missing.");
+                    }
                     functionParam tp;
                     tp.pattern = parse_pattern();
                     if(tokens[currentPos].type != kCOLON){
@@ -235,15 +250,6 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     }
                     tp.type = parse_type();
                     param.FunctionParam.push_back(tp);
-                    if(tokens[currentPos].type == kCOMMA){
-                        flag = true;
-                        currentPos ++;
-                        if(currentPos >= tokens.size()){
-                            throw std::runtime_error("End of Program.");
-                        }
-                    }else if(flag){
-                        throw std::runtime_error("Wrong in item fn with comma missing.");
-                    }
                 }
             }
         }
@@ -389,6 +395,9 @@ std::unique_ptr<ItemEnumDecl> Parser::parse_item_enum() {
             currentPos ++;
             if(currentPos >= tokens.size()) {
                 throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kR_BRACE) {
+                break;
             }
         }else if(flag){
             throw std::runtime_error("Wrong in item enum parsing, missing comma.");
@@ -549,6 +558,9 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
             currentPos ++;
             if(currentPos >= tokens.size()) {
                 throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kR_BRACE) {
+                break;
             }
         }else if(flag){
             throw std::runtime_error("Wrong in item struct parsing, missing comma.");
