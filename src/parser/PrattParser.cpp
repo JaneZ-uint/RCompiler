@@ -64,7 +64,9 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kSHREQ,{2,1}},
 
     {kL_PAREN,{0,0}},
-    {kR_PAREN,{0,0}},
+    {kL_BRACE,{0,0}},
+    {kL_BRACKET,{23,0}},
+    {kDOT,{0,0}},
     //TODO 
 };
 
@@ -189,7 +191,14 @@ unaryOp Parser::getUnaryOp(tokenType current) {
     }
 }
 
-int Parser::getPrecedence(tokenType type) {
+int Parser::getLeftpower(tokenType type) {
+    if(bindingPowerMap.find(type) != bindingPowerMap.end()) {
+        return bindingPowerMap.find(type)->second.leftPower;
+    }
+    return -1;
+}
+
+int Parser::getRightpower(tokenType type) {
     if(bindingPowerMap.find(type) != bindingPowerMap.end()) {
         return bindingPowerMap.find(type)->second.rightPower;
     }
@@ -197,11 +206,24 @@ int Parser::getPrecedence(tokenType type) {
 }
 
 std::unique_ptr<Expression> Parser::parse_expr() {
-    std::unique_ptr<Expression> left = nullptr;
-    //TODO 
+    return parse_expr_interface(0);
 }
 
-// most cases except binaryOp
+std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
+    std::unique_ptr<Expression> left = parse_expr_prefix();
+    while(true) {
+        if(currentPos == tokens.size()){
+            break;
+        }
+        Token current = tokens[currentPos];
+        if(getLeftpower(current.type) <= power) {
+            break;
+        }
+        left = parse_expr_infix(std::move(left));
+    }
+    return left;
+}
+
 std::unique_ptr<Expression> Parser::parse_expr_prefix() {
     switch (tokens[currentPos].type) {
         case kCHAR_LITERAL:
@@ -263,9 +285,9 @@ std::unique_ptr<Expression> Parser::parse_expr_prefix() {
     }
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_infix() {
+std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr) {
     size_t originPos = currentPos;
-    std::unique_ptr<Expression> firstExpr;
+    //std::unique_ptr<Expression> firstExpr;
     firstExpr = parse_expr();
     switch (tokens[currentPos].type) {
         case kL_BRACKET: {
@@ -313,8 +335,13 @@ std::unique_ptr<Expression> Parser::parse_expr_infix() {
             currentPos = originPos;
             return parse_expr_field();
         }
+        default:;
     }
-    //TODO Left with binary op.
+    //currentPos ++;
+    tokenType type = tokens[currentPos].type;
+    currentPos ++;
+    std::unique_ptr<Expression> right = parse_expr_interface(getRightpower(type));
+    return std::make_unique<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
 }
 
 std::unique_ptr<ExprArray> Parser::parse_expr_array() {

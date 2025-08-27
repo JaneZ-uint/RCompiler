@@ -61,10 +61,12 @@ private:
     //Top-Down Operator Precedence
     binaryOp getBinaryOp(tokenType current);
     unaryOp getUnaryOp(tokenType current);
-    int getPrecedence(tokenType type);
+    int getLeftpower(tokenType type);
+    int getRightpower(tokenType type);
     std::unique_ptr<Expression> parse_expr();
+    std::unique_ptr<Expression> parse_expr_interface(int power);
     std::unique_ptr<Expression> parse_expr_prefix();
-    std::unique_ptr<Expression> parse_expr_infix();
+    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr);
     std::unique_ptr<ExprArray> parse_expr_array();
     std::unique_ptr<ExprBlock> parse_expr_block();
     std::unique_ptr<ExprBreak> parse_expr_break();
