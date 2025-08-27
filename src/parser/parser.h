@@ -14,6 +14,7 @@
 #include "../ast/Expression/ExprField.h"
 #include "../ast/Expression/ExprGroup.h"
 #include "../ast/Expression/ExprIf.h"
+#include "../ast/Expression/ExprIndex.h"
 #include "../ast/Expression/ExprLiteral.h"
 #include "../ast/Expression/ExprLoop.h"
 #include "../ast/Expression/ExprMatch.h"
