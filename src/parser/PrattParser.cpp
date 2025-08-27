@@ -1,5 +1,6 @@
 # include "parser.h"
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -263,7 +264,57 @@ std::unique_ptr<Expression> Parser::parse_expr_prefix() {
 }
 
 std::unique_ptr<Expression> Parser::parse_expr_infix() {
-
+    size_t originPos = currentPos;
+    std::unique_ptr<Expression> firstExpr;
+    firstExpr = parse_expr();
+    switch (tokens[currentPos].type) {
+        case kL_BRACKET: {
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            std::unique_ptr<Expression> index;
+            index = parse_expr();
+            if(tokens[currentPos].type != kR_BRACKET) {
+                throw std::runtime_error("Wrong in expr index parsing, missing kR_BRACKET.");
+            }
+            currentPos ++;
+            return std::make_unique<ExprIndex>(std::move(firstExpr),std::move(index));
+        }
+        case kL_BRACE: {
+            currentPos = originPos;
+            return parse_expr_struct();
+        }
+        case kL_PAREN: {
+            currentPos = originPos;
+            return parse_expr_call();
+        }
+        case kDOT: {
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kSELF || tokens[currentPos].type == kSELF) {
+                currentPos = originPos;
+                return parse_expr_methodcall();
+            }
+            if(tokens[currentPos].type != kIDENTIFIER) {
+                throw std::runtime_error("Wrong in expr infix parsing, missing identifier.");
+            }
+            currentPos ++;
+            if(currentPos == tokens.size()) {
+                currentPos = originPos;
+                return parse_expr_field();
+            }
+            if(tokens[currentPos].type == kL_PAREN) {
+                currentPos = originPos;
+                return parse_expr_methodcall();
+            }
+            currentPos = originPos;
+            return parse_expr_field();
+        }
+    }
+    //TODO Left with binary op.
 }
 
 std::unique_ptr<ExprArray> Parser::parse_expr_array() {
