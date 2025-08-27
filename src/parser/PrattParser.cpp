@@ -67,7 +67,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     //TODO 
 };
 
-binaryOp getBinaryOp(tokenType current){
+binaryOp Parser::getBinaryOp(tokenType current){
     switch (current) {
         case kPLUS:{
             return PLUS;
@@ -165,7 +165,7 @@ binaryOp getBinaryOp(tokenType current){
     }
 }
 
-unaryOp getUnaryOp(tokenType current) {
+unaryOp Parser::getUnaryOp(tokenType current) {
     switch (current) {
         case kAND: {
             return BORROW;
@@ -183,13 +183,28 @@ unaryOp getUnaryOp(tokenType current) {
             return NEGATE;
         }
         default: {
-            throw std::runtime_error("Not an unary type.");
+            return UNKNOWN;
         }
     }
 }
 
+int Parser::getPrecedence(tokenType type) {
+    if(bindingPowerMap.find(type) != bindingPowerMap.end()) {
+        return bindingPowerMap.find(type)->second.rightPower;
+    }
+    return -1;
+}
+
 std::unique_ptr<Expression> Parser::parse_expr() {
     
+}
+
+std::unique_ptr<Expression> Parser::parse_expr_prefix() {
+
+}
+
+std::unique_ptr<Expression> Parser::parse_expr_infix() {
+
 }
 
 std::unique_ptr<ExprArray> Parser::parse_expr_array() {
@@ -649,7 +664,32 @@ std::unique_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
 }
 
 std::unique_ptr<ExprOpunary> Parser::parse_expr_opunary() {
-
+    unaryOp op;
+    op = getUnaryOp(tokens[currentPos].type);
+    bool is_mut = false;
+    if(op == UNKNOWN) {
+        throw std::runtime_error("Wrong in expr unaryOp parsing, wrong type.");
+    }
+    if(tokens[currentPos].type == kAND || tokens[currentPos].type == kANDAND) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type == kMUT) {
+            is_mut = true;
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+        }
+    }else{
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+    }
+    std::unique_ptr<Expression> right = nullptr;
+    //TODO
 }
 
 std::unique_ptr<ExprPath> Parser::parse_expr_path() {

@@ -58,7 +58,12 @@ private:
 
     //Pratt Parser for expr
     //Top-Down Operator Precedence
-    std::unique_ptr<Expression> parse_expr(); 
+    binaryOp getBinaryOp(tokenType current);
+    unaryOp getUnaryOp(tokenType current);
+    int getPrecedence(tokenType type);
+    std::unique_ptr<Expression> parse_expr();
+    std::unique_ptr<Expression> parse_expr_prefix();
+    std::unique_ptr<Expression> parse_expr_infix();
     std::unique_ptr<ExprArray> parse_expr_array();
     std::unique_ptr<ExprBlock> parse_expr_block();
     std::unique_ptr<ExprBreak> parse_expr_break();
