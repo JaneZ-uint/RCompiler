@@ -196,11 +196,70 @@ int Parser::getPrecedence(tokenType type) {
 }
 
 std::unique_ptr<Expression> Parser::parse_expr() {
-    
+    std::unique_ptr<Expression> left = nullptr;
+    //TODO 
 }
 
+// most cases except binaryOp
 std::unique_ptr<Expression> Parser::parse_expr_prefix() {
-
+    switch (tokens[currentPos].type) {
+        case kCHAR_LITERAL:
+        case kSTRING_LITERAL:
+        case kRAW_STRING_LITERAL:
+        case kCSTRING_LITERAL:
+        case kRAW_CSTRING_LITERAL:
+        case kINTEGER_LITERAL:
+        case kTRUE:
+        case kFALSE: {
+            return parse_expr_literal();
+        }
+        case kIDENTIFIER:
+        case kSELF:
+        case kSELF_TYPE: {
+            return parse_expr_path();
+        }
+        case kL_PAREN: {
+            return parse_expr_group();
+        }
+        case kL_BRACKET: {
+            return parse_expr_array();
+        }
+        case kCONTINUE: {
+            return parse_expr_continue();
+        }
+        case kBREAK: {
+            return parse_expr_break();
+        }
+        case kRETURN: {
+            return parse_expr_return();
+        }
+        case kUNDERSCORE: {
+            return parse_expr_underscore();
+        }
+        case kL_BRACE: {
+            return parse_expr_block();
+        }
+        case kCONST: {
+            return parse_expr_constblock();
+        }
+        case kLOOP:
+        case kWHILE: {
+            return parse_expr_loop();
+        }
+        case kIF: {
+            return parse_expr_if();
+        }
+        case kAND:
+        case kANDAND:
+        case kMINUS:
+        case kNOT:
+        case kSTAR: {
+            return parse_expr_opunary();
+        }
+        default:{
+            throw std::runtime_error("Not a prefix.");
+        }
+    }
 }
 
 std::unique_ptr<Expression> Parser::parse_expr_infix() {
