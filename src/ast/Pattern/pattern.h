@@ -5,7 +5,7 @@ namespace JaneZ {
 class Pattern : public ASTNode{
 public:
     Pattern() : ASTNode() {}
-    virtual ~Pattern() = 0;
+    virtual ~Pattern() = default;
     virtual void accept(ASTVisitor &visitor) = 0;
 };
 }

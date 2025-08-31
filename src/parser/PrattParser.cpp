@@ -885,7 +885,7 @@ std::unique_ptr<ExprStruct> Parser::parse_expr_struct() {
         }
         tmp.expr = parse_expr();
     }
-    structExprFields.push_back(tmp);
+    structExprFields.push_back(std::move(tmp));
     if(tokens[currentPos].type == kCOMMA) {
         currentPos ++;
         if(currentPos >= tokens.size()){
@@ -925,7 +925,7 @@ std::unique_ptr<ExprStruct> Parser::parse_expr_struct() {
             }
             tmp.expr = parse_expr();
         }
-        structExprFields.push_back(tmp);
+        structExprFields.push_back(std::move(tmp));
     }
     currentPos ++;
     return std::make_unique<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));

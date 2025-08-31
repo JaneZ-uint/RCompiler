@@ -116,7 +116,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("End of Program.");
                     }
                 }
-                param.FunctionParam.push_back(tmp);
+                param.FunctionParam.push_back(std::move(tmp));
                 bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
                     if(tokens[currentPos].type == kCOMMA){
@@ -141,7 +141,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("End of Program.");
                     }
                     tp.type = parse_type();
-                    param.FunctionParam.push_back(tp); 
+                    param.FunctionParam.push_back(std::move(tp)); 
                 }
             }
         }
@@ -224,7 +224,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("End of Program.");
                     }
                 }
-                param.FunctionParam.push_back(tmp);
+                param.FunctionParam.push_back(std::move(tmp));
                 bool flag = false;
                 while(tokens[currentPos].type != kR_PAREN){
                     if(tokens[currentPos].type == kCOMMA){
@@ -249,7 +249,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("End of Program.");
                     }
                     tp.type = parse_type();
-                    param.FunctionParam.push_back(tp);
+                    param.FunctionParam.push_back(std::move(tp));
                 }
             }
         }
@@ -454,10 +454,10 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
             std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
             if(tokens[currentPos].type == kCONST){
                 tmpConst = parse_item_const();
-                item_trait_const.push_back(tmpConst);
+                item_trait_const.push_back(std::move(tmpConst));
             }else if(tokens[currentPos].type == kFN){
                 tmpFn = parse_item_fn();
-                item_trait_fn.push_back(tmpFn);
+                item_trait_fn.push_back(std::move(tmpFn));
             }else{
                 throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
             }
@@ -483,10 +483,10 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
             std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
             if(tokens[currentPos].type == kCONST){
                 tmpConst = parse_item_const();
-                item_trait_const.push_back(tmpConst);
+                item_trait_const.push_back(std::move(tmpConst));
             }else if(tokens[currentPos].type == kFN){
                 tmpFn = parse_item_fn();
-                item_trait_fn.push_back(tmpFn);
+                item_trait_fn.push_back(std::move(tmpFn));
             }else{
                 throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
             }
@@ -547,7 +547,7 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
             throw std::runtime_error("End of Program.");
         }
     }
-    item_struct.push_back(tmp);
+    item_struct.push_back(std::move(tmp));
     bool flag = false;
     while (tokens[currentPos].type != kR_BRACE){
         if(tokens[currentPos].type != kIDENTIFIER && tokens[currentPos].type != kCOMMA){
@@ -579,7 +579,7 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
             throw std::runtime_error("End of Program.");
         }
         tp.structElem = parse_type();
-        item_struct.push_back(tp);
+        item_struct.push_back(std::move(tp));
     }
     currentPos ++;
     return std::make_unique<ItemStructDecl>(std::move(identifier),std::move(item_struct));
@@ -617,10 +617,10 @@ std::unique_ptr<ItemTraitDecl> Parser::parse_item_trait() {
         std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
         if(tokens[currentPos].type == kCONST){
             tmpConst = parse_item_const();
-            item_trait_const.push_back(tmpConst);
+            item_trait_const.push_back(std::move(tmpConst));
         }else if(tokens[currentPos].type == kFN){
             tmpFn = parse_item_fn();
-            item_trait_fn.push_back(tmpFn);
+            item_trait_fn.push_back(std::move(tmpFn));
         }else{
             throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
         }
