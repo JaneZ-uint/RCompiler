@@ -54,12 +54,16 @@ class TypeTuple;
 
 class ASTNode;
 
+class ASTRootNode;
+
 class ASTVisitor{
 public:
     ASTVisitor() = default;
-    virtual ~ASTVisitor() = 0;
+    virtual ~ASTVisitor() = default;
 
     virtual void visit(ASTNode &node) = 0;
+
+    virtual void visit(ASTRootNode &node) = 0;
 
     //Expression
     virtual void visit(ExprArray &node) = 0;
