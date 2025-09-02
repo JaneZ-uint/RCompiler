@@ -18,9 +18,7 @@ class ExprOpbinary;
 class ExprOpunary;
 class ExprPath;
 class ExprReturn;
-class ExprTuple;
 class ExprUnderscore;
-class ExprWhile;
 
 class ItemConstDecl;
 class ItemEnumDecl;
@@ -30,15 +28,11 @@ class ItemModuleDecl;
 class ItemStructDecl;
 class ItemTraitDecl;
 
-class PatternStruct;
-class PatternGroup;
 class PatternIdentifier;
 class PatternLiteral;
 class PatternPath;
 class PatternReference;
-class PatternRest;
-class PatternSlice;
-class PatternTuple;
+class PatternTupleStruct;
 class PatternWildCard;
 
 class StmtEmpty;
@@ -47,10 +41,10 @@ class StmtItem;
 class StmtLet;
 
 class TypeArray;
-class TypeRawptr;
+class TypePath;
 class TypeReference;
-class TypeSlice;
-class TypeTuple;
+class Type;
+class TypeUnit;
 
 class ASTNode;
 
@@ -83,30 +77,23 @@ public:
     virtual void visit(ExprOpunary &node) = 0;
     virtual void visit(ExprPath &node) = 0;
     virtual void visit(ExprReturn &node) = 0;
-    virtual void visit(ExprTuple &node) = 0;
     virtual void visit(ExprUnderscore &node) = 0;
-    virtual void visit(ExprWhile &node) = 0;
     
     //Item 
     virtual void visit(ItemConstDecl &node) = 0;
     virtual void visit(ItemEnumDecl &node) = 0;
     virtual void visit(ItemFnDecl &node) = 0;
     virtual void visit(ItemImplDecl &node) = 0;
-    virtual void visit(ItemModuleDecl &node) = 0;
     virtual void visit(ItemStructDecl &node) = 0;
     virtual void visit(ItemTraitDecl &node) = 0;
 
     //Pattern
-    virtual void visit(PatternGroup &node) = 0;
     virtual void visit(PatternIdentifier &node) = 0;
-    virtual void visit(PatternStruct &node) = 0;
     virtual void visit(PatternLiteral &node) = 0;
     virtual void visit(PatternPath &node) = 0;
     virtual void visit(PatternReference &node) = 0;
-    virtual void visit(PatternRest &node) = 0;
-    virtual void visit(PatternSlice &node) = 0;
     virtual void visit(PatternWildCard &node) = 0;
-    virtual void visit(PatternTuple &node) = 0;
+    virtual void visit(PatternTupleStruct &node) = 0;
 
     //Statement
     virtual void visit(StmtEmpty &node) = 0;
@@ -115,10 +102,10 @@ public:
     virtual void visit(StmtLet &node) = 0;
 
     //Type
+    virtual void visit(Type &node) = 0;
     virtual void visit(TypeArray &node) = 0;
-    virtual void visit(TypeRawptr &node) = 0;
+    virtual void visit(TypePath &node) = 0;
     virtual void visit(TypeReference &node) = 0;
-    virtual void visit(TypeSlice &node) = 0;
-    virtual void visit(TypeTuple &node) = 0;
+    virtual void visit(TypeUnit &node) = 0;
 };
 }
