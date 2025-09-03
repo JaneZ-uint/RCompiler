@@ -66,7 +66,7 @@ private:
     std::unique_ptr<Expression> parse_expr();
     std::unique_ptr<Expression> parse_expr_interface(int power);
     std::unique_ptr<Expression> parse_expr_prefix();
-    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr);
+    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr,size_t originPos);
     std::unique_ptr<ExprArray> parse_expr_array();
     std::unique_ptr<ExprBlock> parse_expr_block();
     std::unique_ptr<ExprBreak> parse_expr_break();

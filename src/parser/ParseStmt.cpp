@@ -90,9 +90,6 @@ std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Expression> expr = parse_expr();
-    if(tokens[currentPos].type == kSEMI){
-        currentPos ++;
-    }
     return std::make_unique<StmtExpr>(std::move(expr));
 }
 

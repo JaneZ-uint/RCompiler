@@ -63,8 +63,8 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kSHLEQ,{2,1}},
     {kSHREQ,{2,1}},
 
-    {kL_PAREN,{0,0}},
-    {kL_BRACE,{0,0}},
+    {kL_PAREN,{23,0}},
+    {kL_BRACE,{0,0}}, //TODO Wait and see.
     {kL_BRACKET,{23,0}},
     {kDOT,{0,0}},
     //TODO 
@@ -210,6 +210,7 @@ std::unique_ptr<Expression> Parser::parse_expr() {
 }
 
 std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
+    size_t originPos = currentPos;
     std::unique_ptr<Expression> left = parse_expr_prefix();
     while(true) {
         if(currentPos == tokens.size()){
@@ -219,7 +220,7 @@ std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
         if(getLeftpower(current.type) <= power) {
             break;
         }
-        left = parse_expr_infix(std::move(left));
+        left = parse_expr_infix(std::move(left),originPos);
     }
     return left;
 }
@@ -285,10 +286,10 @@ std::unique_ptr<Expression> Parser::parse_expr_prefix() {
     }
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr) {
-    size_t originPos = currentPos;
+std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr,size_t originPos) {
+    //size_t originPos = currentPos;
     //std::unique_ptr<Expression> firstExpr;
-    firstExpr = parse_expr();
+    //firstExpr = parse_expr();
     switch (tokens[currentPos].type) {
         case kL_BRACKET: {
             currentPos ++;
