@@ -416,51 +416,29 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
     std::unique_ptr<Statement> tmp;
     bool isExprBlock = false;
     size_t ptr = currentPos;
-    /*
-    try {
-        tmp = parse_statement();
-        statements.push_back(std::move(tmp));
-    } catch (...) {
-        currentPos = originPos;
-        isExprBlock = true;
-        ExpressionWithoutBlock = parse_expr();
-    }
-    if(isExprBlock){
-        if(tokens[currentPos].type != kR_BRACE){
-            throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
-        }
-        currentPos ++;
-        return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
-    }
-    while(true){
-        originPos = currentPos;
-        try {
-            tmp = parse_statement();
-            statements.push_back(std::move(tmp));
-        } catch (...) {
-            currentPos = originPos;
-            isExprBlock = true;
-            ExpressionWithoutBlock = parse_expr();
-        }
-        if(isExprBlock){
-            break;
-        }
-    }
-    if(tokens[currentPos].type != kR_BRACE){
-        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
-    }
-    currentPos ++;*/
     size_t bracePair = 1;
-    while(tokens[ptr].type != kSEMI){
+    bool isBracket = false;
+    while(true){
         ptr ++;
         if(tokens[ptr].type == kR_BRACE){
             bracePair --;
         }else if(tokens[ptr].type == kL_BRACE){
             bracePair ++;
+        }else if(tokens[ptr].type == kL_BRACKET){
+            isBracket = true;
+        }else if(tokens[ptr].type == kR_BRACKET) {
+            if(isBracket) {
+                isBracket = false;
+            }
         }
         if(bracePair == 0){
             isExprBlock = true;
             break;
+        }
+        if(tokens[ptr].type == kSEMI) {
+            if(!isBracket) {
+                break;
+            }
         }
     }
     if(isExprBlock){
@@ -474,9 +452,13 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
     while(tokens[currentPos].type != kR_BRACE){
         tmp = parse_statement();
         statements.push_back(std::move(tmp));
-        if(tokens[currentPos - 1].type != kSEMI){
+        if(tokens[currentPos].type != kSEMI){
             ExpressionWithoutBlock = parse_expr();
             break;
+        }
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
         }
     }
     if(tokens[currentPos].type != kR_BRACE){

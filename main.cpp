@@ -7,7 +7,7 @@
 #include <vector>
 
 int main(){
-    JaneZ::Simplifier simplifier("8.rs");
+    JaneZ::Simplifier simplifier("array1.rs");
     std::string source_code = simplifier.work();
     //simplifier.print();
     JaneZ::Lexer lexer(source_code);

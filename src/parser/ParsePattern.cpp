@@ -10,6 +10,7 @@ namespace JaneZ {
 std::unique_ptr<Pattern> Parser::parse_pattern() {
     Token current = tokens[currentPos];
     switch (current.type) {
+        case kMINUS:
         case kINTEGER_LITERAL:
         case kCHAR_LITERAL:
         case kSTRING_LITERAL:
@@ -18,7 +19,17 @@ std::unique_ptr<Pattern> Parser::parse_pattern() {
         case kRAW_CSTRING_LITERAL: {
             return parse_pattern_literal();
         }
+        case kMUT:
+        case kREF: {
+            return parse_pattern_identifier();
+        }
+        case kSELF_TYPE:
+        case kSELF: {
+            return parse_pattern_path();
+        }
+
         case kIDENTIFIER: {
+            // identifier / path /  maybe a problem here.
             return parse_pattern_identifier();
         }
         case kAND:
@@ -28,10 +39,7 @@ std::unique_ptr<Pattern> Parser::parse_pattern() {
         case kUNDERSCORE: {
             return parse_pattern_wildcard();
         }
-        case kPATHSEP: {
-            // include path tuple struct
-            return parse_pattern_path();
-        }
+
         default: {
             throw std::runtime_error("Wrong in pattern type.");
         }
@@ -63,8 +71,8 @@ std::unique_ptr<PatternIdentifier> Parser::parse_pattern_identifier() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Pattern> pattern = parse_pattern();
-    return std::make_unique<PatternIdentifier>(std::move(identifier),std::move(pattern),is_ref,is_mut);
+    //std::unique_ptr<Pattern> pattern = parse_pattern();
+    return std::make_unique<PatternIdentifier>(std::move(identifier),is_ref,is_mut);
 }
 
 std::unique_ptr<PatternLiteral> Parser::parse_pattern_literal() {

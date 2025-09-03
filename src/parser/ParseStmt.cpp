@@ -66,14 +66,23 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
     std::unique_ptr<Pattern> pattern = parse_pattern();
     std::unique_ptr<ASTNode> type = nullptr;
     if (tokens[currentPos].type == kCOLON) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
         type = parse_type();
+    }else{
+        throw std::runtime_error("Wring in stmt let parsing, missing type.");
     }
     std::unique_ptr<Expression> expr = nullptr;
     if(tokens[currentPos].type == kEQ) {
+        currentPos ++;
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
         expr = parse_expr();
     }
     return std::make_unique<StmtLet>(std::move(pattern),std::move(type),std::move(expr));
-    
 }
 
 std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {

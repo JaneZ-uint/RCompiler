@@ -69,178 +69,45 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
        throw std::runtime_error("End of Program.");
     }
     fnParameter param;
-    if(tokens[currentPos].type == kAND){
-        param.SelfParam.isShortSelf = true;
-        param.SelfParam.short_self.is_and = true;
-        currentPos ++;
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
-        }
-        if(tokens[currentPos].type == kMUT){
-            param.SelfParam.short_self.is_mut = true;
-            currentPos ++;
-        }
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
-        }
-        if(tokens[currentPos].type != kSELF){
-            throw std::runtime_error("Wrong in item fn with short self.");
-        }
-        currentPos ++;
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
-        }
-        if(tokens[currentPos].type != kCOMMA && tokens[currentPos].type != kR_PAREN){
-            throw std::runtime_error("Wrong in item fn with comma missing.");
-        }
-        if(tokens[currentPos].type != kR_PAREN){ 
-            // jump comma
-            currentPos ++;
-            if(currentPos >= tokens.size()){
-                throw std::runtime_error("End of Program.");
-            }
-            if(tokens[currentPos].type != kR_PAREN){
-                functionParam tmp;
-                tmp.pattern = parse_pattern();
-                if(tokens[currentPos].type != kCOLON){
-                    throw std::runtime_error("Wrong in item fn with colon missing.");
-                }
-                currentPos ++;
-                if(currentPos >= tokens.size()){
-                    throw std::runtime_error("End of Program.");
-                }
-                tmp.type = parse_type();
-                if(tokens[currentPos].type == kCOMMA){
-                    currentPos ++;
-                    if(currentPos >= tokens.size()){
-                        throw std::runtime_error("End of Program.");
-                    }
-                }
-                param.FunctionParam.push_back(std::move(tmp));
-                bool flag = false;
-                while(tokens[currentPos].type != kR_PAREN){
-                    if(tokens[currentPos].type == kCOMMA){
-                        flag = true;
-                        currentPos ++;
-                        if(currentPos >= tokens.size()){
-                            throw std::runtime_error("End of Program.");
-                        }
-                        if(tokens[currentPos].type == kR_PAREN) {
-                            break;
-                        }
-                    }else if(flag){
-                        throw std::runtime_error("Wrong in item fn with comma missing.");
-                    }
-                    functionParam tp;
-                    tp.pattern = parse_pattern();
-                    if(tokens[currentPos].type != kCOLON){
-                        throw std::runtime_error("Wrong in item fn with colon missing.");
-                    }
-                    currentPos ++;
-                    if(currentPos >= tokens.size()){
-                        throw std::runtime_error("End of Program.");
-                    }
-                    tp.type = parse_type();
-                    param.FunctionParam.push_back(std::move(tp)); 
-                }
-            }
-        }
+    if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
     }else{
-        if(tokens[currentPos].type == kMUT){
-            if(currentPos + 1 < tokens.size()){
-                if(tokens[currentPos + 1].type != kSELF){
-                    throw std::runtime_error("Wrong format in item fn with missing self.");
-                }
-                if(currentPos + 2 < tokens.size()){
-                    if(tokens[currentPos + 2].type == kCOLON){
-                        param.SelfParam.isShortSelf = false;
-                        param.SelfParam.type_self.is_mut = true;
-                        currentPos += 3;
-                        param.SelfParam.type_self.type = parse_type();
-                    }else{
-                        param.SelfParam.isShortSelf = true;
-                        param.SelfParam.short_self.is_and = false;
-                        param.SelfParam.short_self.is_mut = true;
-                        currentPos += 2;
-                        if(currentPos >= tokens.size()){
-                            throw std::runtime_error("End of Program.");
-                        }
-                    }
-                }else{
-                    throw std::runtime_error("End of Program.");
-                }
-            }else{
+        if(tokens[currentPos].type == kAND){
+            param.SelfParam.isShortSelf = true;
+            param.SelfParam.short_self.is_and = true;
+            currentPos ++;
+            if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
-        }else{
+            if(tokens[currentPos].type == kMUT){
+                param.SelfParam.short_self.is_mut = true;
+                currentPos ++;
+            }
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
             if(tokens[currentPos].type != kSELF){
-                throw std::runtime_error("Wrong format in item fn with missing self.");
+                throw std::runtime_error("Wrong in item fn with short self.");
             }
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
-            if(tokens[currentPos].type == kCOLON){
-                param.SelfParam.isShortSelf = false;
-                param.SelfParam.type_self.is_mut = false;
+            if(tokens[currentPos].type != kCOMMA && tokens[currentPos].type != kR_PAREN){
+                throw std::runtime_error("Wrong in item fn with comma missing.");
+            }
+            if(tokens[currentPos].type != kR_PAREN){ 
+                // jump comma
                 currentPos ++;
                 if(currentPos >= tokens.size()){
                     throw std::runtime_error("End of Program.");
                 }
-                param.SelfParam.type_self.type = parse_type();
-            }else{
-                param.SelfParam.isShortSelf = true;
-                param.SelfParam.short_self.is_and = false;
-                param.SelfParam.short_self.is_mut = false;
-            }
-        }
-        if(tokens[currentPos].type != kCOMMA && tokens[currentPos].type != kR_PAREN){
-            throw std::runtime_error("Wrong in item fn with comma missing.");
-        }
-        if(tokens[currentPos].type != kR_PAREN){ 
-            // jump comma
-            currentPos ++;
-            if(currentPos >= tokens.size()){
-                throw std::runtime_error("End of Program.");
-            }
-            if(tokens[currentPos].type != kR_PAREN){
-                functionParam tmp;
-                tmp.pattern = parse_pattern();
-                if(tokens[currentPos].type != kCOLON){
-                    throw std::runtime_error("Wrong in item fn with colon missing.");
-                }
-                currentPos ++;
-                if(currentPos >= tokens.size()){
-                    throw std::runtime_error("End of Program.");
-                }
-                tmp.type = parse_type();
-                if(tokens[currentPos].type == kCOMMA){
-                    currentPos ++;
-                    if(currentPos >= tokens.size()){
-                        throw std::runtime_error("End of Program.");
-                    }
-                }
-                param.FunctionParam.push_back(std::move(tmp));
-                bool flag = false;
-                while(tokens[currentPos].type != kR_PAREN){
-                    if(tokens[currentPos].type == kCOMMA){
-                        flag = true;
-                        currentPos ++;
-                        if(currentPos >= tokens.size()){
-                            throw std::runtime_error("End of Program.");
-                        }
-                        if(tokens[currentPos].type == kR_PAREN) {
-                            break;
-                        }
-                    }else if(flag){
-                        throw std::runtime_error("Wrong in item fn with comma missing.");
-                    }
-                    functionParam tp;
-                    tp.pattern = parse_pattern();
+                if(tokens[currentPos].type != kR_PAREN){
+                    functionParam tmp;
+                    tmp.pattern = parse_pattern();
                     if(tokens[currentPos].type != kCOLON){
                         throw std::runtime_error("Wrong in item fn with colon missing.");
                     }
@@ -248,22 +115,159 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     if(currentPos >= tokens.size()){
                         throw std::runtime_error("End of Program.");
                     }
-                    tp.type = parse_type();
-                    param.FunctionParam.push_back(std::move(tp));
+                    tmp.type = parse_type();
+                    if(tokens[currentPos].type == kCOMMA){
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                    }
+                    param.FunctionParam.push_back(std::move(tmp));
+                    bool flag = false;
+                    while(tokens[currentPos].type != kR_PAREN){
+                        if(tokens[currentPos].type == kCOMMA){
+                            flag = true;
+                            currentPos ++;
+                            if(currentPos >= tokens.size()){
+                                throw std::runtime_error("End of Program.");
+                            }
+                            if(tokens[currentPos].type == kR_PAREN) {
+                                break;
+                            }
+                        }else if(flag){
+                            throw std::runtime_error("Wrong in item fn with comma missing.");
+                        }
+                        functionParam tp;
+                        tp.pattern = parse_pattern();
+                        if(tokens[currentPos].type != kCOLON){
+                            throw std::runtime_error("Wrong in item fn with colon missing.");
+                        }
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                        tp.type = parse_type();
+                        param.FunctionParam.push_back(std::move(tp)); 
+                    }
                 }
             }
-        }
-        currentPos ++;
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+        }else{
+            if(tokens[currentPos].type == kMUT){
+                if(currentPos + 1 < tokens.size()){
+                    if(tokens[currentPos + 1].type != kSELF){
+                        throw std::runtime_error("Wrong format in item fn with missing self.");
+                    }
+                    if(currentPos + 2 < tokens.size()){
+                        if(tokens[currentPos + 2].type == kCOLON){
+                            param.SelfParam.isShortSelf = false;
+                            param.SelfParam.type_self.is_mut = true;
+                            currentPos += 3;
+                            param.SelfParam.type_self.type = parse_type();
+                        }else{
+                            param.SelfParam.isShortSelf = true;
+                            param.SelfParam.short_self.is_and = false;
+                            param.SelfParam.short_self.is_mut = true;
+                            currentPos += 2;
+                            if(currentPos >= tokens.size()){
+                                throw std::runtime_error("End of Program.");
+                            }
+                        }
+                    }else{
+                        throw std::runtime_error("End of Program.");
+                    }
+                }else{
+                    throw std::runtime_error("End of Program.");
+                }
+            }else{
+                if(tokens[currentPos].type != kSELF){
+                    throw std::runtime_error("Wrong format in item fn with missing self.");
+                }
+                currentPos ++;
+                if(currentPos >= tokens.size()){
+                    throw std::runtime_error("End of Program.");
+                }
+                if(tokens[currentPos].type == kCOLON){
+                    param.SelfParam.isShortSelf = false;
+                    param.SelfParam.type_self.is_mut = false;
+                    currentPos ++;
+                    if(currentPos >= tokens.size()){
+                        throw std::runtime_error("End of Program.");
+                    }
+                    param.SelfParam.type_self.type = parse_type();
+                }else{
+                    param.SelfParam.isShortSelf = true;
+                    param.SelfParam.short_self.is_and = false;
+                    param.SelfParam.short_self.is_mut = false;
+                }
+            }
+            if(tokens[currentPos].type != kCOMMA && tokens[currentPos].type != kR_PAREN){
+                throw std::runtime_error("Wrong in item fn with comma missing.");
+            }
+            if(tokens[currentPos].type != kR_PAREN){ 
+                // jump comma
+                currentPos ++;
+                if(currentPos >= tokens.size()){
+                    throw std::runtime_error("End of Program.");
+                }
+                if(tokens[currentPos].type != kR_PAREN){
+                    functionParam tmp;
+                    tmp.pattern = parse_pattern();
+                    if(tokens[currentPos].type != kCOLON){
+                        throw std::runtime_error("Wrong in item fn with colon missing.");
+                    }
+                    currentPos ++;
+                    if(currentPos >= tokens.size()){
+                        throw std::runtime_error("End of Program.");
+                    }
+                    tmp.type = parse_type();
+                    if(tokens[currentPos].type == kCOMMA){
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                    }
+                    param.FunctionParam.push_back(std::move(tmp));
+                    bool flag = false;
+                    while(tokens[currentPos].type != kR_PAREN){
+                        if(tokens[currentPos].type == kCOMMA){
+                            flag = true;
+                            currentPos ++;
+                            if(currentPos >= tokens.size()){
+                                throw std::runtime_error("End of Program.");
+                            }
+                            if(tokens[currentPos].type == kR_PAREN) {
+                                break;
+                            }
+                        }else if(flag){
+                            throw std::runtime_error("Wrong in item fn with comma missing.");
+                        }
+                        functionParam tp;
+                        tp.pattern = parse_pattern();
+                        if(tokens[currentPos].type != kCOLON){
+                            throw std::runtime_error("Wrong in item fn with colon missing.");
+                        }
+                        currentPos ++;
+                        if(currentPos >= tokens.size()){
+                            throw std::runtime_error("End of Program.");
+                        }
+                        tp.type = parse_type();
+                        param.FunctionParam.push_back(std::move(tp));
+                    }
+                }
+            }
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
         }
     }
-    currentPos ++;
-    if(currentPos >= tokens.size()){
-       throw std::runtime_error("End of Program.");
-    }
+
     std::unique_ptr<ASTNode> returnType = nullptr;
-    if(tokens[currentPos].type != kL_PAREN){
+    if(tokens[currentPos].type != kL_BRACE){
         //exist fn return type
         if(tokens[currentPos].type != kRARROW){
             throw std::runtime_error("Wrong format with item fn return type.");
@@ -274,7 +278,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
         }
         returnType = parse_type();
     }
-    if(tokens[currentPos].type != kL_PAREN){
+    if(tokens[currentPos].type != kL_BRACE){
         throw std::runtime_error("Wrong format with item fn body.");
     }
     currentPos ++;
@@ -284,16 +288,10 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
     std::unique_ptr<ExprBlock> fnBody = nullptr;
     if(tokens[currentPos].type == kSEMI){
         currentPos ++;
-        if(currentPos >= tokens.size()) {
-            throw std::runtime_error("End of Program.");
-        }
     }else{
+        currentPos --;
         fnBody = parse_expr_block();
     }
-    if(tokens[currentPos].type != kR_PAREN){
-        throw std::runtime_error("Wrong format with item fn body.");
-    }
-    currentPos ++;
     return std::make_unique<ItemFnDecl>(std::move(identifier),std::move(param),std::move(fnBody),std::move(returnType),is_const);
 }
 
