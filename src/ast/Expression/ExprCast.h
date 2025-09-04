@@ -5,10 +5,9 @@
 
 namespace JaneZ {
 class ExprCast : public Expression {
-private:
+public:
     std::unique_ptr<ASTNode> typeNoBounds;
 
-public:
     ExprCast(std::unique_ptr<ASTNode> typeNoBounds)
         : typeNoBounds(std::move(typeNoBounds)) {}
 

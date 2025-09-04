@@ -5,10 +5,9 @@
 #include <utility>
 namespace JaneZ {
 class PatternWildCard : public Pattern {
-private:
+public:
     std::unique_ptr<ExprUnderscore> pattern_wildcard;
 
-public:
     PatternWildCard(std::unique_ptr<ExprUnderscore> pw) : pattern_wildcard(std::move(pw)) {}
 
     ~PatternWildCard() = default;

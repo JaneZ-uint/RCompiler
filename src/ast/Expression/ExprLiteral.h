@@ -15,11 +15,10 @@ enum LiteralType{
     FALSE
 };
 class ExprLiteral : public Expression {
-private:
+public:
     std::string literal;
     LiteralType type;
 
-public:
     ExprLiteral(std::string lit, LiteralType t)
         : literal(std::move(lit)), type(t) {}
     

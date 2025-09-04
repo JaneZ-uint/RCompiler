@@ -12,12 +12,10 @@ struct MatchArm{
 
 };
 class ExprMatch : public Expression {
-
-private:
+public:
     std::unique_ptr<Expression> Scrutinee;
     std::vector<MatchArm> MatchArms; 
 
-public:
     ExprMatch(std::unique_ptr<Expression> scrutinee, std::vector<MatchArm> matchArms)
         : Scrutinee(std::move(scrutinee)), MatchArms(std::move(matchArms)) {}
 

@@ -17,12 +17,11 @@ enum unaryOp {
 };
 
 class ExprOpunary : public Expression {
-private:
+public:
     unaryOp op;
     bool is_mut = false;
     std::unique_ptr<Expression> right;
 
-public:
     ExprOpunary(unaryOp operation, std::unique_ptr<Expression> rightExpr, bool im = false)
         : op(operation), right(std::move(rightExpr)), is_mut(im) {}
 

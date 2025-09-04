@@ -4,10 +4,9 @@
 #include <memory>
 namespace JaneZ {
 class ExprReturn : public Expression {
-private:
+public:
     std::unique_ptr<Expression> expr;
 
-public:
     ExprReturn(std::unique_ptr<Expression> expression)
         : expr(std::move(expression)) {}
 

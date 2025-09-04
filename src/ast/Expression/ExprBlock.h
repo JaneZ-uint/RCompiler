@@ -6,11 +6,10 @@
 namespace JaneZ {
 class Statement;
 class ExprBlock : public Expression {
-private:
+public:
     std::vector<std::unique_ptr<Statement>> statements;
     std::unique_ptr<Expression> ExpressionWithoutBlock;
 
-public:
     ExprBlock(std::vector<std::unique_ptr<Statement>> stmts,
               std::unique_ptr<Expression> EWB)
         : statements(std::move(stmts)),

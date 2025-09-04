@@ -7,11 +7,10 @@
 
 namespace JaneZ {
 class PatternTupleStruct : public Pattern {
-private:
+public:
     std::unique_ptr<Path> pathInExpr; 
     std::vector<std::unique_ptr<Pattern>> tuple_struct_item;
 
-public:
     PatternTupleStruct(std::unique_ptr<Path> pIE,std::vector<std::unique_ptr<Pattern>> tsi): 
         pathInExpr(std::move(pIE)), tuple_struct_item(std::move(tsi)){}
 

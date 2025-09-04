@@ -17,10 +17,9 @@ enum RustType{
 };
 
 class Type : public ASTNode {
-private:
+public:
     RustType type;
 
-public:
     Type(RustType t) : type(t) {}
 
     ~Type() = default;

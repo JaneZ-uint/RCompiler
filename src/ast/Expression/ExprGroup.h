@@ -4,10 +4,9 @@
 #include <memory>
 namespace JaneZ {
 class ExprGroup : public Expression {
-private:
+public:
     std::unique_ptr<Expression> expr;
 
-public:
     ExprGroup(std::unique_ptr<Expression> e)
         : expr(std::move(e)) {}
 

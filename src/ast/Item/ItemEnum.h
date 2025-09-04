@@ -6,11 +6,10 @@
 
 namespace JaneZ {
 class ItemEnumDecl : public Item {
-private:
+public:
     std::string identifier;
     std::vector<std::string> item_enum;
     
-public:
     ItemEnumDecl(std::string _identifier, std::vector<std::string> _itemEnum) : identifier(_identifier),item_enum(_itemEnum){} 
 
     ~ItemEnumDecl() = default;

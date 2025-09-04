@@ -5,11 +5,10 @@
 #include <vector>
 namespace JaneZ {
 class ExprCall : public Expression {
-private:
+public:
     std::unique_ptr<Expression> expr;
     std::vector<std::unique_ptr<Expression>> callParams;
 
-public:
     ExprCall(std::unique_ptr<Expression> e,
             std::vector<std::unique_ptr<Expression>> cp)
         : expr(std::move(e)), callParams(std::move(cp)) {}

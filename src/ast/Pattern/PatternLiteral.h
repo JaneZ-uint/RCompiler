@@ -6,11 +6,10 @@
 
 namespace JaneZ {
 class PatternLiteral : public Pattern {
-private:
+public:
     std::string identifier;
     std::unique_ptr<ExprLiteral> pattern_literal;
 
-public:
     PatternLiteral(std::string id, std::unique_ptr<ExprLiteral> literal)
         : identifier(std::move(id)), pattern_literal(std::move(literal)) {}
 

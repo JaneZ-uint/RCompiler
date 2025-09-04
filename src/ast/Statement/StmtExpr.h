@@ -5,10 +5,9 @@
 namespace JaneZ {
 class Expression;
 class StmtExpr : public Statement {
-private:
+public:
     std::unique_ptr<Expression> stmtExpr;
 
-public:
     StmtExpr(std::unique_ptr<Expression> se) : stmtExpr(std::move(se)) {}
 
     ~StmtExpr() = default;

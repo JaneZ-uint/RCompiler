@@ -7,12 +7,11 @@
 namespace JaneZ {
 //Two forms : Array Expr & Array Index Expr
 class ExprArray : public Expression {
-private:
+public:
     std::vector<std::unique_ptr<Expression>> arrayExpr;
     std::unique_ptr<Expression> type;
     std::unique_ptr<Expression> size;
     
-public:
     ExprArray(std::vector<std::unique_ptr<Expression>> arrayExpr)
         : arrayExpr(std::move(arrayExpr)), type(nullptr), size(nullptr) {};
 

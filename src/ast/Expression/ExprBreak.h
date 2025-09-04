@@ -4,10 +4,9 @@
 #include <memory>
 namespace JaneZ {
 class ExprBreak : public Expression {
-private:
+public:
     std::unique_ptr<Expression> expr;
 
-public:
     ExprBreak(std::unique_ptr<Expression> e) : expr(std::move(e)) {}
 
     ~ExprBreak() = default;

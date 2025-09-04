@@ -31,14 +31,13 @@ struct fnParameter{
     std::vector<functionParam> FunctionParam;
 };
 class ItemFnDecl : public Item {
-private:
+public:
     std::string identifier = "";
     fnParameter fnParameters;
     std::unique_ptr<ExprBlock> fnBody;
     std::unique_ptr<ASTNode> returnType;
     bool is_const = false;
 
-public:
     ItemFnDecl(std::string _identifier, fnParameter fnP, 
         std::unique_ptr<ExprBlock> fnB, std::unique_ptr<ASTNode> returnT,bool isC = false): 
         identifier(std::move(_identifier)),fnParameters(std::move(fnP)),fnBody(std::move(fnB)),returnType(std::move(returnT)),is_const(isC){}

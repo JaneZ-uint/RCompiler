@@ -7,13 +7,12 @@
 namespace JaneZ {
 class ItemFnDecl;
 class ItemImplDecl : public Item {
-private:
+public:
     std::string identifier = "";
     std::unique_ptr<ASTNode> targetType;
     std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
     std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
 
-public:
     ItemImplDecl(std::string _identifier, std::unique_ptr<ASTNode> _targetType,
                  std::vector<std::unique_ptr<ItemConstDecl>> _item_trait_const,
                  std::vector<std::unique_ptr<ItemFnDecl>> _item_trait_fn) 

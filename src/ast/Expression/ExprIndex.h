@@ -4,11 +4,10 @@
 #include <memory>
 namespace JaneZ {
 class ExprIndex : public Expression {
-private:
+public:
     std::unique_ptr<Expression> name;
     std::unique_ptr<Expression> index;
 
-public:
     ExprIndex(std::unique_ptr<Expression> nameExpr, std::unique_ptr<Expression> indexExpr)
         : name(std::move(nameExpr)), index(std::move(indexExpr)) {}
 
