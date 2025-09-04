@@ -210,7 +210,7 @@ std::unique_ptr<Expression> Parser::parse_expr() {
 }
 
 std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
-    size_t originPos = currentPos;
+    //size_t originPos = currentPos;
     std::unique_ptr<Expression> left = parse_expr_prefix();
     while(true) {
         if(currentPos == tokens.size()){
@@ -220,7 +220,7 @@ std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
         if(getLeftpower(current.type) <= power) {
             break;
         }
-        left = parse_expr_infix(std::move(left),originPos);
+        left = parse_expr_infix(std::move(left));
     }
     return left;
 }
@@ -286,7 +286,7 @@ std::unique_ptr<Expression> Parser::parse_expr_prefix() {
     }
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr,size_t originPos) {
+std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr) {
     //size_t originPos = currentPos;
     //std::unique_ptr<Expression> firstExpr;
     //firstExpr = parse_expr();
@@ -305,12 +305,12 @@ std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression>
             return std::make_unique<ExprIndex>(std::move(firstExpr),std::move(index));
         }
         case kL_BRACE: {
-            currentPos = originPos;
-            return parse_expr_struct();
+            //currentPos = originPos;
+            return parse_expr_struct(std::move(firstExpr));
         }
         case kL_PAREN: {
-            currentPos = originPos;
-            return parse_expr_call();
+            //currentPos = originPos;
+            return parse_expr_call(std::move(firstExpr));
         }
         case kDOT: {
             currentPos ++;
@@ -318,23 +318,24 @@ std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression>
                 throw std::runtime_error("End of Program.");
             }
             if(tokens[currentPos].type == kSELF || tokens[currentPos].type == kSELF) {
-                currentPos = originPos;
-                return parse_expr_methodcall();
+                //currentPos = originPos;
+                return parse_expr_methodcall(std::move(firstExpr));
             }
             if(tokens[currentPos].type != kIDENTIFIER) {
                 throw std::runtime_error("Wrong in expr infix parsing, missing identifier.");
             }
             currentPos ++;
             if(currentPos == tokens.size()) {
-                currentPos = originPos;
-                return parse_expr_field();
+                currentPos -= 2;
+                return parse_expr_field(std::move(firstExpr));
             }
             if(tokens[currentPos].type == kL_PAREN) {
-                currentPos = originPos;
-                return parse_expr_methodcall();
+                //currentPos = originPos;
+                currentPos --;
+                return parse_expr_methodcall(std::move(firstExpr));
             }
-            currentPos = originPos;
-            return parse_expr_field();
+            currentPos -= 2;
+            return parse_expr_field(std::move(firstExpr));
         }
         default:;
     }
@@ -490,10 +491,10 @@ std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
     return std::make_unique<ExprBreak>(std::move(expr));
 }
 
-std::unique_ptr<ExprCall> Parser::parse_expr_call() {
-    std::unique_ptr<Expression> expr;
+std::unique_ptr<ExprCall> Parser::parse_expr_call(std::unique_ptr<Expression> &&expr) {
+    //std::unique_ptr<Expression> expr;
     std::vector<std::unique_ptr<Expression>> callParams;
-    expr = parse_expr();
+    //expr = parse_expr();
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr call parsing, missing L_PAREN.");
     }
@@ -559,8 +560,8 @@ std::unique_ptr<ExprContinue> Parser::parse_expr_continue() {
     return std::make_unique<ExprContinue>();
 }
 
-std::unique_ptr<ExprField> Parser::parse_expr_field() {
-    std::unique_ptr<Expression> expr;
+std::unique_ptr<ExprField> Parser::parse_expr_field(std::unique_ptr<Expression> &&expr) {
+    //std::unique_ptr<Expression> expr;
     std::string identifier;
     expr = parse_expr();
     if(tokens[currentPos].type != kDOT){
@@ -725,18 +726,18 @@ std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
     }
 }
 
-std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall() {
-    std::unique_ptr<Expression> expr;
+std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::unique_ptr<Expression> &&expr) {
+    //std::unique_ptr<Expression> expr;
     std::unique_ptr<Path> PathExprSegment;
     std::vector<std::unique_ptr<Expression>> callParams;
     expr = parse_expr();
-    if(tokens[currentPos].type != kDOT){
+    /*if(tokens[currentPos].type != kDOT){
         throw std::runtime_error("Wrong in expr methodcall parsing, missing DOT.");
     }
     currentPos ++;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
-    }
+    }*/
     PathExprSegment = parse_path();
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr methodcall parsing, missing L_PAREN.");
@@ -840,10 +841,10 @@ std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
     return std::make_unique<ExprReturn>(std::move(expr));
 }
 
-std::unique_ptr<ExprStruct> Parser::parse_expr_struct() {
-    std::unique_ptr<ExprPath> pathInExpr;
+std::unique_ptr<ExprStruct> Parser::parse_expr_struct(std::unique_ptr<Expression> &&pathInExpr) {
+    //std::unique_ptr<ExprPath> pathInExpr;
     std::vector<StructExprField> structExprFields;
-    pathInExpr = parse_expr_path();
+    //pathInExpr = parse_expr_path();
     if(tokens[currentPos].type != kL_BRACE) {
         throw std::runtime_error("Wrong in expr struct parsing, missing L_BRACE.");
     }

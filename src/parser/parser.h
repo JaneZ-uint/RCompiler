@@ -66,25 +66,25 @@ private:
     std::unique_ptr<Expression> parse_expr();
     std::unique_ptr<Expression> parse_expr_interface(int power);
     std::unique_ptr<Expression> parse_expr_prefix();
-    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr,size_t originPos);
+    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr);
     std::unique_ptr<ExprArray> parse_expr_array();
     std::unique_ptr<ExprBlock> parse_expr_block();
     std::unique_ptr<ExprBreak> parse_expr_break();
-    std::unique_ptr<ExprCall> parse_expr_call();
+    std::unique_ptr<ExprCall> parse_expr_call(std::unique_ptr<Expression> &&expr);
     std::unique_ptr<ExprConstBlock> parse_expr_constblock();
     std::unique_ptr<ExprContinue> parse_expr_continue();
-    std::unique_ptr<ExprField> parse_expr_field();
+    std::unique_ptr<ExprField> parse_expr_field(std::unique_ptr<Expression> &&expr);
     std::unique_ptr<ExprGroup> parse_expr_group();
     std::unique_ptr<ExprIf> parse_expr_if();
     std::unique_ptr<ExprLiteral> parse_expr_literal();
     std::unique_ptr<ExprLoop> parse_expr_loop();
     //std::unique_ptr<ExprMatch> parse_expr_match();
-    std::unique_ptr<ExprMethodcall> parse_expr_methodcall();
+    std::unique_ptr<ExprMethodcall> parse_expr_methodcall(std::unique_ptr<Expression> &&expr);
     std::unique_ptr<ExprOpbinary> parse_expr_opbinary();
     std::unique_ptr<ExprOpunary> parse_expr_opunary();
     std::unique_ptr<ExprPath> parse_expr_path();
     std::unique_ptr<ExprReturn> parse_expr_return();
-    std::unique_ptr<ExprStruct> parse_expr_struct();
+    std::unique_ptr<ExprStruct> parse_expr_struct(std::unique_ptr<Expression> &&pathInExpr);
     std::unique_ptr<ExprUnderscore> parse_expr_underscore();
 
     //Recursive Descent Parser
