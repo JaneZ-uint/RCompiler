@@ -1,6 +1,7 @@
 # pragma once
 
 namespace JaneZ {
+class Expression;
 class ExprArray;
 class ExprBlock;
 class ExprBreak;
@@ -20,6 +21,7 @@ class ExprPath;
 class ExprReturn;
 class ExprUnderscore;
 
+class Item;
 class ItemConstDecl;
 class ItemEnumDecl;
 class ItemFnDecl;
@@ -28,6 +30,7 @@ class ItemModuleDecl;
 class ItemStructDecl;
 class ItemTraitDecl;
 
+class Pattern;
 class PatternIdentifier;
 class PatternLiteral;
 class PatternPath;
@@ -35,6 +38,7 @@ class PatternReference;
 class PatternTupleStruct;
 class PatternWildCard;
 
+class Statement;
 class StmtEmpty;
 class StmtExpr;
 class StmtItem;
@@ -50,6 +54,8 @@ class ASTNode;
 
 class ASTRootNode;
 
+class Path;
+
 class ASTVisitor{
 public:
     ASTVisitor() = default;
@@ -60,6 +66,7 @@ public:
     virtual void visit(ASTRootNode &node) = 0;
 
     //Expression
+    virtual void visit(Expression &node) = 0;
     virtual void visit(ExprArray &node) = 0;
     virtual void visit(ExprBlock &node) = 0;
     virtual void visit(ExprBreak &node) = 0;
@@ -80,6 +87,7 @@ public:
     virtual void visit(ExprUnderscore &node) = 0;
     
     //Item 
+    virtual void visit(Item &node) = 0;
     virtual void visit(ItemConstDecl &node) = 0;
     virtual void visit(ItemEnumDecl &node) = 0;
     virtual void visit(ItemFnDecl &node) = 0;
@@ -88,6 +96,7 @@ public:
     virtual void visit(ItemTraitDecl &node) = 0;
 
     //Pattern
+    virtual void visit(Pattern &node) = 0;
     virtual void visit(PatternIdentifier &node) = 0;
     virtual void visit(PatternLiteral &node) = 0;
     virtual void visit(PatternPath &node) = 0;
@@ -96,6 +105,7 @@ public:
     virtual void visit(PatternTupleStruct &node) = 0;
 
     //Statement
+    virtual void visit(Statement &node) = 0;
     virtual void visit(StmtEmpty &node) = 0;
     virtual void visit(StmtExpr &node) = 0;
     virtual void visit(StmtItem &node) = 0;
@@ -107,5 +117,8 @@ public:
     virtual void visit(TypePath &node) = 0;
     virtual void visit(TypeReference &node) = 0;
     virtual void visit(TypeUnit &node) = 0;
+
+    //Path
+    virtual void visit(Path &node) = 0;
 };
 }
