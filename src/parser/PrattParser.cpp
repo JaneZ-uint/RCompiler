@@ -421,7 +421,6 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
     size_t bracePair = 1;
     bool isBracket = false;
     while(true){
-        ptr ++;
         if(tokens[ptr].type == kR_BRACE){
             bracePair --;
         }else if(tokens[ptr].type == kL_BRACE){
@@ -442,6 +441,7 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
                 break;
             }
         }
+        ptr ++;
     }
     if(isExprBlock){
         ExpressionWithoutBlock = parse_expr();
@@ -451,16 +451,42 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
         currentPos ++;
         return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
     }
-    while(tokens[currentPos].type != kR_BRACE){
-        tmp = parse_statement();
-        statements.push_back(std::move(tmp));
-        if(tokens[currentPos].type != kSEMI){
-            ExpressionWithoutBlock = parse_expr();
+    int lastSemi = -1;
+    size_t pos = currentPos;
+    int pair = 1;
+    isBracket = false;
+    while(true) {
+        if(tokens[pos].type == kR_BRACE) {
+            pair --;
+        }else if(tokens[pos].type == kL_BRACE) {
+            pair ++;
+        }else if(tokens[pos].type == kL_BRACKET){
+            isBracket = true;
+        }else if(tokens[pos].type == kR_BRACKET) {
+            if(isBracket) {
+                isBracket = false;
+            }
+        }else if(!isBracket && tokens[pos].type == kSEMI) {
+            lastSemi = pos;
+        }
+        if(pair == 0){
             break;
         }
-        currentPos ++;
-        if(currentPos >= tokens.size()){
-            throw std::runtime_error("End of Program.");
+        pos ++;
+    }
+    if(lastSemi == pos - 1){
+        while(tokens[currentPos].type != kR_BRACE){
+            tmp = parse_statement();
+            statements.push_back(std::move(tmp));
+        }
+    }else{
+        while(tokens[currentPos].type != kR_BRACE){
+            if(currentPos == lastSemi){
+                ExpressionWithoutBlock = parse_expr();
+                continue;
+            }
+            tmp = parse_statement();
+            statements.push_back(std::move(tmp));
         }
     }
     if(tokens[currentPos].type != kR_BRACE){
