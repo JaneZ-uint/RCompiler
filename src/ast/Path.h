@@ -16,10 +16,9 @@ struct PathIdentSegment{
 };
 
 class Path : public ASTNode{
-private:
+public:
     PathIdentSegment pathSegments;
 
-public:
     Path(PathIdentSegment segments)
         : pathSegments(segments) {}
 

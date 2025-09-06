@@ -1,10 +1,13 @@
-#include "src/lexer/lexer.h"
-#include "src/parser/parser.h"
+#include "src/ast/root.h"
+# include "src/lexer/lexer.h"
+# include "src/parser/parser.h"
 # include "src/simplifier/simplifier.h"
-#include "src/token/token.h"
-#include <iostream>
-#include <string>
-#include <vector>
+# include "src/token/token.h"
+# include "src/ast/PrintVisitor.h"
+# include <iostream>
+#include <memory>
+# include <string>
+# include <vector>
 
 int main(){
     JaneZ::Simplifier simplifier("array1.rs");
@@ -14,5 +17,7 @@ int main(){
     std::vector<JaneZ::Token> tokens = lexer.work();
     //lexer.print();
     JaneZ::Parser parser(tokens);
-    parser.parse();
+    std::unique_ptr<JaneZ::ASTRootNode> root = parser.parse();
+    JaneZ::PrintVisitor printer;
+    printer.visit(*root);
 }

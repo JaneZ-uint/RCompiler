@@ -78,7 +78,7 @@ public:
     virtual void visit(ExprIndex &node) = 0;
     virtual void visit(ExprLiteral &node) = 0;
     virtual void visit(ExprLoop &node) = 0;
-    virtual void visit(ExprMatch &node) = 0;
+    //virtual void visit(ExprMatch &node) = 0;
     virtual void visit(ExprMethodcall &node) = 0;
     virtual void visit(ExprOpbinary &node) = 0;
     virtual void visit(ExprOpunary &node) = 0;
