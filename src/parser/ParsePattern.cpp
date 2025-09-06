@@ -76,8 +76,19 @@ std::unique_ptr<PatternIdentifier> Parser::parse_pattern_identifier() {
 }
 
 std::unique_ptr<PatternLiteral> Parser::parse_pattern_literal() {
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    bool isMinus = false;
+    if(tokens[currentPos].type == kMINUS) {
+        isMinus = true;
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
     std::unique_ptr<ExprLiteral> res = parse_expr_literal();
-    return std::make_unique<PatternLiteral>(tokens[currentPos].value,std::move(res));
+    return std::make_unique<PatternLiteral>(isMinus,std::move(res));
 }
 
 std::unique_ptr<PatternPath> Parser::parse_pattern_path() {
@@ -88,6 +99,10 @@ std::unique_ptr<PatternPath> Parser::parse_pattern_path() {
 std::unique_ptr<PatternReference> Parser::parse_pattern_reference() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
+    }
+    bool isANDAND = false;
+    if(tokens[currentPos].type == kANDAND){
+        isANDAND = true;
     }
     currentPos ++;
     if(currentPos >= tokens.size()){
@@ -102,7 +117,7 @@ std::unique_ptr<PatternReference> Parser::parse_pattern_reference() {
         }
     }
     std::unique_ptr<Pattern> pattern = parse_pattern();
-    return std::make_unique<PatternReference>(std::move(pattern),is_mut);
+    return std::make_unique<PatternReference>(std::move(pattern),isANDAND,is_mut);
 }
 
 /*std::unique_ptr<PatternStruct> Parser::parse_pattern_struct() {

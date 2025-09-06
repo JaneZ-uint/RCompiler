@@ -25,9 +25,6 @@ std::unique_ptr<ASTNode> Parser::parse_type() {
     }else if(tokens[currentPos].value == "str"){
         currentPos ++;
         return std::make_unique<Type>(STR);
-    }else if(tokens[currentPos].value == "struct"){
-        currentPos ++;
-        return std::make_unique<Type>(STRUCT);
     }else if(tokens[currentPos].value == "enum"){
         currentPos ++;
         return std::make_unique<Type>(ENUM);

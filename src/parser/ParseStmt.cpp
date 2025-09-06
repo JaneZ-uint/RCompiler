@@ -90,6 +90,125 @@ std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {
         throw std::runtime_error("End of Program.");
     }
     std::unique_ptr<Expression> expr = parse_expr();
+    if(auto *p = dynamic_cast<ExprArray *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprBreak *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprCall *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprContinue *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprField *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprGroup *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprIndex *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprLiteral *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprMethodcall *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprOpbinary *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprOpunary *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprPath *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprReturn *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else if(auto *p = dynamic_cast<ExprUnderscore *>(& *expr)) {
+        if(currentPos >= tokens.size()){
+            throw std::runtime_error("End of Program.");
+        }
+        if(tokens[currentPos].type != kSEMI) {
+            throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        }
+        currentPos ++;
+    }else{
+        if(currentPos < tokens.size()){
+            if(tokens[currentPos].type == kSEMI) {
+                currentPos ++;
+            }
+        }
+    }
     return std::make_unique<StmtExpr>(std::move(expr));
 }
 

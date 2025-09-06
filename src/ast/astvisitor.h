@@ -102,7 +102,7 @@ public:
     virtual void visit(PatternPath &node) = 0;
     virtual void visit(PatternReference &node) = 0;
     virtual void visit(PatternWildCard &node) = 0;
-    virtual void visit(PatternTupleStruct &node) = 0;
+    //virtual void visit(PatternTupleStruct &node) = 0;
 
     //Statement
     virtual void visit(Statement &node) = 0;

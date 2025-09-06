@@ -469,13 +469,56 @@ public:
         }
     }
     void visit(PatternIdentifier &node) override{
-        //TODO
+        std::cout << "PatternIdentifier: ";
+        if(node.is_ref) {
+            std::cout << "&";
+        }
+        if(node.is_mut) {
+            std::cout << "mut ";
+        }
+        std::cout << node.identifier << "\n";
     }
-    void visit(PatternTupleStruct &node) override;
-    void visit(PatternLiteral &node) override;
-    void visit(PatternPath &node) override;
-    void visit(PatternReference &node) override;
-    void visit(PatternWildCard &node) override;
+
+    /*void visit(PatternTupleStruct &node) override{
+        //No Match
+    }*/
+
+    void visit(PatternLiteral &node) override{
+        std::cout << "PatternLiteral: ";
+        if(node.isMinus){
+            std::cout << "- ";
+        }
+        node.pattern_literal->accept(*this);
+        std::cout << "\n";
+    }
+
+    void visit(PatternPath &node) override{
+        std::cout << "PatternPath: ";
+        node.path->accept(*this);
+        std::cout << "\n";
+    }
+
+    void visit(PatternReference &node) override{
+        std::cout << "PatternReference: ";
+        if(node.isANDAND) {
+            std::cout << "&& ";
+        }else{
+            std::cout << "& ";
+        }
+        if(node.is_mut) {
+            std::cout << "mut ";
+        }
+        if(node.patternWithoutRange) {
+            node.patternWithoutRange->accept(*this);
+        }
+        std::cout << "\n";
+    }
+
+    void visit(PatternWildCard &node) override{
+        std::cout << "PatternWildCard: ";
+        std::cout << "_";
+        std::cout << "\n";
+    }
 
     //Statement
     void visit(Statement &node) override {
@@ -491,17 +534,86 @@ public:
             std::cout << "Unknown Statement type in PrintVisitor\n";
         }
     }
-    void visit(StmtEmpty &node) override;
-    void visit(StmtExpr &node) override;
-    void visit(StmtItem &node) override;
-    void visit(StmtLet &node) override;
+    void visit(StmtEmpty &node) override{
+        std::cout << "StmtEmpty: ";
+        std::cout << ";\n";
+    }
+
+    void visit(StmtExpr &node) override{
+        std::cout << "StmtExpr: ";
+        node.stmtExpr->accept(*this);
+        std::cout << "\n";
+    }
+
+    void visit(StmtItem &node) override{
+        std::cout << "StmtItem: ";
+        node.stmt_item->accept(*this);
+        std::cout << "\n";
+    }
+
+    void visit(StmtLet &node) override{
+        std::cout << "StmtLet: ";
+        std::cout << "Let ";
+        node.PatternNoTopAlt->accept(*this);
+        std::cout << ":";
+        node.type->accept(*this);
+        if(node.expression){
+            std::cout << "=";
+            node.expression->accept(*this);
+        }
+        std::cout << ";\n";
+    }
 
     //Type
-    void visit(Type &node) override;
-    void visit(TypeArray &node) override;
-    void visit(TypePath &node) override;
-    void visit(TypeReference &node) override;
-    void visit(TypeUnit &node) override;
+    void visit(Type &node) override{
+        std::cout << "Type: ";
+        if(node.type == BOOL) {
+            std::cout << "bool\n";
+        }else if(node.type == U32) {
+            std::cout << "u32\n";
+        }else if(node.type == I32) {
+            std::cout << "i32\n";
+        }else if(node.type == USIZE) {
+            std::cout << "usize\n";
+        }else if(node.type == ISIZE) {
+            std::cout << "isize\n";
+        }else if(node.type == CHAR) {
+            std::cout << "char\n";
+        }else if(node.type == STR) {
+            std::cout << "str\n";
+        }else if(node.type == ENUM) {
+            std::cout << "enum\n";
+        }else{
+            std::cout << "unknown type\n";
+        }
+    }
+
+    void visit(TypeArray &node) override{
+        std::cout << "TypeArray: [";
+        node.type->accept(*this);
+        std::cout << "; ";
+        node.expr->accept(*this);
+        std::cout << "]\n";
+    }
+
+    void visit(TypePath &node) override{
+        std::cout << "TypePath: ";
+        node.typePath->accept(*this);
+        std::cout << "\n";
+    }
+
+    void visit(TypeReference &node) override{
+        std::cout << "TypeReference: &";
+        if(node.is_mut) {
+            std::cout << "mut ";
+        }
+        node.typeNoBounds->accept(*this);
+        std::cout << "\n";
+    }
+    
+    void visit(TypeUnit &node) override{
+        std::cout << "TypeUnit: ()\n";
+    }
 
     //Path
     void visit(Path &node) override;

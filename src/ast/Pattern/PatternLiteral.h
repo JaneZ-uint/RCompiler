@@ -2,16 +2,15 @@
 
 #include "pattern.h"
 #include <memory>
-#include <string>
 
 namespace JaneZ {
 class PatternLiteral : public Pattern {
 public:
-    std::string identifier;
+    bool isMinus = false;
     std::unique_ptr<ExprLiteral> pattern_literal;
 
-    PatternLiteral(std::string id, std::unique_ptr<ExprLiteral> literal)
-        : identifier(std::move(id)), pattern_literal(std::move(literal)) {}
+    PatternLiteral(bool _isMinus, std::unique_ptr<ExprLiteral> literal)
+        : isMinus(_isMinus), pattern_literal(std::move(literal)) {}
 
     ~PatternLiteral() = default;
 
