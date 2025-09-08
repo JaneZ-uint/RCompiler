@@ -1,5 +1,6 @@
 # include "parser.h"
 # include "../token/token.h"
+#include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -43,6 +44,7 @@ std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
         throw std::runtime_error("End of Program.");
     }
     Token current = tokens[currentPos];
+    std::unique_ptr<Item> stmt_item = nullptr;
     switch (current.type) {
         case kFN: 
         case kSTRUCT:
@@ -50,9 +52,25 @@ std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
         case kCONST:
         case kTRAIT: 
         case kIMPL: {
-            return std::make_unique<StmtItem>(parse_item());
+            stmt_item = parse_item();
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            currentPos ++;
+            if(currentPos >= tokens.size()){
+                throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type != kSEMI) {
+                throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+            }
+            currentPos ++;
+            break;
         }   
+        default:{
+            break;
+        }
     }
+    return std::make_unique<StmtItem>(std::move(stmt_item));
 }
 
 std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
@@ -82,6 +100,13 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
         }
         expr = parse_expr();
     }
+    if(currentPos >= tokens.size()){
+        throw std::runtime_error("End of Program.");
+    }
+    if(tokens[currentPos].type != kSEMI) {
+        throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+    }
+    currentPos ++;
     return std::make_unique<StmtLet>(std::move(pattern),std::move(type),std::move(expr));
 }
 

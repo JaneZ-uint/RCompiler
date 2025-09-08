@@ -379,7 +379,9 @@ public:
             }
         }
         std::cout << ") -> ";
-        node.returnType->accept(*this);
+        if(node.returnType){
+            node.returnType->accept(*this);
+        }
         std::cout << " {\n";
         if(node.fnBody){
             node.fnBody->accept(*this);
