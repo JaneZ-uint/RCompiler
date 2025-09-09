@@ -56,14 +56,15 @@ std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
-            currentPos ++;
+            //problem here!
+            /*currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
             if(tokens[currentPos].type != kSEMI) {
                 throw std::runtime_error("Wrong in stmt parsing, missing semi.");
             }
-            currentPos ++;
+            currentPos ++;*/
             break;
         }   
         default:{
