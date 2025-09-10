@@ -7,10 +7,10 @@
 namespace JaneZ {
 class ExprField : public Expression {
 public:
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
     std::string identifier;
 
-    ExprField(std::unique_ptr<Expression> ex, std::string id)
+    ExprField(std::shared_ptr<Expression> ex, std::string id)
         : expr(std::move(ex)), identifier(std::move(id)) {}
 
     ~ExprField() = default;

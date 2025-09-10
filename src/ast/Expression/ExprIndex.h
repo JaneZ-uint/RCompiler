@@ -5,10 +5,10 @@
 namespace JaneZ {
 class ExprIndex : public Expression {
 public:
-    std::unique_ptr<Expression> name;
-    std::unique_ptr<Expression> index;
+    std::shared_ptr<Expression> name;
+    std::shared_ptr<Expression> index;
 
-    ExprIndex(std::unique_ptr<Expression> nameExpr, std::unique_ptr<Expression> indexExpr)
+    ExprIndex(std::shared_ptr<Expression> nameExpr, std::shared_ptr<Expression> indexExpr)
         : name(std::move(nameExpr)), index(std::move(indexExpr)) {}
 
     ~ExprIndex() = default;

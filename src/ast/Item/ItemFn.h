@@ -15,7 +15,7 @@ struct ShortSelf{
 };
 struct TypeSelf{
     bool is_mut = false;
-    std::unique_ptr<ASTNode> type;
+    std::shared_ptr<ASTNode> type;
 };
 struct selfParam{
     bool isShortSelf = false;
@@ -23,8 +23,8 @@ struct selfParam{
     TypeSelf type_self;
 };
 struct functionParam{
-    std::unique_ptr<Pattern> pattern;
-    std::unique_ptr<ASTNode> type;
+    std::shared_ptr<Pattern> pattern;
+    std::shared_ptr<ASTNode> type;
 };
 struct fnParameter{
     selfParam SelfParam;
@@ -34,12 +34,12 @@ class ItemFnDecl : public Item {
 public:
     std::string identifier = "";
     fnParameter fnParameters;
-    std::unique_ptr<ExprBlock> fnBody;
-    std::unique_ptr<ASTNode> returnType;
+    std::shared_ptr<ExprBlock> fnBody;
+    std::shared_ptr<ASTNode> returnType;
     bool is_const = false;
 
     ItemFnDecl(std::string _identifier, fnParameter fnP, 
-        std::unique_ptr<ExprBlock> fnB, std::unique_ptr<ASTNode> returnT,bool isC = false): 
+        std::shared_ptr<ExprBlock> fnB, std::shared_ptr<ASTNode> returnT,bool isC = false): 
         identifier(std::move(_identifier)),fnParameters(std::move(fnP)),fnBody(std::move(fnB)),returnType(std::move(returnT)),is_const(isC){}
 
     ~ItemFnDecl() = default;

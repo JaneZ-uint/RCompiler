@@ -9,15 +9,15 @@ namespace JaneZ {
 class Path;
 struct StructExprField{
     std::string identifier;
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
 };
 
 class ExprStruct : public Expression {
 public:
-    std::unique_ptr<Expression> pathInExpr;
+    std::shared_ptr<Expression> pathInExpr;
     std::vector<StructExprField> structExprFields;
 
-    ExprStruct(std::unique_ptr<Expression> path, std::vector<StructExprField> fields)
+    ExprStruct(std::shared_ptr<Expression> path, std::vector<StructExprField> fields)
         : pathInExpr(std::move(path)), structExprFields(std::move(fields)) {}
 
     ~ExprStruct() = default;

@@ -205,13 +205,13 @@ int Parser::getRightpower(tokenType type) {
     return -1;
 }
 
-std::unique_ptr<Expression> Parser::parse_expr() {
+std::shared_ptr<Expression> Parser::parse_expr() {
     return parse_expr_interface(0);
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
+std::shared_ptr<Expression> Parser::parse_expr_interface(int power) {
     //size_t originPos = currentPos;
-    std::unique_ptr<Expression> left = parse_expr_prefix();
+    std::shared_ptr<Expression> left = parse_expr_prefix();
     while(true) {
         if(currentPos == tokens.size()){
             break;
@@ -225,7 +225,7 @@ std::unique_ptr<Expression> Parser::parse_expr_interface(int power) {
     return left;
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_prefix() {
+std::shared_ptr<Expression> Parser::parse_expr_prefix() {
     switch (tokens[currentPos].type) {
         case kCHAR_LITERAL:
         case kSTRING_LITERAL:
@@ -286,9 +286,9 @@ std::unique_ptr<Expression> Parser::parse_expr_prefix() {
     }
 }
 
-std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression> &&firstExpr) {
+std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression> &&firstExpr) {
     //size_t originPos = currentPos;
-    //std::unique_ptr<Expression> firstExpr;
+    //std::shared_ptr<Expression> firstExpr;
     //firstExpr = parse_expr();
     switch (tokens[currentPos].type) {
         case kL_BRACKET: {
@@ -296,13 +296,13 @@ std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression>
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
             }
-            std::unique_ptr<Expression> index;
+            std::shared_ptr<Expression> index;
             index = parse_expr();
             if(tokens[currentPos].type != kR_BRACKET) {
                 throw std::runtime_error("Wrong in expr index parsing, missing kR_BRACKET.");
             }
             currentPos ++;
-            return std::make_unique<ExprIndex>(std::move(firstExpr),std::move(index));
+            return std::make_shared<ExprIndex>(std::move(firstExpr),std::move(index));
         }
         case kL_BRACE: {
             //currentPos = originPos;
@@ -342,11 +342,11 @@ std::unique_ptr<Expression> Parser::parse_expr_infix(std::unique_ptr<Expression>
     //currentPos ++;
     tokenType type = tokens[currentPos].type;
     currentPos ++;
-    std::unique_ptr<Expression> right = parse_expr_interface(getRightpower(type));
-    return std::make_unique<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
+    std::shared_ptr<Expression> right = parse_expr_interface(getRightpower(type));
+    return std::make_shared<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
 }
 
-std::unique_ptr<ExprArray> Parser::parse_expr_array() {
+std::shared_ptr<ExprArray> Parser::parse_expr_array() {
     if(tokens[currentPos].type != kL_BRACKET){
         throw std::runtime_error("Wrong in expr array parsing, missing L_BRACKET.");
     }
@@ -354,10 +354,10 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> type;
-    std::unique_ptr<Expression> size;
-    std::unique_ptr<Expression> expr = nullptr;
-    std::vector<std::unique_ptr<Expression>> arrayExpr;
+    std::shared_ptr<Expression> type;
+    std::shared_ptr<Expression> size;
+    std::shared_ptr<Expression> expr = nullptr;
+    std::vector<std::shared_ptr<Expression>> arrayExpr;
     expr = parse_expr();
     if(tokens[currentPos].type == kSEMI){
         type = std::move(expr);
@@ -370,7 +370,7 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
             throw std::runtime_error("Wrong in expr array parsing, missing R_BRACKET.");
         }
         currentPos ++;
-        return std::make_unique<ExprArray>(std::move(type),std::move(size));
+        return std::make_shared<ExprArray>(std::move(type),std::move(size));
     }
     arrayExpr.push_back(std::move(expr));
     if(tokens[currentPos].type == kCOMMA){
@@ -381,7 +381,7 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
     }
     if(tokens[currentPos].type == kR_BRACKET){
         currentPos ++;
-        return std::make_unique<ExprArray>(std::move(arrayExpr));
+        return std::make_shared<ExprArray>(std::move(arrayExpr));
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_BRACKET){
@@ -397,15 +397,15 @@ std::unique_ptr<ExprArray> Parser::parse_expr_array() {
         }else if(flag){
             throw std::runtime_error("Wrong in expr array parsing, missing COMMA.");
         }
-        std::unique_ptr<Expression> tmp;
+        std::shared_ptr<Expression> tmp;
         tmp = parse_expr();
         arrayExpr.push_back(std::move(tmp));
     }
     currentPos ++;
-    return std::make_unique<ExprArray>(std::move(arrayExpr));
+    return std::make_shared<ExprArray>(std::move(arrayExpr));
 }
 
-std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
+std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     if(tokens[currentPos].type != kL_BRACE){
         throw std::runtime_error("Wrong in expr block parsing, missing L_BRACE.");
     }
@@ -413,9 +413,9 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::vector<std::unique_ptr<Statement>> statements;
-    std::unique_ptr<Expression> ExpressionWithoutBlock;
-    std::unique_ptr<Statement> tmp;
+    std::vector<std::shared_ptr<Statement>> statements;
+    std::shared_ptr<Expression> ExpressionWithoutBlock;
+    std::shared_ptr<Statement> tmp;
     bool isExprBlock = false;
     size_t ptr = currentPos;
     size_t bracePair = 1;
@@ -449,7 +449,7 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
             throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
         }
         currentPos ++;
-        return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
+        return std::make_shared<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
     }
     int lastSemi = -1;
     size_t pos = currentPos;
@@ -493,10 +493,10 @@ std::unique_ptr<ExprBlock> Parser::parse_expr_block() {
         throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
     }
     currentPos ++;
-    return std::make_unique<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
+    return std::make_shared<ExprBlock>(std::move(statements),std::move(ExpressionWithoutBlock));
 }
 
-std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
+std::shared_ptr<ExprBreak> Parser::parse_expr_break() {
     if(tokens[currentPos].type != kBREAK){
         throw std::runtime_error("Wrong in expr break parsing, missing BREAK.");
     }
@@ -504,22 +504,22 @@ std::unique_ptr<ExprBreak> Parser::parse_expr_break() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> expr = nullptr;
+    std::shared_ptr<Expression> expr = nullptr;
     if(tokens[currentPos].type == kSEMI){
         currentPos ++;
-        return std::make_unique<ExprBreak>(std::move(expr));
+        return std::make_shared<ExprBreak>(std::move(expr));
     }
     expr = parse_expr();
     if(tokens[currentPos].type != kSEMI){
         throw std::runtime_error("Wrong in expr break parsing, missing SEMI.");
     }
     currentPos ++;
-    return std::make_unique<ExprBreak>(std::move(expr));
+    return std::make_shared<ExprBreak>(std::move(expr));
 }
 
-std::unique_ptr<ExprCall> Parser::parse_expr_call(std::unique_ptr<Expression> &&expr) {
-    //std::unique_ptr<Expression> expr;
-    std::vector<std::unique_ptr<Expression>> callParams;
+std::shared_ptr<ExprCall> Parser::parse_expr_call(std::shared_ptr<Expression> &&expr) {
+    //std::shared_ptr<Expression> expr;
+    std::vector<std::shared_ptr<Expression>> callParams;
     //expr = parse_expr();
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr call parsing, missing L_PAREN.");
@@ -528,7 +528,7 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call(std::unique_ptr<Expression> &&
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> tmp;
+    std::shared_ptr<Expression> tmp;
     tmp = parse_expr();
     callParams.push_back(std::move(tmp));
     if(tokens[currentPos].type == kCOMMA) {
@@ -539,7 +539,7 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call(std::unique_ptr<Expression> &&
     }
     if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
-        return std::make_unique<ExprCall>(std::move(expr),std::move(callParams));
+        return std::make_shared<ExprCall>(std::move(expr),std::move(callParams));
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_PAREN){
@@ -559,10 +559,10 @@ std::unique_ptr<ExprCall> Parser::parse_expr_call(std::unique_ptr<Expression> &&
         callParams.push_back(std::move(tmp));
     }
     currentPos ++;
-    return std::make_unique<ExprCall>(std::move(expr),std::move(callParams));
+    return std::make_shared<ExprCall>(std::move(expr),std::move(callParams));
 }
 
-std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
+std::shared_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
     if(tokens[currentPos].type != kCONST){
         throw std::runtime_error("Wrong in expr constblock parsing, missing CONST.");
     }
@@ -570,12 +570,12 @@ std::unique_ptr<ExprConstBlock> Parser::parse_expr_constblock() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ExprBlock> expr;
+    std::shared_ptr<ExprBlock> expr;
     expr = parse_expr_block();
-    return std::make_unique<ExprConstBlock>(std::move(expr));
+    return std::make_shared<ExprConstBlock>(std::move(expr));
 }
 
-std::unique_ptr<ExprContinue> Parser::parse_expr_continue() {
+std::shared_ptr<ExprContinue> Parser::parse_expr_continue() {
     if(tokens[currentPos].type != kCONTINUE){
         throw std::runtime_error("Wrong in expr continue parsing, missing CONTINUE.");
     }
@@ -583,11 +583,11 @@ std::unique_ptr<ExprContinue> Parser::parse_expr_continue() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    return std::make_unique<ExprContinue>();
+    return std::make_shared<ExprContinue>();
 }
 
-std::unique_ptr<ExprField> Parser::parse_expr_field(std::unique_ptr<Expression> &&expr) {
-    //std::unique_ptr<Expression> expr;
+std::shared_ptr<ExprField> Parser::parse_expr_field(std::shared_ptr<Expression> &&expr) {
+    //std::shared_ptr<Expression> expr;
     std::string identifier;
     expr = parse_expr();
     if(tokens[currentPos].type != kDOT){
@@ -602,10 +602,10 @@ std::unique_ptr<ExprField> Parser::parse_expr_field(std::unique_ptr<Expression> 
     }
     identifier = tokens[currentPos].value;
     currentPos ++;
-    return std::make_unique<ExprField>(std::move(expr),std::move(identifier));
+    return std::make_shared<ExprField>(std::move(expr),std::move(identifier));
 }
 
-std::unique_ptr<ExprGroup> Parser::parse_expr_group() {
+std::shared_ptr<ExprGroup> Parser::parse_expr_group() {
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr group parsing, missing L_PAREN.");
     }
@@ -613,16 +613,16 @@ std::unique_ptr<ExprGroup> Parser::parse_expr_group() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
     expr = parse_expr();
     if(tokens[currentPos].type != kR_PAREN){
         throw std::runtime_error("Wrong in expr group parsing, missing R_PAREN.");
     }
     currentPos ++;
-    return std::make_unique<ExprGroup>(std::move(expr));
+    return std::make_shared<ExprGroup>(std::move(expr));
 }
 
-std::unique_ptr<ExprIf> Parser::parse_expr_if() {
+std::shared_ptr<ExprIf> Parser::parse_expr_if() {
     if(tokens[currentPos].type != kIF){
         throw std::runtime_error("Wrong in expr if parsing, missing IF.");
     }
@@ -630,9 +630,9 @@ std::unique_ptr<ExprIf> Parser::parse_expr_if() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> condition = nullptr;
-    std::unique_ptr<ExprBlock> thenBlock = nullptr;
-    std::unique_ptr<Expression> elseBlock = nullptr;
+    std::shared_ptr<Expression> condition = nullptr;
+    std::shared_ptr<ExprBlock> thenBlock = nullptr;
+    std::shared_ptr<Expression> elseBlock = nullptr;
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in expr if parsing, missing L_PAREN.");
     }
@@ -651,17 +651,17 @@ std::unique_ptr<ExprIf> Parser::parse_expr_if() {
     }
     thenBlock = parse_expr_block();
     if(tokens[currentPos].type != kELSE){
-        return std::make_unique<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
+        return std::make_shared<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
     }
     currentPos ++;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     elseBlock = parse_expr();
-    return std::make_unique<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
+    return std::make_shared<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
 }
 
-std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
+std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
     std::string literal;
     LiteralType type;
     switch (tokens[currentPos].type) {
@@ -710,20 +710,20 @@ std::unique_ptr<ExprLiteral> Parser::parse_expr_literal() {
         }
     }
     currentPos ++;
-    return std::make_unique<ExprLiteral>(std::move(literal),type);
+    return std::make_shared<ExprLiteral>(std::move(literal),type);
 }
 
-std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
-    std::unique_ptr<ExprBlock> infinitieLoop;
-    std::unique_ptr<Expression> condition;
-    std::unique_ptr<ExprBlock> PredicateLoopExpression;
+std::shared_ptr<ExprLoop> Parser::parse_expr_loop() {
+    std::shared_ptr<ExprBlock> infinitieLoop;
+    std::shared_ptr<Expression> condition;
+    std::shared_ptr<ExprBlock> PredicateLoopExpression;
     if(tokens[currentPos].type == kLOOP){
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
         infinitieLoop = parse_expr_block();
-        return std::make_unique<ExprLoop>(std::move(infinitieLoop));
+        return std::make_shared<ExprLoop>(std::move(infinitieLoop));
     }else if(tokens[currentPos].type == kWHILE){
         currentPos ++;
         if(currentPos >= tokens.size()){
@@ -746,16 +746,16 @@ std::unique_ptr<ExprLoop> Parser::parse_expr_loop() {
             throw std::runtime_error("End of Program.");
         }
         PredicateLoopExpression = parse_expr_block();
-        return std::make_unique<ExprLoop>(std::move(condition),std::move(PredicateLoopExpression));
+        return std::make_shared<ExprLoop>(std::move(condition),std::move(PredicateLoopExpression));
     }else {
         throw std::runtime_error("Wrong in expr loop parsing, missing LOOP or WHILE.");
     }
 }
 
-std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::unique_ptr<Expression> &&expr) {
-    //std::unique_ptr<Expression> expr;
-    std::unique_ptr<Path> PathExprSegment;
-    std::vector<std::unique_ptr<Expression>> callParams;
+std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Expression> &&expr) {
+    //std::shared_ptr<Expression> expr;
+    std::shared_ptr<Path> PathExprSegment;
+    std::vector<std::shared_ptr<Expression>> callParams;
     expr = parse_expr();
     /*if(tokens[currentPos].type != kDOT){
         throw std::runtime_error("Wrong in expr methodcall parsing, missing DOT.");
@@ -772,7 +772,7 @@ std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::unique_ptr<Ex
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> tmp;
+    std::shared_ptr<Expression> tmp;
     tmp = parse_expr();
     callParams.push_back(std::move(tmp));
     if(tokens[currentPos].type == kCOMMA) {
@@ -783,7 +783,7 @@ std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::unique_ptr<Ex
     }
     if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
-        return std::make_unique<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
+        return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_PAREN){
@@ -803,14 +803,14 @@ std::unique_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::unique_ptr<Ex
         callParams.push_back(std::move(tmp));
     }
     currentPos ++;
-    return std::make_unique<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
+    return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
 }
 
-std::unique_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
+std::shared_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
 
 }
 
-std::unique_ptr<ExprOpunary> Parser::parse_expr_opunary() {
+std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
     unaryOp op;
     op = getUnaryOp(tokens[currentPos].type);
     bool is_mut = false;
@@ -835,13 +835,13 @@ std::unique_ptr<ExprOpunary> Parser::parse_expr_opunary() {
             throw std::runtime_error("End of Program.");
         }
     }
-    std::unique_ptr<Expression> right = nullptr;
+    std::shared_ptr<Expression> right = nullptr;
     //TODO
 }
 
-std::unique_ptr<ExprPath> Parser::parse_expr_path() {
-    std::unique_ptr<Path> pathFirst = nullptr;
-    std::unique_ptr<Path> pathSecond = nullptr;
+std::shared_ptr<ExprPath> Parser::parse_expr_path() {
+    std::shared_ptr<Path> pathFirst = nullptr;
+    std::shared_ptr<Path> pathSecond = nullptr;
     pathFirst = parse_path();
     if(tokens[currentPos].type == kPATHSEP){
         currentPos ++;
@@ -849,12 +849,12 @@ std::unique_ptr<ExprPath> Parser::parse_expr_path() {
             throw std::runtime_error("End of Program.");
         }
         pathSecond = parse_path();
-        return std::make_unique<ExprPath>(std::move(pathFirst),std::move(pathSecond));
+        return std::make_shared<ExprPath>(std::move(pathFirst),std::move(pathSecond));
     }
-    return std::make_unique<ExprPath>(std::move(pathFirst),std::move(pathSecond));
+    return std::make_shared<ExprPath>(std::move(pathFirst),std::move(pathSecond));
 }
 
-std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
+std::shared_ptr<ExprReturn> Parser::parse_expr_return() {
     if(tokens[currentPos].type != kRETURN){
         throw std::runtime_error("Wrong in expr return parsing, missing return.");
     }
@@ -862,13 +862,13 @@ std::unique_ptr<ExprReturn> Parser::parse_expr_return() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
     expr = parse_expr();
-    return std::make_unique<ExprReturn>(std::move(expr));
+    return std::make_shared<ExprReturn>(std::move(expr));
 }
 
-std::unique_ptr<ExprStruct> Parser::parse_expr_struct(std::unique_ptr<Expression> &&pathInExpr) {
-    //std::unique_ptr<ExprPath> pathInExpr;
+std::shared_ptr<ExprStruct> Parser::parse_expr_struct(std::shared_ptr<Expression> &&pathInExpr) {
+    //std::shared_ptr<ExprPath> pathInExpr;
     std::vector<StructExprField> structExprFields;
     //pathInExpr = parse_expr_path();
     if(tokens[currentPos].type != kL_BRACE) {
@@ -904,7 +904,7 @@ std::unique_ptr<ExprStruct> Parser::parse_expr_struct(std::unique_ptr<Expression
     }
     if(tokens[currentPos].type == kR_BRACE) {
         currentPos ++;
-        return std::make_unique<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
+        return std::make_shared<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_BRACE) {
@@ -938,14 +938,14 @@ std::unique_ptr<ExprStruct> Parser::parse_expr_struct(std::unique_ptr<Expression
         structExprFields.push_back(std::move(tmp));
     }
     currentPos ++;
-    return std::make_unique<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
+    return std::make_shared<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
 }
 
-std::unique_ptr<ExprUnderscore> Parser::parse_expr_underscore() {
+std::shared_ptr<ExprUnderscore> Parser::parse_expr_underscore() {
     if(tokens[currentPos].type != kUNDERSCORE){
         throw std::runtime_error("Wrong in expr underscore parsing, missing UNDERSCORE.");
     }
     currentPos ++;
-    return std::make_unique<ExprUnderscore>();
+    return std::make_shared<ExprUnderscore>();
 }
 }

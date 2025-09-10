@@ -44,11 +44,11 @@ enum binaryOp {
 
 class ExprOpbinary : public Expression {
 public:
-    std::unique_ptr<Expression> left;
+    std::shared_ptr<Expression> left;
     binaryOp op;
-    std::unique_ptr<Expression> right;
+    std::shared_ptr<Expression> right;
 
-    ExprOpbinary(std::unique_ptr<Expression> leftExpr, binaryOp operation, std::unique_ptr<Expression> rightExpr)
+    ExprOpbinary(std::shared_ptr<Expression> leftExpr, binaryOp operation, std::shared_ptr<Expression> rightExpr)
         : left(std::move(leftExpr)), op(operation), right(std::move(rightExpr)) {}
 
     ~ExprOpbinary() = default;

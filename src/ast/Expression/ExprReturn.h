@@ -5,9 +5,9 @@
 namespace JaneZ {
 class ExprReturn : public Expression {
 public:
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
 
-    ExprReturn(std::unique_ptr<Expression> expression)
+    ExprReturn(std::shared_ptr<Expression> expression)
         : expr(std::move(expression)) {}
 
     ~ExprReturn() = default;

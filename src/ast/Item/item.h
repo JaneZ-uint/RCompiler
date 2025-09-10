@@ -14,11 +14,11 @@ public:
 };
 
 struct ItemTupleVariant{
-    std::unique_ptr<ASTNode> tupleElem;
+    std::shared_ptr<ASTNode> tupleElem;
 };
 
 struct ItemStructVariant{
-    std::unique_ptr<ASTNode> structElem;
+    std::shared_ptr<ASTNode> structElem;
     std::string identifier;
 };
 

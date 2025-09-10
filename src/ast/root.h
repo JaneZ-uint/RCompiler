@@ -8,9 +8,9 @@ namespace JaneZ {
 class Item;
 class  ASTRootNode: public ASTNode{
 public:
-    std::vector<std::unique_ptr<Item>> child;
+    std::vector<std::shared_ptr<Item>> child;
     
-    ASTRootNode(std::vector<std::unique_ptr<Item>> _child) : child(std::move(_child)) {}
+    ASTRootNode(std::vector<std::shared_ptr<Item>> _child) : child(std::move(_child)) {}
 
     ~ASTRootNode() = default;
 

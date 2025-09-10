@@ -6,9 +6,9 @@ namespace JaneZ {
 class Item;
 class StmtItem : public Statement {
 public:
-    std::unique_ptr<Item> stmt_item;
+    std::shared_ptr<Item> stmt_item;
 
-    StmtItem(std::unique_ptr<Item> si): stmt_item(std::move(si)) {}
+    StmtItem(std::shared_ptr<Item> si): stmt_item(std::move(si)) {}
 
     ~StmtItem() = default;
 

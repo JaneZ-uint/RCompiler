@@ -8,10 +8,10 @@
 namespace JaneZ {
 class PatternTupleStruct : public Pattern {
 public:
-    std::unique_ptr<Path> pathInExpr; 
-    std::vector<std::unique_ptr<Pattern>> tuple_struct_item;
+    std::shared_ptr<Path> pathInExpr; 
+    std::vector<std::shared_ptr<Pattern>> tuple_struct_item;
 
-    PatternTupleStruct(std::unique_ptr<Path> pIE,std::vector<std::unique_ptr<Pattern>> tsi): 
+    PatternTupleStruct(std::shared_ptr<Path> pIE,std::vector<std::shared_ptr<Pattern>> tsi): 
         pathInExpr(std::move(pIE)), tuple_struct_item(std::move(tsi)){}
 
     ~PatternTupleStruct() = default;

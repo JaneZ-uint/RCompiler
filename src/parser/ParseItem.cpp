@@ -4,7 +4,7 @@
 #include <utility>
 
 namespace JaneZ {
-std::unique_ptr<Item> Parser::parse_item(){
+std::shared_ptr<Item> Parser::parse_item(){
     Token current = tokens[currentPos];
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
@@ -39,7 +39,7 @@ std::unique_ptr<Item> Parser::parse_item(){
     }
 }
 
-std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
+std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     bool is_const = false;
     if(tokens[currentPos].type == kCONST){
         is_const = true;
@@ -266,7 +266,7 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
         }
     }
 
-    std::unique_ptr<ASTNode> returnType = nullptr;
+    std::shared_ptr<ASTNode> returnType = nullptr;
     if(tokens[currentPos].type != kL_BRACE){
         //exist fn return type
         if(tokens[currentPos].type != kRARROW){
@@ -285,17 +285,17 @@ std::unique_ptr<ItemFnDecl> Parser::parse_item_fn() {
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ExprBlock> fnBody = nullptr;
+    std::shared_ptr<ExprBlock> fnBody = nullptr;
     if(tokens[currentPos].type == kSEMI){
         currentPos ++;
     }else{
         currentPos --;
         fnBody = parse_expr_block();
     }
-    return std::make_unique<ItemFnDecl>(std::move(identifier),std::move(param),std::move(fnBody),std::move(returnType),is_const);
+    return std::make_shared<ItemFnDecl>(std::move(identifier),std::move(param),std::move(fnBody),std::move(returnType),is_const);
 }
 
-std::unique_ptr<ItemConstDecl> Parser::parse_item_const() {
+std::shared_ptr<ItemConstDecl> Parser::parse_item_const() {
     currentPos ++;
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
@@ -316,12 +316,12 @@ std::unique_ptr<ItemConstDecl> Parser::parse_item_const() {
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ASTNode> type;
-    std::unique_ptr<Expression> expr = nullptr;
+    std::shared_ptr<ASTNode> type;
+    std::shared_ptr<Expression> expr = nullptr;
     type = parse_type();
     if(tokens[currentPos].type == kSEMI){
         currentPos ++;
-        return std::make_unique<ItemConstDecl>(std::move(identifier),std::move(type),std::move(expr));
+        return std::make_shared<ItemConstDecl>(std::move(identifier),std::move(type),std::move(expr));
     }
     if(tokens[currentPos].type != kEQ){
         throw std::runtime_error("Wrong in item const parsing, missing EQ.");
@@ -335,10 +335,10 @@ std::unique_ptr<ItemConstDecl> Parser::parse_item_const() {
         throw std::runtime_error("Wrong in item const parsing, missing SEMI.");
     }
     currentPos ++;
-    return std::make_unique<ItemConstDecl>(std::move(identifier),std::move(type),std::move(expr));
+    return std::make_shared<ItemConstDecl>(std::move(identifier),std::move(type),std::move(expr));
 }
 
-std::unique_ptr<ItemEnumDecl> Parser::parse_item_enum() {
+std::shared_ptr<ItemEnumDecl> Parser::parse_item_enum() {
     currentPos ++;
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
@@ -362,7 +362,7 @@ std::unique_ptr<ItemEnumDecl> Parser::parse_item_enum() {
     std::vector<std::string> item_enum;
     if(tokens[currentPos].type == kR_BRACE){
         currentPos ++;
-        return std::make_unique<ItemEnumDecl>(std::move(identifier),std::move(item_enum));
+        return std::make_shared<ItemEnumDecl>(std::move(identifier),std::move(item_enum));
     }
     std::string tmp = "";
     if(tokens[currentPos].type != kIDENTIFIER){
@@ -410,18 +410,18 @@ std::unique_ptr<ItemEnumDecl> Parser::parse_item_enum() {
         }
     }
     currentPos ++;
-    return std::make_unique<ItemEnumDecl>(std::move(identifier),std::move(item_enum));
+    return std::make_shared<ItemEnumDecl>(std::move(identifier),std::move(item_enum));
 }
 
-std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
+std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
     currentPos ++;
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
     }
     std::string identifier = "";
-    std::unique_ptr<ASTNode> targetType;
-    std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
-    std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
+    std::shared_ptr<ASTNode> targetType;
+    std::vector<std::shared_ptr<ItemConstDecl>> item_trait_const;
+    std::vector<std::shared_ptr<ItemFnDecl>> item_trait_fn;
     // first : TraitImpl
     if(tokens[currentPos].type == kIDENTIFIER){
         currentPos ++;
@@ -445,11 +445,11 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
         }
         if(tokens[currentPos].type == kR_BRACE){
             currentPos ++;
-            return std::make_unique<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+            return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
         }
         while(tokens[currentPos].type != kR_BRACE){
-            std::unique_ptr<ItemConstDecl> tmpConst = nullptr;
-            std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
+            std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
+            std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
             if(tokens[currentPos].type == kCONST){
                 tmpConst = parse_item_const();
                 item_trait_const.push_back(std::move(tmpConst));
@@ -461,7 +461,7 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
             }
         }
         currentPos ++;
-        return std::make_unique<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+        return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
     }else{
         //second : InherentImpl
         targetType = parse_type();
@@ -474,11 +474,11 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
         }
         if(tokens[currentPos].type == kR_BRACE){
             currentPos ++;
-            return std::make_unique<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+            return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
         }
         while(tokens[currentPos].type != kR_BRACE){
-            std::unique_ptr<ItemConstDecl> tmpConst = nullptr;
-            std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
+            std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
+            std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
             if(tokens[currentPos].type == kCONST){
                 tmpConst = parse_item_const();
                 item_trait_const.push_back(std::move(tmpConst));
@@ -490,11 +490,11 @@ std::unique_ptr<ItemImplDecl> Parser::parse_item_impl() {
             }
         }
         currentPos ++;
-        return std::make_unique<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+        return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
     }
 }
 
-std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
+std::shared_ptr<ItemStructDecl> Parser::parse_item_struct() {
     currentPos ++;
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
@@ -508,7 +508,7 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
     std::vector<ItemStructVariant> item_struct;
     if(tokens[currentPos].type == kSEMI){
         currentPos ++;
-        return std::make_unique<ItemStructDecl>(std::move(identifier),std::move(item_struct));
+        return std::make_shared<ItemStructDecl>(std::move(identifier),std::move(item_struct));
     }
     if(tokens[currentPos].type != kL_BRACE){
         throw std::runtime_error("Wrong in item struct parsing, missing L_BRACE.");
@@ -519,7 +519,7 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
     }
     if(tokens[currentPos].type == kR_BRACE){
         currentPos ++;
-        return std::make_unique<ItemStructDecl>(std::move(identifier),std::move(item_struct));
+        return std::make_shared<ItemStructDecl>(std::move(identifier),std::move(item_struct));
     }
     // Start Structfields
     ItemStructVariant tmp;
@@ -580,10 +580,10 @@ std::unique_ptr<ItemStructDecl> Parser::parse_item_struct() {
         item_struct.push_back(std::move(tp));
     }
     currentPos ++;
-    return std::make_unique<ItemStructDecl>(std::move(identifier),std::move(item_struct));
+    return std::make_shared<ItemStructDecl>(std::move(identifier),std::move(item_struct));
 }
 
-std::unique_ptr<ItemTraitDecl> Parser::parse_item_trait() {
+std::shared_ptr<ItemTraitDecl> Parser::parse_item_trait() {
     currentPos ++;
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
@@ -604,15 +604,15 @@ std::unique_ptr<ItemTraitDecl> Parser::parse_item_trait() {
     if(currentPos >= tokens.size()) {
         throw std::runtime_error("End of Program.");
     }
-    std::vector<std::unique_ptr<ItemConstDecl>> item_trait_const;
-    std::vector<std::unique_ptr<ItemFnDecl>> item_trait_fn;
+    std::vector<std::shared_ptr<ItemConstDecl>> item_trait_const;
+    std::vector<std::shared_ptr<ItemFnDecl>> item_trait_fn;
     if(tokens[currentPos].type == kR_BRACE){
         currentPos ++;
-        return std::make_unique<ItemTraitDecl>(std::move(identifier),std::move(item_trait_const),std::move(item_trait_fn));
+        return std::make_shared<ItemTraitDecl>(std::move(identifier),std::move(item_trait_const),std::move(item_trait_fn));
     }
     while(tokens[currentPos].type != kR_BRACE){
-        std::unique_ptr<ItemConstDecl> tmpConst = nullptr;
-        std::unique_ptr<ItemFnDecl> tmpFn = nullptr;
+        std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
+        std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
         if(tokens[currentPos].type == kCONST){
             tmpConst = parse_item_const();
             item_trait_const.push_back(std::move(tmpConst));
@@ -624,7 +624,7 @@ std::unique_ptr<ItemTraitDecl> Parser::parse_item_trait() {
         }
     }
     currentPos ++;
-    return std::make_unique<ItemTraitDecl>(std::move(identifier),std::move(item_trait_const),std::move(item_trait_fn));
+    return std::make_shared<ItemTraitDecl>(std::move(identifier),std::move(item_trait_const),std::move(item_trait_fn));
 }
 
 }

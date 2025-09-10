@@ -5,9 +5,9 @@
 namespace JaneZ {
 class ExprGroup : public Expression {
 public:
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<Expression> expr;
 
-    ExprGroup(std::unique_ptr<Expression> e)
+    ExprGroup(std::shared_ptr<Expression> e)
         : expr(std::move(e)) {}
 
     ~ExprGroup() = default;

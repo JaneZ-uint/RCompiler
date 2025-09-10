@@ -2,15 +2,17 @@
 
 #include <memory>
 #include <vector>
+#include "SymbolTable.h"
 
 namespace JaneZ {
 class ScopeNode{
 private:
-
-public:
-    std::unique_ptr<ScopeNode> parent;
-    std::vector<std::unique_ptr<ScopeNode>> child;
+    SymbolTable symbol_table;
     
+public:
+    std::shared_ptr<ScopeNode> parent;
+    std::vector<std::shared_ptr<ScopeNode>> child;
+
 };
 
 }

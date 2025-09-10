@@ -7,13 +7,13 @@ namespace JaneZ {
 class ExprBlock;
 class ExprIf : public Expression {
 public:
-    std::unique_ptr<Expression> condition;
-    std::unique_ptr<ExprBlock> thenBlock;
-    std::unique_ptr<Expression> elseBlock;
+    std::shared_ptr<Expression> condition;
+    std::shared_ptr<ExprBlock> thenBlock;
+    std::shared_ptr<Expression> elseBlock;
 
-    ExprIf(std::unique_ptr<Expression> cond,
-          std::unique_ptr<ExprBlock> thenBlk,
-          std::unique_ptr<Expression> elseBlk)
+    ExprIf(std::shared_ptr<Expression> cond,
+          std::shared_ptr<ExprBlock> thenBlk,
+          std::shared_ptr<Expression> elseBlk)
         : condition(std::move(cond)),
           thenBlock(std::move(thenBlk)),
           elseBlock(std::move(elseBlk)) {}

@@ -6,9 +6,9 @@
 namespace JaneZ {
 class PatternPath : public Pattern {
 public:
-    std::unique_ptr<ExprPath> path;
+    std::shared_ptr<ExprPath> path;
 
-    PatternPath(std::unique_ptr<ExprPath> p) : path(std::move(p)) {}    
+    PatternPath(std::shared_ptr<ExprPath> p) : path(std::move(p)) {}    
 
     ~PatternPath() = default;
 

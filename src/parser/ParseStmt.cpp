@@ -6,7 +6,7 @@
 #include <utility>
 
 namespace JaneZ {
-std::unique_ptr<Statement> Parser::parse_statement() {
+std::shared_ptr<Statement> Parser::parse_statement() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -31,20 +31,20 @@ std::unique_ptr<Statement> Parser::parse_statement() {
     }
 }
 
-std::unique_ptr<StmtEmpty> Parser::parse_stmt_empty() {
+std::shared_ptr<StmtEmpty> Parser::parse_stmt_empty() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     currentPos ++;
-    return std::make_unique<StmtEmpty>();
+    return std::make_shared<StmtEmpty>();
 }
 
-std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
+std::shared_ptr<StmtItem> Parser::parse_stmt_item() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
     Token current = tokens[currentPos];
-    std::unique_ptr<Item> stmt_item = nullptr;
+    std::shared_ptr<Item> stmt_item = nullptr;
     switch (current.type) {
         case kFN: 
         case kSTRUCT:
@@ -71,10 +71,10 @@ std::unique_ptr<StmtItem> Parser::parse_stmt_item() {
             break;
         }
     }
-    return std::make_unique<StmtItem>(std::move(stmt_item));
+    return std::make_shared<StmtItem>(std::move(stmt_item));
 }
 
-std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
+std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -82,8 +82,8 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Pattern> pattern = parse_pattern();
-    std::unique_ptr<ASTNode> type = nullptr;
+    std::shared_ptr<Pattern> pattern = parse_pattern();
+    std::shared_ptr<ASTNode> type = nullptr;
     if (tokens[currentPos].type == kCOLON) {
         currentPos ++;
         if(currentPos >= tokens.size()){
@@ -93,7 +93,7 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
     }else{
         throw std::runtime_error("Wring in stmt let parsing, missing type.");
     }
-    std::unique_ptr<Expression> expr = nullptr;
+    std::shared_ptr<Expression> expr = nullptr;
     if(tokens[currentPos].type == kEQ) {
         currentPos ++;
         if(currentPos >= tokens.size()){
@@ -108,14 +108,14 @@ std::unique_ptr<StmtLet> Parser::parse_stmt_let(){
         throw std::runtime_error("Wrong in stmt parsing, missing semi.");
     }
     currentPos ++;
-    return std::make_unique<StmtLet>(std::move(pattern),std::move(type),std::move(expr));
+    return std::make_shared<StmtLet>(std::move(pattern),std::move(type),std::move(expr));
 }
 
-std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {
+std::shared_ptr<StmtExpr> Parser::parse_stmt_expr() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<Expression> expr = parse_expr();
+    std::shared_ptr<Expression> expr = parse_expr();
     if(auto *p = dynamic_cast<ExprArray *>(& *expr)) {
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
@@ -235,7 +235,7 @@ std::unique_ptr<StmtExpr> Parser::parse_stmt_expr() {
             }
         }
     }
-    return std::make_unique<StmtExpr>(std::move(expr));
+    return std::make_shared<StmtExpr>(std::move(expr));
 }
 
 }

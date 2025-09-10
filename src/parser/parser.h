@@ -63,70 +63,70 @@ private:
     unaryOp getUnaryOp(tokenType current);
     int getLeftpower(tokenType type);
     int getRightpower(tokenType type);
-    std::unique_ptr<Expression> parse_expr();
-    std::unique_ptr<Expression> parse_expr_interface(int power);
-    std::unique_ptr<Expression> parse_expr_prefix();
-    std::unique_ptr<Expression> parse_expr_infix(std::unique_ptr<Expression> &&firstExpr);
-    std::unique_ptr<ExprArray> parse_expr_array();
-    std::unique_ptr<ExprBlock> parse_expr_block();
-    std::unique_ptr<ExprBreak> parse_expr_break();
-    std::unique_ptr<ExprCall> parse_expr_call(std::unique_ptr<Expression> &&expr);
-    std::unique_ptr<ExprConstBlock> parse_expr_constblock();
-    std::unique_ptr<ExprContinue> parse_expr_continue();
-    std::unique_ptr<ExprField> parse_expr_field(std::unique_ptr<Expression> &&expr);
-    std::unique_ptr<ExprGroup> parse_expr_group();
-    std::unique_ptr<ExprIf> parse_expr_if();
-    std::unique_ptr<ExprLiteral> parse_expr_literal();
-    std::unique_ptr<ExprLoop> parse_expr_loop();
-    //std::unique_ptr<ExprMatch> parse_expr_match();
-    std::unique_ptr<ExprMethodcall> parse_expr_methodcall(std::unique_ptr<Expression> &&expr);
-    std::unique_ptr<ExprOpbinary> parse_expr_opbinary();
-    std::unique_ptr<ExprOpunary> parse_expr_opunary();
-    std::unique_ptr<ExprPath> parse_expr_path();
-    std::unique_ptr<ExprReturn> parse_expr_return();
-    std::unique_ptr<ExprStruct> parse_expr_struct(std::unique_ptr<Expression> &&pathInExpr);
-    std::unique_ptr<ExprUnderscore> parse_expr_underscore();
+    std::shared_ptr<Expression> parse_expr();
+    std::shared_ptr<Expression> parse_expr_interface(int power);
+    std::shared_ptr<Expression> parse_expr_prefix();
+    std::shared_ptr<Expression> parse_expr_infix(std::shared_ptr<Expression> &&firstExpr);
+    std::shared_ptr<ExprArray> parse_expr_array();
+    std::shared_ptr<ExprBlock> parse_expr_block();
+    std::shared_ptr<ExprBreak> parse_expr_break();
+    std::shared_ptr<ExprCall> parse_expr_call(std::shared_ptr<Expression> &&expr);
+    std::shared_ptr<ExprConstBlock> parse_expr_constblock();
+    std::shared_ptr<ExprContinue> parse_expr_continue();
+    std::shared_ptr<ExprField> parse_expr_field(std::shared_ptr<Expression> &&expr);
+    std::shared_ptr<ExprGroup> parse_expr_group();
+    std::shared_ptr<ExprIf> parse_expr_if();
+    std::shared_ptr<ExprLiteral> parse_expr_literal();
+    std::shared_ptr<ExprLoop> parse_expr_loop();
+    //std::shared_ptr<ExprMatch> parse_expr_match();
+    std::shared_ptr<ExprMethodcall> parse_expr_methodcall(std::shared_ptr<Expression> &&expr);
+    std::shared_ptr<ExprOpbinary> parse_expr_opbinary();
+    std::shared_ptr<ExprOpunary> parse_expr_opunary();
+    std::shared_ptr<ExprPath> parse_expr_path();
+    std::shared_ptr<ExprReturn> parse_expr_return();
+    std::shared_ptr<ExprStruct> parse_expr_struct(std::shared_ptr<Expression> &&pathInExpr);
+    std::shared_ptr<ExprUnderscore> parse_expr_underscore();
 
     //Recursive Descent Parser
     // Item
-    std::unique_ptr<Item> parse_item();
-    std::unique_ptr<ItemFnDecl> parse_item_fn();
-    std::unique_ptr<ItemConstDecl> parse_item_const();
-    std::unique_ptr<ItemEnumDecl> parse_item_enum();
-    std::unique_ptr<ItemImplDecl> parse_item_impl();
-    std::unique_ptr<ItemStructDecl> parse_item_struct();
-    std::unique_ptr<ItemTraitDecl> parse_item_trait();
+    std::shared_ptr<Item> parse_item();
+    std::shared_ptr<ItemFnDecl> parse_item_fn();
+    std::shared_ptr<ItemConstDecl> parse_item_const();
+    std::shared_ptr<ItemEnumDecl> parse_item_enum();
+    std::shared_ptr<ItemImplDecl> parse_item_impl();
+    std::shared_ptr<ItemStructDecl> parse_item_struct();
+    std::shared_ptr<ItemTraitDecl> parse_item_trait();
 
     // Pattern
-    std::unique_ptr<Pattern> parse_pattern();
-    std::unique_ptr<PatternIdentifier> parse_pattern_identifier();
-    std::unique_ptr<PatternLiteral> parse_pattern_literal();
-    std::unique_ptr<PatternPath> parse_pattern_path();
-    std::unique_ptr<PatternReference> parse_pattern_reference();
-    //std::unique_ptr<PatternStruct> parse_pattern_struct();
-    //std::unique_ptr<PatternTuple> parse_pattern_tuple_struct();
-    std::unique_ptr<PatternWildCard> parse_pattern_wildcard();
+    std::shared_ptr<Pattern> parse_pattern();
+    std::shared_ptr<PatternIdentifier> parse_pattern_identifier();
+    std::shared_ptr<PatternLiteral> parse_pattern_literal();
+    std::shared_ptr<PatternPath> parse_pattern_path();
+    std::shared_ptr<PatternReference> parse_pattern_reference();
+    //std::shared_ptr<PatternStruct> parse_pattern_struct();
+    //std::shared_ptr<PatternTuple> parse_pattern_tuple_struct();
+    std::shared_ptr<PatternWildCard> parse_pattern_wildcard();
 
     // Statement
-    std::unique_ptr<Statement> parse_statement();
-    std::unique_ptr<StmtEmpty> parse_stmt_empty();
-    std::unique_ptr<StmtExpr> parse_stmt_expr();
-    std::unique_ptr<StmtItem> parse_stmt_item();
-    std::unique_ptr<StmtLet> parse_stmt_let();
+    std::shared_ptr<Statement> parse_statement();
+    std::shared_ptr<StmtEmpty> parse_stmt_empty();
+    std::shared_ptr<StmtExpr> parse_stmt_expr();
+    std::shared_ptr<StmtItem> parse_stmt_item();
+    std::shared_ptr<StmtLet> parse_stmt_let();
 
     // Type
-    std::unique_ptr<ASTNode> parse_type();
-    std::unique_ptr<TypeArray> parse_type_array();
-    std::unique_ptr<TypeReference> parse_type_reference();
-    std::unique_ptr<TypeUnit> parse_type_unit();
+    std::shared_ptr<ASTNode> parse_type();
+    std::shared_ptr<TypeArray> parse_type_array();
+    std::shared_ptr<TypeReference> parse_type_reference();
+    std::shared_ptr<TypeUnit> parse_type_unit();
 
     // Path
-    std::unique_ptr<Path> parse_path();
+    std::shared_ptr<Path> parse_path();
 
 public:
     Parser(std::vector<Token> t) : tokens(std::move(t)) {}
 
-    std::unique_ptr<ASTRootNode> parse();
+    std::shared_ptr<ASTRootNode> parse();
 
 };
 

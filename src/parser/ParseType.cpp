@@ -3,31 +3,31 @@
 #include <stdexcept>
 
 namespace JaneZ {
-std::unique_ptr<ASTNode> Parser::parse_type() {
+std::shared_ptr<ASTNode> Parser::parse_type() {
     if(tokens[currentPos].value == "bool"){
         currentPos ++;
-        return std::make_unique<Type>(BOOL);
+        return std::make_shared<Type>(BOOL);
     }else if(tokens[currentPos].value == "u32"){
         currentPos ++;
-        return std::make_unique<Type>(U32);
+        return std::make_shared<Type>(U32);
     }else if(tokens[currentPos].value == "i32"){
         currentPos ++;
-        return std::make_unique<Type>(I32);
+        return std::make_shared<Type>(I32);
     }else if(tokens[currentPos].value == "usize"){
         currentPos ++;
-        return std::make_unique<Type>(USIZE);
+        return std::make_shared<Type>(USIZE);
     }else if(tokens[currentPos].value == "isize"){
         currentPos ++;
-        return std::make_unique<Type>(ISIZE);
+        return std::make_shared<Type>(ISIZE);
     }else if(tokens[currentPos].value == "char"){
         currentPos ++;
-        return std::make_unique<Type>(CHAR);
+        return std::make_shared<Type>(CHAR);
     }else if(tokens[currentPos].value == "str"){
         currentPos ++;
-        return std::make_unique<Type>(STR);
+        return std::make_shared<Type>(STR);
     }else if(tokens[currentPos].value == "enum"){
         currentPos ++;
-        return std::make_unique<Type>(ENUM);
+        return std::make_shared<Type>(ENUM);
     }else if(tokens[currentPos].type == kL_BRACKET){
         return parse_type_array();
     }else if(tokens[currentPos].type == kAND){
@@ -45,13 +45,13 @@ std::unique_ptr<ASTNode> Parser::parse_type() {
     }
 }
 
-std::unique_ptr<TypeArray> Parser::parse_type_array() {
+std::shared_ptr<TypeArray> Parser::parse_type_array() {
     currentPos ++;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ASTNode> type = nullptr;
-    std::unique_ptr<Expression> expr = nullptr;
+    std::shared_ptr<ASTNode> type = nullptr;
+    std::shared_ptr<Expression> expr = nullptr;
     type = parse_type();
     if(tokens[currentPos].type != kSEMI){
         throw std::runtime_error("Wrong in type array parsing, missing semi.");
@@ -65,10 +65,10 @@ std::unique_ptr<TypeArray> Parser::parse_type_array() {
         throw std::runtime_error("Wrong in type array parsing, missing R_BRACKET.");
     }
     currentPos ++;
-    return std::make_unique<TypeArray>(std::move(type),std::move(expr));
+    return std::make_shared<TypeArray>(std::move(type),std::move(expr));
 }
 
-std::unique_ptr<TypeReference> Parser::parse_type_reference() {
+std::shared_ptr<TypeReference> Parser::parse_type_reference() {
     currentPos ++;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
@@ -81,12 +81,12 @@ std::unique_ptr<TypeReference> Parser::parse_type_reference() {
             throw std::runtime_error("End of Program.");
         }
     }
-    std::unique_ptr<ASTNode> typeNoBounds = nullptr;
+    std::shared_ptr<ASTNode> typeNoBounds = nullptr;
     typeNoBounds = parse_type();
-    return std::make_unique<TypeReference>(std::move(typeNoBounds),std::move(is_mut));
+    return std::make_shared<TypeReference>(std::move(typeNoBounds),std::move(is_mut));
 }
 
-std::unique_ptr<TypeUnit> Parser::parse_type_unit() {
+std::shared_ptr<TypeUnit> Parser::parse_type_unit() {
     if(tokens[currentPos].type != kL_PAREN){
         throw std::runtime_error("Wrong in type unit parsing, missing L_PAREN.");
     }
@@ -98,7 +98,7 @@ std::unique_ptr<TypeUnit> Parser::parse_type_unit() {
         throw std::runtime_error("Wrong in type unit parsing, missing R_PAREN.");
     }
     currentPos ++;
-    return std::unique_ptr<TypeUnit>();
+    return std::shared_ptr<TypeUnit>();
 }
 
 }

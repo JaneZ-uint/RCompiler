@@ -6,10 +6,10 @@
 namespace JaneZ {
 class TypeReference : public ASTNode {
 public:
-    std::unique_ptr<ASTNode> typeNoBounds;
+    std::shared_ptr<ASTNode> typeNoBounds;
     bool is_mut;
 
-    TypeReference(std::unique_ptr<ASTNode> tnb,bool im = false) : 
+    TypeReference(std::shared_ptr<ASTNode> tnb,bool im = false) : 
     typeNoBounds(std::move(tnb)), is_mut(std::move(im)) {}
 
     ~TypeReference() = default;

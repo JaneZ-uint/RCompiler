@@ -8,14 +8,14 @@ namespace JaneZ {
 //Two forms : Array Expr & Array Index Expr
 class ExprArray : public Expression {
 public:
-    std::vector<std::unique_ptr<Expression>> arrayExpr;
-    std::unique_ptr<Expression> type;
-    std::unique_ptr<Expression> size;
+    std::vector<std::shared_ptr<Expression>> arrayExpr;
+    std::shared_ptr<Expression> type;
+    std::shared_ptr<Expression> size;
     
-    ExprArray(std::vector<std::unique_ptr<Expression>> arrayExpr)
+    ExprArray(std::vector<std::shared_ptr<Expression>> arrayExpr)
         : arrayExpr(std::move(arrayExpr)), type(nullptr), size(nullptr) {};
 
-    ExprArray(std::unique_ptr<Expression> type, std::unique_ptr<Expression> size)
+    ExprArray(std::shared_ptr<Expression> type, std::shared_ptr<Expression> size)
         : arrayExpr(),type(std::move(type)), size(std::move(size)) {};
 
     ~ExprArray()  = default;

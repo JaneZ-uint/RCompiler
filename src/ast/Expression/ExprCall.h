@@ -6,11 +6,11 @@
 namespace JaneZ {
 class ExprCall : public Expression {
 public:
-    std::unique_ptr<Expression> expr;
-    std::vector<std::unique_ptr<Expression>> callParams;
+    std::shared_ptr<Expression> expr;
+    std::vector<std::shared_ptr<Expression>> callParams;
 
-    ExprCall(std::unique_ptr<Expression> e,
-            std::vector<std::unique_ptr<Expression>> cp)
+    ExprCall(std::shared_ptr<Expression> e,
+            std::vector<std::shared_ptr<Expression>> cp)
         : expr(std::move(e)), callParams(std::move(cp)) {}
 
     ~ExprCall() = default;

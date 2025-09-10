@@ -7,9 +7,9 @@ namespace JaneZ {
 class PatternLiteral : public Pattern {
 public:
     bool isMinus = false;
-    std::unique_ptr<ExprLiteral> pattern_literal;
+    std::shared_ptr<ExprLiteral> pattern_literal;
 
-    PatternLiteral(bool _isMinus, std::unique_ptr<ExprLiteral> literal)
+    PatternLiteral(bool _isMinus, std::shared_ptr<ExprLiteral> literal)
         : isMinus(_isMinus), pattern_literal(std::move(literal)) {}
 
     ~PatternLiteral() = default;

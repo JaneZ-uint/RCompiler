@@ -6,9 +6,9 @@
 namespace JaneZ {
 class PatternWildCard : public Pattern {
 public:
-    std::unique_ptr<ExprUnderscore> pattern_wildcard;
+    std::shared_ptr<ExprUnderscore> pattern_wildcard;
 
-    PatternWildCard(std::unique_ptr<ExprUnderscore> pw) : pattern_wildcard(std::move(pw)) {}
+    PatternWildCard(std::shared_ptr<ExprUnderscore> pw) : pattern_wildcard(std::move(pw)) {}
 
     ~PatternWildCard() = default;
 

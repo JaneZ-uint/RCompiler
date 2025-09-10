@@ -6,10 +6,10 @@
 namespace JaneZ {
 class TypeArray : public ASTNode {
 public:
-    std::unique_ptr<ASTNode> type;
-    std::unique_ptr<Expression> expr;
+    std::shared_ptr<ASTNode> type;
+    std::shared_ptr<Expression> expr;
 
-    TypeArray(std::unique_ptr<ASTNode> t,std::unique_ptr<Expression> ex) : 
+    TypeArray(std::shared_ptr<ASTNode> t,std::shared_ptr<Expression> ex) : 
     type(std::move(t)),expr(std::move(ex)) {}
 
     ~TypeArray() = default;

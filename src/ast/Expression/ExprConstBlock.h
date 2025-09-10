@@ -6,9 +6,9 @@
 namespace JaneZ {
 class ExprConstBlock : public Expression {
 public:
-    std::unique_ptr<ExprBlock> expr;
+    std::shared_ptr<ExprBlock> expr;
 
-    ExprConstBlock(std::unique_ptr<ExprBlock> exprBlock)
+    ExprConstBlock(std::shared_ptr<ExprBlock> exprBlock)
         : expr(std::move(exprBlock)) {}
 
     ~ExprConstBlock() = default;

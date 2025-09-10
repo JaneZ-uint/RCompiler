@@ -6,17 +6,17 @@
 namespace JaneZ {
 class Pattern;
 struct MatchArm{
-    std::unique_ptr<Pattern> pattern;
-    std::unique_ptr<Expression> guard;
-    std::unique_ptr<Expression> body;
+    std::shared_ptr<Pattern> pattern;
+    std::shared_ptr<Expression> guard;
+    std::shared_ptr<Expression> body;
 
 };
 class ExprMatch : public Expression {
 public:
-    std::unique_ptr<Expression> Scrutinee;
+    std::shared_ptr<Expression> Scrutinee;
     std::vector<MatchArm> MatchArms; 
 
-    ExprMatch(std::unique_ptr<Expression> scrutinee, std::vector<MatchArm> matchArms)
+    ExprMatch(std::shared_ptr<Expression> scrutinee, std::vector<MatchArm> matchArms)
         : Scrutinee(std::move(scrutinee)), MatchArms(std::move(matchArms)) {}
 
     ~ExprMatch() = default;

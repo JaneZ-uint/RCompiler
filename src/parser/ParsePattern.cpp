@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace JaneZ {
-std::unique_ptr<Pattern> Parser::parse_pattern() {
+std::shared_ptr<Pattern> Parser::parse_pattern() {
     Token current = tokens[currentPos];
     switch (current.type) {
         case kMINUS:
@@ -46,7 +46,7 @@ std::unique_ptr<Pattern> Parser::parse_pattern() {
     }
 }
 
-std::unique_ptr<PatternIdentifier> Parser::parse_pattern_identifier() {
+std::shared_ptr<PatternIdentifier> Parser::parse_pattern_identifier() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -71,11 +71,11 @@ std::unique_ptr<PatternIdentifier> Parser::parse_pattern_identifier() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    //std::unique_ptr<Pattern> pattern = parse_pattern();
-    return std::make_unique<PatternIdentifier>(std::move(identifier),is_ref,is_mut);
+    //std::shared_ptr<Pattern> pattern = parse_pattern();
+    return std::make_shared<PatternIdentifier>(std::move(identifier),is_ref,is_mut);
 }
 
-std::unique_ptr<PatternLiteral> Parser::parse_pattern_literal() {
+std::shared_ptr<PatternLiteral> Parser::parse_pattern_literal() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -87,16 +87,16 @@ std::unique_ptr<PatternLiteral> Parser::parse_pattern_literal() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ExprLiteral> res = parse_expr_literal();
-    return std::make_unique<PatternLiteral>(isMinus,std::move(res));
+    std::shared_ptr<ExprLiteral> res = parse_expr_literal();
+    return std::make_shared<PatternLiteral>(isMinus,std::move(res));
 }
 
-std::unique_ptr<PatternPath> Parser::parse_pattern_path() {
-    std::unique_ptr<ExprPath> pathInExpr = parse_expr_path();
-    return std::make_unique<PatternPath>(std::move(pathInExpr));
+std::shared_ptr<PatternPath> Parser::parse_pattern_path() {
+    std::shared_ptr<ExprPath> pathInExpr = parse_expr_path();
+    return std::make_shared<PatternPath>(std::move(pathInExpr));
 }
 
-std::unique_ptr<PatternReference> Parser::parse_pattern_reference() {
+std::shared_ptr<PatternReference> Parser::parse_pattern_reference() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -116,24 +116,24 @@ std::unique_ptr<PatternReference> Parser::parse_pattern_reference() {
             throw std::runtime_error("End of Program.");
         }
     }
-    std::unique_ptr<Pattern> pattern = parse_pattern();
-    return std::make_unique<PatternReference>(std::move(pattern),isANDAND,is_mut);
+    std::shared_ptr<Pattern> pattern = parse_pattern();
+    return std::make_shared<PatternReference>(std::move(pattern),isANDAND,is_mut);
 }
 
-/*std::unique_ptr<PatternStruct> Parser::parse_pattern_struct() {
+/*std::shared_ptr<PatternStruct> Parser::parse_pattern_struct() {
 
 }*/
 
-/*std::unique_ptr<PatternTuple> Parser::parse_pattern_tuple_struct() {
+/*std::shared_ptr<PatternTuple> Parser::parse_pattern_tuple_struct() {
 
 }*/
 
-std::unique_ptr<PatternWildCard> Parser::parse_pattern_wildcard() {
+std::shared_ptr<PatternWildCard> Parser::parse_pattern_wildcard() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    std::unique_ptr<ExprUnderscore> expr = parse_expr_underscore();
-    return std::make_unique<PatternWildCard>(std::move(expr));
+    std::shared_ptr<ExprUnderscore> expr = parse_expr_underscore();
+    return std::make_shared<PatternWildCard>(std::move(expr));
 }
 
 }
