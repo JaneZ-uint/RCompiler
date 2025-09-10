@@ -98,7 +98,7 @@ std::shared_ptr<TypeUnit> Parser::parse_type_unit() {
         throw std::runtime_error("Wrong in type unit parsing, missing R_PAREN.");
     }
     currentPos ++;
-    return std::shared_ptr<TypeUnit>();
+    return std::make_shared<TypeUnit>();
 }
 
 }

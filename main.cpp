@@ -17,7 +17,7 @@ int main(){
     std::vector<JaneZ::Token> tokens = lexer.work();
     //lexer.print();
     JaneZ::Parser parser(tokens);
-    std::unique_ptr<JaneZ::ASTRootNode> root = parser.parse();
+    std::shared_ptr<JaneZ::ASTRootNode> root = parser.parse();
     JaneZ::PrintVisitor printer;
     printer.visit(*root);
 }
