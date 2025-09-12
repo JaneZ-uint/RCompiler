@@ -6,9 +6,9 @@
 #include <vector>
 
 namespace JaneZ {
+class ScopeNode;
+
 enum SymbolType{
-    Variable,
-    Type,
     Function,
     Enum,
     Const,
@@ -16,15 +16,21 @@ enum SymbolType{
     Trait,
 };
 
-class MetaData{
+class Symbol{
 public:
-    virtual ~MetaData() = default;
+    std::string identifier = "";
+    ScopeNode * owner;
+    //SymbolType type;
+    explicit Symbol(std::string id) : identifier(std::move(id)) {}
+
+    virtual ~Symbol() = default;
+
     virtual SymbolType getType() const = 0;
 };
 
-class FunctionData : MetaData{
+class FunctionData : public Symbol{
 public:
-    std::string identifier = "";
+    //std::string identifier = "";
     std::vector<std::shared_ptr<Pattern>> param_name;
     std::vector<std::shared_ptr<ASTNode>> param_type;
     std::shared_ptr<ASTNode> return_type;
@@ -35,7 +41,7 @@ public:
         std::vector<std::shared_ptr<ASTNode>> p_type,
         std::shared_ptr<ASTNode> r_type,
         std::shared_ptr<ItemFnDecl> own)
-        : identifier(std::move(id)), param_name(std::move(p_name)), param_type(std::move(p_type)), return_type(std::move(r_type)), owner(std::move(own)) {}
+        : Symbol(std::move(id)), param_name(std::move(p_name)), param_type(std::move(p_type)), return_type(std::move(r_type)), owner(std::move(own)) {}
 
     ~FunctionData() = default;
 
@@ -44,16 +50,16 @@ public:
     }
 };
 
-class EnumData : MetaData{
+class EnumData : public Symbol{
 public:
-    std::string identifier = "";
+    //std::string identifier = "";
     std::vector<std::string> variants;
     std::shared_ptr<ItemEnumDecl> owner;
 
     EnumData(std::string id,
         std::vector<std::string> vars,
         std::shared_ptr<ItemEnumDecl> own)
-        : identifier(std::move(id)), variants(std::move(vars)), owner(std::move(own)) {}
+        : Symbol(std::move(id)), variants(std::move(vars)), owner(std::move(own)) {}
 
     ~EnumData() = default;
 
@@ -62,9 +68,9 @@ public:
     }
 };
 
-class ConstData : MetaData{
+class ConstData : public Symbol{
 public:
-    std::string identifier = "";
+    //std::string identifier = "";
     std::shared_ptr<ASTNode> type;
     std::shared_ptr<Expression> value; 
     std::shared_ptr<ItemConstDecl> owner;
@@ -73,7 +79,7 @@ public:
         std::shared_ptr<ASTNode> t,
         std::shared_ptr<Expression> v,
         std::shared_ptr<ItemConstDecl> own)
-        : identifier(std::move(id)), type(std::move(t)), value(std::move(v)), owner(std::move(own)) {}
+        : Symbol(std::move(id)), type(std::move(t)), value(std::move(v)), owner(std::move(own)) {}
 
     ~ConstData() = default;
 
@@ -82,16 +88,16 @@ public:
     }
 };
 
-class StructData : MetaData{
+class StructData : public Symbol{
 public:
-    std::string identifier = "";
+    //std::string identifier = "";
     std::vector<std::pair<std::string,std::shared_ptr<ASTNode>>> fields;
     std::shared_ptr<ItemStructDecl> owner;
 
     StructData(std::string id,
         std::vector<std::pair<std::string,std::shared_ptr<ASTNode>>> f,
         std::shared_ptr<ItemStructDecl> own)
-        : identifier(std::move(id)), fields(std::move(f)), owner(std::move(own)) {}
+        : Symbol(std::move(id)), fields(std::move(f)), owner(std::move(own)) {}
 
     ~StructData() = default;
 
@@ -100,9 +106,9 @@ public:
     }
 };
 
-class TraitData : MetaData{
+class TraitData : public Symbol{
 public:
-    std::string identifier = "";
+    //std::string identifier = "";
     std::vector<std::shared_ptr<ItemFnDecl>> methods;
     std::vector<std::shared_ptr<ItemConstDecl>> associated_consts;
     std::shared_ptr<ItemTraitDecl> owner;
@@ -111,7 +117,7 @@ public:
         std::vector<std::shared_ptr<ItemFnDecl>> m,
         std::vector<std::shared_ptr<ItemConstDecl>> a_c,
         std::shared_ptr<ItemTraitDecl> own)
-        : identifier(std::move(id)), methods(std::move(m)), associated_consts(std::move(a_c)), owner(std::move(own)) {}
+        : Symbol(std::move(id)), methods(std::move(m)), associated_consts(std::move(a_c)), owner(std::move(own)) {}
 
     ~TraitData() = default;
 
@@ -120,7 +126,7 @@ public:
     }
 };
 
-class Symbol{
+class symbol{
 private:
 
 public:
