@@ -9,6 +9,7 @@ namespace JaneZ {
 class ScopeNode;
 
 enum SymbolType{
+    Variable,
     Function,
     Enum,
     Const,
@@ -19,13 +20,33 @@ enum SymbolType{
 class Symbol{
 public:
     std::string identifier = "";
-    ScopeNode * owner;
+    ScopeNode * scope;
     //SymbolType type;
     explicit Symbol(std::string id) : identifier(std::move(id)) {}
 
     virtual ~Symbol() = default;
 
     virtual SymbolType getType() const = 0;
+};
+
+class VariableData : public Symbol{
+public:
+    //std::string identifier = "";
+    std::shared_ptr<ASTNode> type;
+    std::shared_ptr<Expression> value;
+    bool is_mut = false;
+
+    VariableData(std::string id,
+        std::shared_ptr<ASTNode> t,
+        std::shared_ptr<Expression> v,
+        bool isM = false)
+        : Symbol(std::move(id)), type(std::move(t)), value(std::move(v)), is_mut(isM) {}
+        
+    ~VariableData() = default;  
+
+    SymbolType getType() const override {
+        return SymbolType::Variable;
+    }
 };
 
 class FunctionData : public Symbol{
@@ -126,13 +147,4 @@ public:
     }
 };
 
-class symbol{
-private:
-
-public:
-    std::string name;
-    SymbolType type;
-    std::shared_ptr<ASTNode> node;
-
-};
 }

@@ -17,7 +17,7 @@ struct bindingPower{
 static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kMINUS,{0,22}},
     {kNOT,{0,22}},
-    {kSTAR,{0,22}},
+    //{kSTAR,{0,22}},
     {kAND,{0,22}},
     {kANDAND,{0,22}},
 
@@ -458,6 +458,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     while(true) {
         if(tokens[pos].type == kR_BRACE) {
             pair --;
+            if(pair == 1){
+                lastSemi = pos;
+            }
         }else if(tokens[pos].type == kL_BRACE) {
             pair ++;
         }else if(tokens[pos].type == kL_BRACKET){
@@ -481,7 +484,7 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
         }
     }else{
         while(tokens[currentPos].type != kR_BRACE){
-            if(currentPos == lastSemi){
+            if(currentPos == lastSemi + 1){
                 ExpressionWithoutBlock = parse_expr();
                 continue;
             }
@@ -806,9 +809,6 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
     return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
 }
 
-std::shared_ptr<ExprOpbinary> Parser::parse_expr_opbinary(){
-
-}
 
 std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
     unaryOp op;
@@ -837,6 +837,7 @@ std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
     }
     std::shared_ptr<Expression> right = nullptr;
     //TODO
+    //TODO TODO TODO
 }
 
 std::shared_ptr<ExprPath> Parser::parse_expr_path() {
