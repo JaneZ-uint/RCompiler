@@ -836,8 +836,8 @@ std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
         }
     }
     std::shared_ptr<Expression> right = nullptr;
-    //TODO
-    //TODO TODO TODO
+    right = parse_expr();
+    return std::make_shared<ExprOpunary>(op, right, is_mut);
 }
 
 std::shared_ptr<ExprPath> Parser::parse_expr_path() {
