@@ -313,6 +313,11 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
         }
     }
 
+    if(tokens[currentPos].type == kSEMI){
+        currentPos ++;
+        return std::make_shared<ItemFnDecl>(std::move(identifier),std::move(param),nullptr,nullptr,is_const);
+    }
+
     std::shared_ptr<ASTNode> returnType = nullptr;
     if(tokens[currentPos].type != kL_BRACE){
         //exist fn return type
@@ -324,6 +329,10 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
             throw std::runtime_error("End of Program.");
         }
         returnType = parse_type();
+    }
+    if(tokens[currentPos].type == kSEMI) {
+        currentPos ++;
+        return std::make_shared<ItemFnDecl>(std::move(identifier),std::move(param),nullptr,std::move(returnType),is_const);
     }
     if(tokens[currentPos].type != kL_BRACE){
         throw std::runtime_error("Wrong format with item fn body.");
@@ -502,8 +511,15 @@ std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
                 std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
                 std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
                 if(tokens[currentPos].type == kCONST){
-                    tmpConst = parse_item_const();
-                    item_trait_const.push_back(std::move(tmpConst));
+                    if(currentPos + 1 < tokens.size()){
+                        if(tokens[currentPos + 1].type != kFN){
+                            tmpConst = parse_item_const();
+                            item_trait_const.push_back(std::move(tmpConst));
+                        }
+                    }else{
+                        tmpFn = parse_item_fn();
+                        item_trait_fn.push_back(std::move(tmpFn));
+                    }
                 }else if(tokens[currentPos].type == kFN){
                     tmpFn = parse_item_fn();
                     item_trait_fn.push_back(std::move(tmpFn));

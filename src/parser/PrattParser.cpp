@@ -15,7 +15,7 @@ struct bindingPower{
 };
 
 static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
-    {kMINUS,{0,22}},
+    //{kMINUS,{0,22}},
     {kNOT,{0,22}},
     //{kSTAR,{0,22}},
     {kAND,{0,22}},
@@ -532,6 +532,10 @@ std::shared_ptr<ExprCall> Parser::parse_expr_call(std::shared_ptr<Expression> &&
         throw std::runtime_error("End of Program.");
     }
     std::shared_ptr<Expression> tmp;
+    if(tokens[currentPos].type == kR_PAREN) {
+        currentPos ++;
+        return std::make_shared<ExprCall>(std::move(expr),std::move(callParams));
+    }
     tmp = parse_expr();
     callParams.push_back(std::move(tmp));
     if(tokens[currentPos].type == kCOMMA) {
@@ -592,7 +596,7 @@ std::shared_ptr<ExprContinue> Parser::parse_expr_continue() {
 std::shared_ptr<ExprField> Parser::parse_expr_field(std::shared_ptr<Expression> &&expr) {
     //std::shared_ptr<Expression> expr;
     std::string identifier;
-    expr = parse_expr();
+    //expr = parse_expr();
     if(tokens[currentPos].type != kDOT){
         throw std::runtime_error("Wrong in expr field parsing, missing DOT.");
     }
