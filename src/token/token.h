@@ -111,6 +111,8 @@ enum tokenType{
     kSEMI, // ;
     kCOLON, // :
     kDOT, // .
+    kRANGE, // ..
+    kRANGE_EQ, // ..=
     kL_PAREN, // (
     kR_PAREN, // )
     kL_BRACKET, // [

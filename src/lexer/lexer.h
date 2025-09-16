@@ -93,6 +93,7 @@ static std::unordered_map<std::string, tokenType> punctuationTotokenType = {
     {";", kSEMI},
     {":", kCOLON},
     {".", kDOT},
+    {"..", kRANGE},
     {"(", kL_PAREN},
     {")", kR_PAREN},
     {"[", kL_BRACKET},
@@ -370,6 +371,23 @@ private:
                             i ++;
                         }else{
                             tmp.type = kCOLON;
+                        }
+                        result.push_back(tmp);
+                        tmp.value = "";
+                        tmp.type = kUNKNOWN;
+                    }else if(tp == kDOT){
+                        if(nextChar == '.'){
+                            tmp.value += nextChar;
+                            if(nextnextChar == '='){
+                                tmp.value += nextnextChar;
+                                tmp.type = kRANGE_EQ;
+                                i ++;
+                            }else{
+                                tmp.type = kRANGE;
+                            }
+                            i ++;
+                        }else{
+                            tmp.type = kDOT;
                         }
                         result.push_back(tmp);
                         tmp.value = "";
