@@ -363,13 +363,13 @@ private:
                 }else if(punctuationTotokenType.find(test) != punctuationTotokenType.end() && tmp.value.size() == 0){
                     tmp.value += current;
                     tokenType tp = punctuationTotokenType.find(test)->second;
-                    if(tp == kSEMI){
+                    if(tp == kCOLON){
                         if(nextChar == ':'){
                             tmp.value += nextChar;
                             tmp.type = kPATHSEP;
                             i ++;
                         }else{
-                            tmp.type = kSEMI;
+                            tmp.type = kCOLON;
                         }
                         result.push_back(tmp);
                         tmp.value = "";

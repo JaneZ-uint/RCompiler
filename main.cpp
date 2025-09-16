@@ -10,7 +10,7 @@
 # include <vector>
 
 int main(){
-    JaneZ::Simplifier simplifier("basic23.rs");
+    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic2/basic2.rx");
     std::string source_code = simplifier.work();
     //simplifier.print();
     JaneZ::Lexer lexer(source_code);
