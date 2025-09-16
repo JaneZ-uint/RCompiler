@@ -19,7 +19,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kNOT,{0,22}},
     //{kSTAR,{0,22}},
     {kAND,{0,22}},
-    {kANDAND,{0,22}},
+    //{kANDAND,{0,22}},
 
     {kAS,{20,21}},
 
@@ -274,7 +274,7 @@ std::shared_ptr<Expression> Parser::parse_expr_prefix() {
             return parse_expr_if();
         }
         case kAND:
-        case kANDAND:
+        //case kANDAND:
         case kMINUS:
         case kNOT:
         case kSTAR: {
