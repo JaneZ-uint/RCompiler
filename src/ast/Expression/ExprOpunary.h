@@ -2,7 +2,7 @@
 
 #include "expression.h"
 #include <memory>
-
+#include <iostream>
 
 namespace JaneZ {
 enum unaryOp {
@@ -15,6 +15,31 @@ enum unaryOp {
 
     UNKNOWN,
 };
+
+inline void Print_Op_Unary(unaryOp op){
+    switch (op) {
+        case BORROW: {
+            std::cout << "&";
+            break;
+        }
+        case DEREFERENCE: {
+            std::cout << "*";
+            break;
+        }
+        case NOT: {
+            std::cout << "!";
+            break;
+        }
+        case NEGATE: {
+            std::cout << "-";
+            break;
+        }
+        default: {
+            std::cout << "Unknown unary op";
+            break;
+        }
+    }
+}
 
 class ExprOpunary : public Expression {
 public:

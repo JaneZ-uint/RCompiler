@@ -5,7 +5,7 @@
 
 namespace JaneZ {
 std::shared_ptr<Path> Parser::parse_path() {
-    PathIdentSegment current;
+    //PathIdentSegment current;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
@@ -21,7 +21,7 @@ std::shared_ptr<Path> Parser::parse_path() {
     }
     tmp.identifier = tokens[currentPos].value;
     currentPos ++;
-    return std::make_shared<Path>(std::move(current));
+    return std::make_shared<Path>(std::move(tmp));
 }
 
 }

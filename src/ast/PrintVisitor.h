@@ -278,13 +278,17 @@ public:
     void visit(ExprOpbinary &node) override{
         std::cout << "ExprOpbinary: ";
         node.left->accept(*this);
-        std::cout << " " << node.op << " ";
+        std::cout<< " ";
+        Print_Op_Binary(node.op);
+        std::cout<< " ";
         node.right->accept(*this);
         std::cout << "\n";
     }
 
     void visit(ExprOpunary &node) override{
-        std::cout << "ExprOpunary: " << node.op << " ";
+        std::cout << "ExprOpunary: ";
+        Print_Op_Unary(node.op);
+        std::cout<< " ";
         node.right->accept(*this);
         std::cout << "\n";
     }
