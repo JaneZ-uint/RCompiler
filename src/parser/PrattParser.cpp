@@ -66,7 +66,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kL_PAREN,{23,0}},
     {kL_BRACE,{23,0}}, //TODO Wait and see.
     {kL_BRACKET,{23,0}},
-    {kDOT,{0,0}},
+    {kDOT,{23,0}},
     //TODO 
 };
 
@@ -509,14 +509,14 @@ std::shared_ptr<ExprBreak> Parser::parse_expr_break() {
     }
     std::shared_ptr<Expression> expr = nullptr;
     if(tokens[currentPos].type == kSEMI){
-        currentPos ++;
+        //currentPos ++;
         return std::make_shared<ExprBreak>(std::move(expr));
     }
     expr = parse_expr();
     if(tokens[currentPos].type != kSEMI){
         throw std::runtime_error("Wrong in expr break parsing, missing SEMI.");
     }
-    currentPos ++;
+    //currentPos ++;
     return std::make_shared<ExprBreak>(std::move(expr));
 }
 
@@ -759,7 +759,7 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
     //std::shared_ptr<Expression> expr;
     std::shared_ptr<Path> PathExprSegment;
     std::vector<std::shared_ptr<Expression>> callParams;
-    expr = parse_expr();
+    //expr = parse_expr();
     /*if(tokens[currentPos].type != kDOT){
         throw std::runtime_error("Wrong in expr methodcall parsing, missing DOT.");
     }
@@ -774,6 +774,10 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
     currentPos ++;
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
+    }
+    if(tokens[currentPos].type == kR_PAREN){
+        currentPos ++;
+        return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
     }
     std::shared_ptr<Expression> tmp;
     tmp = parse_expr();
