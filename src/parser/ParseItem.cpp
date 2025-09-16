@@ -470,75 +470,80 @@ std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
     std::vector<std::shared_ptr<ItemConstDecl>> item_trait_const;
     std::vector<std::shared_ptr<ItemFnDecl>> item_trait_fn;
     // first : TraitImpl
+    bool isTraitImpl = false;
     if(tokens[currentPos].type == kIDENTIFIER){
         currentPos ++;
         if(currentPos >= tokens.size()) {
             throw std::runtime_error("End of Program.");
         }
-        if(tokens[currentPos].type != kFOR){
-            throw std::runtime_error("Wrong in item impl parsing, missing for.");
+        if(tokens[currentPos].type == kFOR){
+            isTraitImpl = true;
+        }else{
+            currentPos --;
         }
-        currentPos ++;
-        if(currentPos >= tokens.size()) {
-            throw std::runtime_error("End of Program.");
-        }
-        targetType = parse_type();
-        if(tokens[currentPos].type != kL_BRACE){
-            throw std::runtime_error("Wrong in item impl parsing, missing L_BRACE.");
-        }
-        currentPos ++;
-        if(currentPos >= tokens.size()) {
-            throw std::runtime_error("End of Program.");
-        }
-        if(tokens[currentPos].type == kR_BRACE){
+        if(isTraitImpl){
+            currentPos ++;
+            if(currentPos >= tokens.size()) {
+                throw std::runtime_error("End of Program.");
+            }
+            targetType = parse_type();
+            if(tokens[currentPos].type != kL_BRACE){
+                throw std::runtime_error("Wrong in item impl parsing, missing L_BRACE.");
+            }
+            currentPos ++;
+            if(currentPos >= tokens.size()) {
+                throw std::runtime_error("End of Program.");
+            }
+            if(tokens[currentPos].type == kR_BRACE){
+                currentPos ++;
+                return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+            }
+            while(tokens[currentPos].type != kR_BRACE){
+                std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
+                std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
+                if(tokens[currentPos].type == kCONST){
+                    tmpConst = parse_item_const();
+                    item_trait_const.push_back(std::move(tmpConst));
+                }else if(tokens[currentPos].type == kFN){
+                    tmpFn = parse_item_fn();
+                    item_trait_fn.push_back(std::move(tmpFn));
+                }else{
+                    throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
+                }
+            }
             currentPos ++;
             return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
         }
-        while(tokens[currentPos].type != kR_BRACE){
-            std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
-            std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
-            if(tokens[currentPos].type == kCONST){
-                tmpConst = parse_item_const();
-                item_trait_const.push_back(std::move(tmpConst));
-            }else if(tokens[currentPos].type == kFN){
-                tmpFn = parse_item_fn();
-                item_trait_fn.push_back(std::move(tmpFn));
-            }else{
-                throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
-            }
-        }
-        currentPos ++;
-        return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
-    }else{
-        //second : InherentImpl
-        targetType = parse_type();
-        if(tokens[currentPos].type != kL_BRACE){
-            throw std::runtime_error("Wrong in item impl parsing, missing L_BRACE.");
-        }
-        currentPos ++;
-        if(currentPos >= tokens.size()) {
-            throw std::runtime_error("End of Program.");
-        }
-        if(tokens[currentPos].type == kR_BRACE){
-            currentPos ++;
-            return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
-        }
-        while(tokens[currentPos].type != kR_BRACE){
-            std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
-            std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
-            if(tokens[currentPos].type == kCONST){
-                tmpConst = parse_item_const();
-                item_trait_const.push_back(std::move(tmpConst));
-            }else if(tokens[currentPos].type == kFN){
-                tmpFn = parse_item_fn();
-                item_trait_fn.push_back(std::move(tmpFn));
-            }else{
-                throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
-            }
-        }
+    }
+    //second : InherentImpl
+    targetType = parse_type();
+    if(tokens[currentPos].type != kL_BRACE){
+        throw std::runtime_error("Wrong in item impl parsing, missing L_BRACE.");
+    }
+    currentPos ++;
+    if(currentPos >= tokens.size()) {
+        throw std::runtime_error("End of Program.");
+    }
+    if(tokens[currentPos].type == kR_BRACE){
         currentPos ++;
         return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
     }
+    while(tokens[currentPos].type != kR_BRACE){
+        std::shared_ptr<ItemConstDecl> tmpConst = nullptr;
+        std::shared_ptr<ItemFnDecl> tmpFn = nullptr;
+        if(tokens[currentPos].type == kCONST){
+            tmpConst = parse_item_const();
+            item_trait_const.push_back(std::move(tmpConst));
+        }else if(tokens[currentPos].type == kFN){
+            tmpFn = parse_item_fn();
+            item_trait_fn.push_back(std::move(tmpFn));
+        }else{
+            throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
+        }
+    }
+    currentPos ++;
+    return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
+    
 }
 
 std::shared_ptr<ItemStructDecl> Parser::parse_item_struct() {

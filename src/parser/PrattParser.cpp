@@ -64,7 +64,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kSHREQ,{2,1}},
 
     {kL_PAREN,{23,0}},
-    {kL_BRACE,{0,0}}, //TODO Wait and see.
+    {kL_BRACE,{23,0}}, //TODO Wait and see.
     {kL_BRACKET,{23,0}},
     {kDOT,{0,0}},
     //TODO 

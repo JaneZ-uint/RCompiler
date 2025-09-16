@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <optional>
+#include "Expression/ExprConstBlock.h"
+#include "Expression/ExprStruct.h"
 #include "Expression/expression.h"
 #include "astvisitor.h"
 #include "root.h"
@@ -98,6 +100,8 @@ public:
             visit(*p);
         }else if(auto *p = dynamic_cast<ExprCall *>(& node)) {
             visit(*p);
+        }else if(auto *p = dynamic_cast<ExprConstBlock *>(& node)) {
+            visit(*p);
         }else if(auto *p = dynamic_cast<ExprContinue *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ExprField *>(& node)) {
@@ -123,6 +127,8 @@ public:
         }else if(auto *p = dynamic_cast<ExprPath *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ExprReturn *>(& node)) {
+            visit(*p);
+        }else if(auto *p = dynamic_cast<ExprStruct *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ExprUnderscore *>(& node)) {
             visit(*p);
@@ -175,6 +181,12 @@ public:
             }
             std::cout << ")";
         }
+        std::cout << "\n";
+    }
+
+    void visit(ExprConstBlock &node) override{
+        std::cout << "ExprConstBlock: const ";
+        node.expr->accept(*this);
         std::cout << "\n";
     }
 
@@ -309,6 +321,18 @@ public:
             node.expr->accept(*this);
         }
         std::cout << "\n";
+    }
+
+    void visit(ExprStruct &node) override{
+        std::cout << "ExprStruct: ";
+        node.pathInExpr->accept(*this);
+        std::cout << " { ";
+        for(auto &field : node.structExprFields) {
+            std::cout << field.identifier << ": ";
+            field.expr->accept(*this);
+            std::cout << ", ";
+        }
+        std::cout << "}\n";
     }
 
     void visit(ExprUnderscore &node) override{

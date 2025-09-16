@@ -6,6 +6,7 @@ class ExprArray;
 class ExprBlock;
 class ExprBreak;
 class ExprCall;
+class ExprConstBlock;
 class ExprContinue;
 class ExprField;
 class ExprGroup;
@@ -19,6 +20,7 @@ class ExprOpbinary;
 class ExprOpunary;
 class ExprPath;
 class ExprReturn;
+class ExprStruct;
 class ExprUnderscore;
 
 class Item;
@@ -71,6 +73,7 @@ public:
     virtual void visit(ExprBlock &node) = 0;
     virtual void visit(ExprBreak &node) = 0;
     virtual void visit(ExprCall &node) = 0;
+    virtual void visit(ExprConstBlock &node) = 0;
     virtual void visit(ExprContinue &node) = 0;
     virtual void visit(ExprField &node) = 0;
     virtual void visit(ExprGroup &node) = 0;
@@ -84,6 +87,7 @@ public:
     virtual void visit(ExprOpunary &node) = 0;
     virtual void visit(ExprPath &node) = 0;
     virtual void visit(ExprReturn &node) = 0;
+    virtual void visit(ExprStruct &node) = 0;
     virtual void visit(ExprUnderscore &node) = 0;
     
     //Item 
