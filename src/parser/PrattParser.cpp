@@ -66,6 +66,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kL_PAREN,{23,0}},
     {kL_BRACE,{23,0}}, //TODO Wait and see.
     {kL_BRACKET,{23,0}},
+    {kR_BRACE,{0,23}},
     {kDOT,{23,0}},
     //TODO 
 };
@@ -218,6 +219,9 @@ std::shared_ptr<Expression> Parser::parse_expr_interface(int power) {
         }
         Token current = tokens[currentPos];
         if(getLeftpower(current.type) <= power) {
+            break;
+        }
+        if(auto *p = dynamic_cast<ExprLoop *>(& *left)) {
             break;
         }
         left = parse_expr_infix(std::move(left));
@@ -470,6 +474,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
                 isBracket = false;
             }
         }else if(!isBracket && tokens[pos].type == kSEMI) {
+            lastSemi = pos;
+        }
+        if(pair == 1 && tokens[pos].type == kR_BRACE) {
             lastSemi = pos;
         }
         if(pair == 0){
