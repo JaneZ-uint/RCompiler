@@ -385,20 +385,24 @@ std::shared_ptr<ExprArray> Parser::parse_expr_array() {
         return std::make_shared<ExprArray>(std::move(type),std::move(size));
     }
     arrayExpr.push_back(std::move(expr));
+    bool isComma = false;
     if(tokens[currentPos].type == kCOMMA){
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
+        isComma = true;
     }
     if(tokens[currentPos].type == kR_BRACKET){
         currentPos ++;
         return std::make_shared<ExprArray>(std::move(arrayExpr));
     }
+    if(!isComma){
+        throw std::runtime_error("Wrong in expr array parsing, missing COMMA.");
+    }
     bool flag = false;
     while(tokens[currentPos].type != kR_BRACKET){
         if(tokens[currentPos].type == kCOMMA){
-            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
@@ -409,6 +413,7 @@ std::shared_ptr<ExprArray> Parser::parse_expr_array() {
         }else if(flag){
             throw std::runtime_error("Wrong in expr array parsing, missing COMMA.");
         }
+        flag = true;
         std::shared_ptr<Expression> tmp;
         tmp = parse_expr();
         arrayExpr.push_back(std::move(tmp));
@@ -568,20 +573,24 @@ std::shared_ptr<ExprCall> Parser::parse_expr_call(std::shared_ptr<Expression> &&
     }
     tmp = parse_expr();
     callParams.push_back(std::move(tmp));
+    bool isComma = false;
     if(tokens[currentPos].type == kCOMMA) {
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
+        isComma = true;
     }
     if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
         return std::make_shared<ExprCall>(std::move(expr),std::move(callParams));
     }
+    if(!isComma){
+        throw std::runtime_error("Wrong in expr call parsing, missing COMMA.");
+    }
     bool flag = false;
     while(tokens[currentPos].type != kR_PAREN){
         if(tokens[currentPos].type == kCOMMA){
-            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
@@ -592,6 +601,7 @@ std::shared_ptr<ExprCall> Parser::parse_expr_call(std::shared_ptr<Expression> &&
         }else if(flag){
             throw std::runtime_error("Wrong in expr call parsing, missing COMMA.");
         }
+        flag = true;
         tmp = parse_expr();
         callParams.push_back(std::move(tmp));
     }
@@ -816,20 +826,24 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
     std::shared_ptr<Expression> tmp;
     tmp = parse_expr();
     callParams.push_back(std::move(tmp));
+    bool isComma = false;
     if(tokens[currentPos].type == kCOMMA) {
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
+        isComma = true;
     }
     if(tokens[currentPos].type == kR_PAREN){
         currentPos ++;
         return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
     }
+    if(!isComma){
+        throw std::runtime_error("Wrong in expr methodcall parsing, missing COMMA.");
+    }
     bool flag = false;
     while(tokens[currentPos].type != kR_PAREN){
         if(tokens[currentPos].type == kCOMMA){
-            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
@@ -840,6 +854,7 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
         }else if(flag){
             throw std::runtime_error("Wrong in expr methodcall parsing, missing COMMA.");
         }
+        flag = true;
         tmp = parse_expr();
         callParams.push_back(std::move(tmp));
     }
@@ -956,7 +971,6 @@ std::shared_ptr<ExprStruct> Parser::parse_expr_struct(std::shared_ptr<Expression
     bool flag = false;
     while(tokens[currentPos].type != kR_BRACE) {
         if(tokens[currentPos].type == kCOMMA){
-            flag = true;
             currentPos ++;
             if(currentPos >= tokens.size()){
                 throw std::runtime_error("End of Program.");
@@ -967,6 +981,7 @@ std::shared_ptr<ExprStruct> Parser::parse_expr_struct(std::shared_ptr<Expression
         }else if(flag){
             throw std::runtime_error("Wrong in expr struct parsing, missing COMMA.");
         }
+        flag = true;
         if(tokens[currentPos].type != kIDENTIFIER){
             throw std::runtime_error("Wrong in expr struct parsing, missing IDENTIFIER.");
         }
