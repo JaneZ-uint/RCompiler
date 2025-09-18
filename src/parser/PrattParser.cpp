@@ -224,6 +224,9 @@ std::shared_ptr<Expression> Parser::parse_expr_interface(int power) {
         if(auto *p = dynamic_cast<ExprLoop *>(& *left)) {
             break;
         }
+        if(auto *p = dynamic_cast<ExprIf *>(& *left)) {
+            break;
+        }
         left = parse_expr_infix(std::move(left));
     }
     return left;
