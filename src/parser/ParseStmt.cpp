@@ -100,6 +100,9 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
             throw std::runtime_error("End of Program.");
         }
         expr = parse_expr();
+        if(auto *p = dynamic_cast<ExprUnderscore *>(& *expr)){
+            throw std::runtime_error("Wrong in stmt let parsing, cannot assign underscore.");
+        }
     }
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");

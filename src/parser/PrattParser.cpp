@@ -350,6 +350,11 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
     tokenType type = tokens[currentPos].type;
     currentPos ++;
     std::shared_ptr<Expression> right = parse_expr_interface(getRightpower(type));
+    if(auto *p = dynamic_cast<ExprOpunary *>(& *right)) {
+        if(p->op == BORROW || p->op == DEREFERENCE) {
+            throw std::runtime_error("Wrong in expr infix parsing, invalid right expr.");
+        }
+    }
     return std::make_shared<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
 }
 
@@ -933,15 +938,20 @@ std::shared_ptr<ExprStruct> Parser::parse_expr_struct(std::shared_ptr<Expression
         tmp.expr = parse_expr();
     }
     structExprFields.push_back(std::move(tmp));
+    bool isComma = false;
     if(tokens[currentPos].type == kCOMMA) {
         currentPos ++;
         if(currentPos >= tokens.size()){
             throw std::runtime_error("End of Program.");
         }
+        isComma = true;
     }
     if(tokens[currentPos].type == kR_BRACE) {
         currentPos ++;
         return std::make_shared<ExprStruct>(std::move(pathInExpr),std::move(structExprFields));
+    }
+    if(!isComma){
+        throw std::runtime_error("Wrong in expr struct parsing, missing COMMA.");
     }
     bool flag = false;
     while(tokens[currentPos].type != kR_BRACE) {
