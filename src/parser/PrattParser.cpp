@@ -18,7 +18,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     //{kMINUS,{0,22}},
     {kNOT,{0,22}},
     //{kSTAR,{0,22}},
-    {kAND,{0,22}},
+    //{kAND,{0,22}},
     //{kANDAND,{0,22}},
 
     {kAS,{20,21}},
@@ -66,7 +66,7 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     {kL_PAREN,{23,0}},
     {kL_BRACE,{23,0}}, //TODO Wait and see.
     {kL_BRACKET,{23,0}},
-    {kR_BRACE,{0,23}},
+    //{kR_BRACE,{0,23}},
     {kDOT,{23,0}},
     //TODO 
 };
@@ -879,6 +879,9 @@ std::shared_ptr<ExprReturn> Parser::parse_expr_return() {
         throw std::runtime_error("End of Program.");
     }
     std::shared_ptr<Expression> expr;
+    if(tokens[currentPos].type == kSEMI){
+        return std::make_shared<ExprReturn>(nullptr);
+    }
     expr = parse_expr();
     return std::make_shared<ExprReturn>(std::move(expr));
 }
