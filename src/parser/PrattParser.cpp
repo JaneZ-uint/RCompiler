@@ -548,9 +548,6 @@ std::shared_ptr<ExprBreak> Parser::parse_expr_break() {
         return std::make_shared<ExprBreak>(std::move(expr));
     }
     expr = parse_expr();
-    if(tokens[currentPos].type != kSEMI){
-        throw std::runtime_error("Wrong in expr break parsing, missing SEMI.");
-    }
     //currentPos ++;
     return std::make_shared<ExprBreak>(std::move(expr));
 }
