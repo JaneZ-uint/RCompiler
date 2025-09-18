@@ -158,28 +158,33 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                 throw std::runtime_error("End of Program.");
             }
         }else{
+            //TODO  Wait to be checked.
             if(tokens[currentPos].type == kMUT){
                 if(currentPos + 1 < tokens.size()){
-                    if(tokens[currentPos + 1].type != kSELF){
+                    /*if(tokens[currentPos + 1].type != kSELF){
                         throw std::runtime_error("Wrong format in item fn with missing self.");
-                    }
-                    if(currentPos + 2 < tokens.size()){
-                        if(tokens[currentPos + 2].type == kCOLON){
-                            param.SelfParam.isShortSelf = false;
-                            param.SelfParam.type_self.is_mut = true;
-                            currentPos += 3;
-                            param.SelfParam.type_self.type = parse_type();
-                        }else{
-                            param.SelfParam.isShortSelf = true;
-                            param.SelfParam.short_self.is_and = false;
-                            param.SelfParam.short_self.is_mut = true;
-                            currentPos += 2;
-                            if(currentPos >= tokens.size()){
-                                throw std::runtime_error("End of Program.");
+                    }*/
+                    if(tokens[currentPos + 1].type == kSELF){
+                        if(currentPos + 2 < tokens.size()){
+                            if(tokens[currentPos + 2].type == kCOLON){
+                                param.SelfParam.isShortSelf = false;
+                                param.SelfParam.type_self.is_mut = true;
+                                currentPos += 3;
+                                param.SelfParam.type_self.type = parse_type();
+                            }else{
+                                param.SelfParam.isShortSelf = true;
+                                param.SelfParam.short_self.is_and = false;
+                                param.SelfParam.short_self.is_mut = true;
+                                currentPos += 2;
+                                if(currentPos >= tokens.size()){
+                                    throw std::runtime_error("End of Program.");
+                                }
                             }
+                        }else{
+                            throw std::runtime_error("End of Program.");
                         }
                     }else{
-                        throw std::runtime_error("End of Program.");
+                        isStraightParam = true;
                     }
                 }else{
                     throw std::runtime_error("End of Program.");

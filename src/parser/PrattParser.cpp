@@ -425,6 +425,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     size_t bracePair = 1;
     bool isBracket = false;
     while(true){
+        if(ptr == tokens.size()){
+            break;
+        }
         if(tokens[ptr].type == kR_BRACE){
             bracePair --;
         }else if(tokens[ptr].type == kL_BRACE){
@@ -447,6 +450,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
         }
         ptr ++;
     }
+    if(ptr == tokens.size()){
+        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+    }
     if(isExprBlock){
         ExpressionWithoutBlock = parse_expr();
         if(tokens[currentPos].type != kR_BRACE){
@@ -460,6 +466,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     int pair = 1;
     isBracket = false;
     while(true) {
+        if(pos == tokens.size()){
+            break;
+        }
         if(tokens[pos].type == kR_BRACE) {
             pair --;
             if(pair == 1){
@@ -484,13 +493,16 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
         }
         pos ++;
     }
+    if(pos == tokens.size()){
+        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
+    }
     if(lastSemi == pos - 1){
-        while(tokens[currentPos].type != kR_BRACE){
+        while(currentPos == tokens.size() || tokens[currentPos].type != kR_BRACE){
             tmp = parse_statement();
             statements.push_back(std::move(tmp));
         }
     }else{
-        while(tokens[currentPos].type != kR_BRACE){
+        while(currentPos == tokens.size() ||tokens[currentPos].type != kR_BRACE){
             if(currentPos == lastSemi + 1){
                 ExpressionWithoutBlock = parse_expr();
                 continue;
@@ -498,6 +510,9 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
             tmp = parse_statement();
             statements.push_back(std::move(tmp));
         }
+    }
+    if(currentPos == tokens.size()) {
+        throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
     }
     if(tokens[currentPos].type != kR_BRACE){
         throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
