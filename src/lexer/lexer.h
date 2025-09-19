@@ -174,6 +174,7 @@ private:
                     result.push_back(tmp);
                     tmp.value = "";
                     tmp.type = kUNKNOWN;
+                    isSingle = false;
                 }
             }else if(current == '"'){
                 tmp.value += current;

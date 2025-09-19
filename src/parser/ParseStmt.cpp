@@ -108,7 +108,7 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
         throw std::runtime_error("End of Program.");
     }
     if(tokens[currentPos].type != kSEMI) {
-        throw std::runtime_error("Wrong in stmt parsing, missing semi.");
+        throw std::runtime_error("Wrong in stmt let parsing, missing semi.");
     }
     currentPos ++;
     return std::make_shared<StmtLet>(std::move(pattern),std::move(type),std::move(expr));
