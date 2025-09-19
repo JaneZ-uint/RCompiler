@@ -351,7 +351,7 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
     currentPos ++;
     std::shared_ptr<Expression> right = parse_expr_interface(getRightpower(type));
     if(auto *p = dynamic_cast<ExprOpunary *>(& *right)) {
-        if(p->op == BORROW || p->op == DEREFERENCE) {
+        if(p->op == BORROW ) {
             throw std::runtime_error("Wrong in expr infix parsing, invalid right expr.");
         }
     }
