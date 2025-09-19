@@ -467,6 +467,10 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
         throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
     }
     if(isExprBlock){
+        if(tokens[currentPos].type == kR_BRACE){
+            currentPos ++;
+            return std::make_shared<ExprBlock>(std::move(statements),nullptr);
+        }
         ExpressionWithoutBlock = parse_expr();
         if(tokens[currentPos].type != kR_BRACE){
             throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
@@ -510,12 +514,12 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
         throw std::runtime_error("Wrong in expr block parsing, missing R_BRACE.");
     }
     if(lastSemi == pos - 1){
-        while(currentPos == tokens.size() || tokens[currentPos].type != kR_BRACE){
+        while(currentPos != tokens.size() && tokens[currentPos].type != kR_BRACE){
             tmp = parse_statement();
             statements.push_back(std::move(tmp));
         }
     }else{
-        while(currentPos == tokens.size() ||tokens[currentPos].type != kR_BRACE){
+        while(currentPos != tokens.size() && tokens[currentPos].type != kR_BRACE){
             if(currentPos == lastSemi + 1){
                 ExpressionWithoutBlock = parse_expr();
                 continue;
@@ -685,6 +689,11 @@ std::shared_ptr<ExprIf> Parser::parse_expr_if() {
         throw std::runtime_error("End of Program.");
     }
     condition = parse_expr();
+    if(auto *p = dynamic_cast<ExprOpbinary *>(& *condition)){
+        if(p->op == ASSIGN){
+            throw std::runtime_error("Wrong in expr if parsing, condition can't be an assignment.");
+        }
+    }
     //TODO maybe left with a struct expr check.
     if(tokens[currentPos].type != kR_PAREN){
         throw std::runtime_error("Wrong in expr if parsing, missing R_PAREN.");
