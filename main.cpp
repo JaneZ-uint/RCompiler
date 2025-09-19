@@ -10,7 +10,7 @@
 # include <vector>
 
 int main(){
-    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/if15/if15.rx");
+    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/loop10/loop10.rx");
     //JaneZ::Simplifier simplifier("1.rs");
     std::string source_code = simplifier.work();
     //simplifier.print();

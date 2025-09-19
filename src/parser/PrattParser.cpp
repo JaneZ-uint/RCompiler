@@ -791,6 +791,11 @@ std::shared_ptr<ExprLoop> Parser::parse_expr_loop() {
         }
         condition = parse_expr();
         //TODO maybe left with a struct expr check.
+        if(auto *p = dynamic_cast<ExprOpbinary *>(& *condition)){
+            if(auto *q = dynamic_cast<ExprStruct *>(& *(p->left))){
+                throw std::runtime_error("Wrong in expr loop parsing, condition can't be a struct.");
+            }
+        }
         if(tokens[currentPos].type != kR_PAREN){
             throw std::runtime_error("Wrong in expr loop parsing, missing R_PAREN.");
         }

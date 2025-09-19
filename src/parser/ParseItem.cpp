@@ -352,6 +352,21 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     }else{
         currentPos --;
         fnBody = parse_expr_block();
+        if(!fnBody->statements.empty() ){
+            for (auto &stmt : fnBody->statements) {
+                if (auto *p = dynamic_cast<StmtExpr *>(&*stmt)) {
+                    if (auto *q = dynamic_cast<ExprBreak *>(&*p->stmtExpr)) {
+                        throw std::runtime_error("Wrong in item fn body with break statement.");
+                    }
+                }
+            
+            }
+        }
+        if(fnBody->ExpressionWithoutBlock){
+            if (auto *p = dynamic_cast<ExprBreak *>(&*fnBody->ExpressionWithoutBlock)) {
+                throw std::runtime_error("Wrong in item fn body with break statement.");
+            }
+        }
     }
     return std::make_shared<ItemFnDecl>(std::move(identifier),std::move(param),std::move(fnBody),std::move(returnType),is_const);
 }
