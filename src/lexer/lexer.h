@@ -137,6 +137,13 @@ private:
             /*if(current == ' '){
                 continue;
             }*/
+            if(tmp.value.size() == 1 && tmp.value[0] == 'r' &&  current == '#'){
+                tmp.value += current;
+                continue;
+            }else if(tmp.value.size() == 2 && tmp.value[0] == 'c' && tmp.value[1] == 'r' && current == '#'){
+                tmp.value += current;
+                continue;
+            }
             if(isDouble){
                 tmp.value += current;
                 if(current == '"'){
@@ -161,6 +168,12 @@ private:
                     }else{
                         tmp.type = kSTRING_LITERAL;
                         //unraw_string.push_back(tmp);
+                    }
+                    if(nextChar == '#'){
+                        if(tmp.type == kRAW_STRING_LITERAL || tmp.type == kRAW_CSTRING_LITERAL){
+                            tmp.value += nextChar;
+                            i ++;
+                        }
                     }
                     result.push_back(tmp);
                     tmp.value = "";
