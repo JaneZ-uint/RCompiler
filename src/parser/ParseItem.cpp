@@ -619,6 +619,36 @@ std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
                     throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
                 }
             }
+            if(!item_trait_fn.empty()){
+                for(auto &it : item_trait_fn){
+                    if(it->identifier == "main"){
+                        if(it->fnBody){
+                            if(it->fnBody->ExpressionWithoutBlock){
+                                if(auto *p = dynamic_cast<ExprCall *>(& *it->fnBody->ExpressionWithoutBlock)){
+                                    if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                                        if(q ->pathFirst->pathSegments.identifier == "exit" && q->pathSecond == nullptr){
+                                            throw std::runtime_error("Wrong format with main function in trait impl, exit function call is not allowed.");
+                                        }
+                                    }
+                                }
+                            }
+                            if(!it->fnBody->statements.empty()){
+                                for(auto &stmt : it->fnBody->statements) {
+                                    if (auto *p = dynamic_cast<StmtExpr *>(& *stmt)) {
+                                        if (auto *q = dynamic_cast<ExprCall *>(& *p->stmtExpr)) {
+                                            if (auto *r = dynamic_cast<ExprPath *>(& *q->expr)) {
+                                                if (r->pathFirst->pathSegments.identifier == "exit" && r->pathSecond == nullptr) {
+                                                    throw std::runtime_error("Wrong format with main function in trait impl, exit function call is not allowed.");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             currentPos ++;
             return std::make_shared<ItemImplDecl>(std::move(identifier),std::move(targetType),std::move(item_trait_const),std::move(item_trait_fn));
         }
@@ -647,6 +677,36 @@ std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
             item_trait_fn.push_back(std::move(tmpFn));
         }else{
             throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
+        }
+    }
+    if(!item_trait_fn.empty()){
+        for(auto &it : item_trait_fn){
+            if(it->identifier == "main"){
+                if(it->fnBody){
+                    if(it->fnBody->ExpressionWithoutBlock){
+                        if(auto *p = dynamic_cast<ExprCall *>(& *it->fnBody->ExpressionWithoutBlock)){
+                            if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                                if(q ->pathFirst->pathSegments.identifier == "exit" && q->pathSecond == nullptr){
+                                    throw std::runtime_error("Wrong format with main function in inherent impl, exit function call is not allowed.");
+                                }
+                            }
+                        }
+                    }
+                    if(!it->fnBody->statements.empty()){
+                        for(auto &stmt : it->fnBody->statements) {
+                            if (auto *p = dynamic_cast<StmtExpr *>(& *stmt)) {
+                                if (auto *q = dynamic_cast<ExprCall *>(& *p->stmtExpr)) {
+                                    if (auto *r = dynamic_cast<ExprPath *>(& *q->expr)) {
+                                        if (r->pathFirst->pathSegments.identifier == "exit" && r->pathSecond == nullptr) {
+                                            throw std::runtime_error("Wrong format with main function in inherent impl, exit function call is not allowed.");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     currentPos ++;
@@ -781,6 +841,37 @@ std::shared_ptr<ItemTraitDecl> Parser::parse_item_trait() {
             item_trait_fn.push_back(std::move(tmpFn));
         }else{
             throw std::runtime_error("Wrong in item trait parsing, missing AssociatedItem.");
+        }
+    }
+    // main function exit check (not allowed in trait)
+    if(!item_trait_fn.empty()){
+        for(auto &it : item_trait_fn){
+            if(it->identifier == "main"){
+                if(it->fnBody){
+                    if(it->fnBody->ExpressionWithoutBlock){
+                        if(auto *p = dynamic_cast<ExprCall *>(& *it->fnBody->ExpressionWithoutBlock)){
+                            if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                                if(q ->pathFirst->pathSegments.identifier == "exit" && q->pathSecond == nullptr){
+                                    throw std::runtime_error("Wrong format with main function in trait, exit function call is not allowed.");
+                                }
+                            }
+                        }
+                    }
+                    if(!it->fnBody->statements.empty()){
+                        for(auto &stmt : it->fnBody->statements) {
+                            if (auto *p = dynamic_cast<StmtExpr *>(& *stmt)) {
+                                if (auto *q = dynamic_cast<ExprCall *>(& *p->stmtExpr)) {
+                                    if (auto *r = dynamic_cast<ExprPath *>(& *q->expr)) {
+                                        if (r->pathFirst->pathSegments.identifier == "exit" && r->pathSecond == nullptr) {
+                                            throw std::runtime_error("Wrong format with main function in trait, exit function call is not allowed.");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     currentPos ++;
