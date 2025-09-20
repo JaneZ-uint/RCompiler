@@ -334,6 +334,14 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
             throw std::runtime_error("End of Program.");
         }
         returnType = parse_type();
+        //main function return type check
+        if(identifier == "main"){
+            if(auto *p = dynamic_cast<TypeUnit *>(&*returnType)){
+                //correct
+            }else{
+                throw std::runtime_error("Wrong format with main function return type.");
+            }
+        }
     }
     if(tokens[currentPos].type == kSEMI) {
         currentPos ++;
@@ -352,6 +360,7 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     }else{
         currentPos --;
         fnBody = parse_expr_block();
+        //break statement check
         if(!fnBody->statements.empty() ){
             for (auto &stmt : fnBody->statements) {
                 if (auto *p = dynamic_cast<StmtExpr *>(&*stmt)) {
@@ -365,6 +374,69 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
         if(fnBody->ExpressionWithoutBlock){
             if (auto *p = dynamic_cast<ExprBreak *>(&*fnBody->ExpressionWithoutBlock)) {
                 throw std::runtime_error("Wrong in item fn body with break statement.");
+            }
+        }
+        //main function check
+        if(identifier == "main"){
+            if(fnBody->ExpressionWithoutBlock){
+                if(auto *p = dynamic_cast<ExprCall *>(& *fnBody->ExpressionWithoutBlock)){
+                    if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                        if(q ->pathFirst->pathSegments.identifier == "exit" && q->pathSecond == nullptr){
+                            // remain call param check (i32 is all you need.)
+                        }else{
+                            throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                        }
+                    }else{
+                        throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                    }
+                }else{
+                    throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                }    
+            }else{
+                if(!fnBody->statements.empty()) {
+                    if(auto *p = dynamic_cast<StmtExpr *>(& *fnBody->statements[fnBody->statements.size() - 1])){
+                        if(auto *q = dynamic_cast<ExprCall *>(& *p->stmtExpr)){
+                            if(auto *r = dynamic_cast<ExprPath *>(& *q->expr)){
+                                if(r ->pathFirst->pathSegments.identifier == "exit" && r->pathSecond == nullptr){
+                                    // remain call param check (i32 is all you need.)
+                                }else{
+                                    throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                                }
+                            }else{
+                                throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                            }
+                        }else{
+                            throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                        }
+                    }else{
+                        throw std::runtime_error("Wrong format with main function body, last expression must be exit function call.");
+                    }
+                }
+            }
+        }
+        // other function no exit function call check
+        if(identifier != "main"){
+            if(fnBody->ExpressionWithoutBlock){
+                if(auto *p = dynamic_cast<ExprCall *>(& *fnBody->ExpressionWithoutBlock)){
+                    if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                        if(q ->pathFirst->pathSegments.identifier == "exit" && q->pathSecond == nullptr){
+                            throw std::runtime_error("Wrong format with function body, exit function call is not allowed.");
+                        }
+                    }
+                }
+            }
+            if(!fnBody->statements.empty()){
+                for(auto &stmt : fnBody->statements) {
+                    if (auto *p = dynamic_cast<StmtExpr *>(& *stmt)) {
+                        if (auto *q = dynamic_cast<ExprCall *>(& *p->stmtExpr)) {
+                            if (auto *r = dynamic_cast<ExprPath *>(& *q->expr)) {
+                                if (r->pathFirst->pathSegments.identifier == "exit" && r->pathSecond == nullptr) {
+                                    throw std::runtime_error("Wrong format with function body, exit function call is not allowed.");
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
