@@ -350,9 +350,23 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
     tokenType type = tokens[currentPos].type;
     currentPos ++;
     std::shared_ptr<Expression> right = parse_expr_interface(getRightpower(type));
+    //Borrow check
     if(auto *p = dynamic_cast<ExprOpunary *>(& *right)) {
         if(p->op == BORROW ) {
             throw std::runtime_error("Wrong in expr infix parsing, invalid right expr.");
+        }
+    }
+    // string cannot be used in arithmetic operation
+    if(type == kPLUS || type == kMINUS || type == kSTAR || type == kSLASH || type == kPERCENT) {
+        if(auto *p = dynamic_cast<ExprLiteral *>(& *firstExpr)) {
+            if(p->type == STRING_LITERAL || p->type == RAW_STRING_LITERAL || p->type == RAW_C_STRING_LITERAL || p->type == C_STRING_LITERAL) {
+                throw std::runtime_error("Wrong in expr infix parsing, invalid left expr.");
+            }
+        }
+        if(auto *p = dynamic_cast<ExprLiteral *>(& *right)) {
+            if(p->type == STRING_LITERAL || p->type == RAW_STRING_LITERAL || p->type == RAW_C_STRING_LITERAL || p->type == C_STRING_LITERAL) {
+                throw std::runtime_error("Wrong in expr infix parsing, invalid right expr.");
+            }
         }
     }
     return std::make_shared<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
@@ -417,6 +431,23 @@ std::shared_ptr<ExprArray> Parser::parse_expr_array() {
         std::shared_ptr<Expression> tmp;
         tmp = parse_expr();
         arrayExpr.push_back(std::move(tmp));
+    }
+    //array element type mismatch check
+    if(!arrayExpr.empty()){
+        if(auto *p = dynamic_cast<ExprLiteral *>(& *arrayExpr[0])) {
+            for(size_t i = 1; i < arrayExpr.size(); i ++) {
+                auto *q = dynamic_cast<ExprLiteral *>(& *arrayExpr[i]);
+                if(!q || q->type != p->type) {
+                    throw std::runtime_error("Wrong in expr array parsing, type mismatch.");
+                }
+            }
+        }else {
+            for(size_t i = 1; i < arrayExpr.size(); i ++) {
+                if(auto *q = dynamic_cast<ExprLiteral *>(& *arrayExpr[i])) {
+                    throw std::runtime_error("Wrong in expr array parsing, type mismatch.");
+                }
+            }
+        }
     }
     currentPos ++;
     return std::make_shared<ExprArray>(std::move(arrayExpr));
