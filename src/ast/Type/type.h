@@ -11,6 +11,10 @@ enum RustType{
     CHAR,
     STR,
     ENUM,
+    ARRAY,
+    PATH,
+    REFERENCE,
+    UNIT,
 };
 
 class Type : public ASTNode {

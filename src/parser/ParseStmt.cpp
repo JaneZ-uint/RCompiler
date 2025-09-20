@@ -93,6 +93,36 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
     }else{
         throw std::runtime_error("Wring in stmt let parsing, missing type.");
     }
+    RustType tp;
+    if(auto *p = dynamic_cast<Type *>(& *type)){
+        if(p->type == BOOL){
+            tp = RustType::BOOL;
+        }else if(p->type == I32){
+            tp = RustType::I32;
+        }else if(p->type == U32){
+            tp = RustType::U32;
+        }else if(p->type == ISIZE){
+            tp = RustType::ISIZE;
+        }else if(p->type == USIZE){
+            tp = RustType::USIZE;
+        }else if(p->type == CHAR){
+            tp = RustType::CHAR;
+        }else if(p->type == STR){
+            tp = RustType::STR; 
+        }else if(p->type == ENUM){
+            tp = RustType::ENUM;
+        }
+    }else if(auto *p = dynamic_cast<TypeArray *>(& *type)){
+        tp = RustType::ARRAY;
+    }else if(auto *p = dynamic_cast<TypeReference *>(& *type)){
+        tp = RustType::REFERENCE;
+    }else if(auto *p = dynamic_cast<TypePath *>(& *type)){
+        tp = RustType::PATH;
+    }else if(auto *p = dynamic_cast<TypeUnit *>(& *type)){
+        tp = RustType::UNIT;
+    }else{
+        throw std::runtime_error("Wrong in stmt let parsing, invalid type.");
+    }
     std::shared_ptr<Expression> expr = nullptr;
     if(tokens[currentPos].type == kEQ) {
         currentPos ++;
@@ -102,6 +132,13 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
         expr = parse_expr();
         if(auto *p = dynamic_cast<ExprUnderscore *>(& *expr)){
             throw std::runtime_error("Wrong in stmt let parsing, cannot assign underscore.");
+        }
+        if(auto *p = dynamic_cast<ExprLiteral *>(& *expr)){
+            if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::USIZE || tp == RustType::ISIZE){
+                if(p->type != INTEGER_LITERAL){
+                    throw std::runtime_error("Wrong in stmt let parsing, type mismatch.");
+                }
+            }
         }
     }
     if(currentPos >= tokens.size()){
