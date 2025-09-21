@@ -39,6 +39,124 @@ std::shared_ptr<Item> Parser::parse_item(){
     }
 }
 
+void checkReturntypeInConditionBlock(std::shared_ptr<ExprIf> &&exprIf, RustType tp){
+    if(exprIf->thenBlock){
+        if(exprIf->thenBlock->ExpressionWithoutBlock){
+            if(auto *r = dynamic_cast<ExprReturn *>(& *exprIf->thenBlock->ExpressionWithoutBlock)){
+                if(r->expr){
+                    if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                        if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                            if(s->type != INTEGER_LITERAL){
+                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                            }
+                        }
+                    }else if(tp == RustType::BOOL){
+                        if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                            if(s->type != TRUE && s->type != FALSE){
+                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                            }
+                        }
+                    }else if(tp == RustType::CHAR){
+                        if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                            if(s->type != CHAR_LITERAL){
+                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                            }
+                        }
+                    }
+                    // todo other literals check
+                }
+            }
+        }else if(!exprIf->thenBlock->statements.empty()){
+            if(auto *r = dynamic_cast<StmtExpr *>(& *exprIf->thenBlock->statements[exprIf->thenBlock->statements.size() - 1])){
+                if(auto *s = dynamic_cast<ExprReturn *>(& *r->stmtExpr)){
+                    if(s->expr){
+                        if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != INTEGER_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }else if(tp == RustType::BOOL){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != TRUE && t->type != FALSE){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }else if(tp == RustType::CHAR){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != CHAR_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }
+                        // todo other literals check    
+                    }
+                }
+            }
+        }
+    }
+    if(exprIf->elseBlock){
+        if(auto *r = dynamic_cast<ExprIf *>(& *exprIf->elseBlock)){
+            checkReturntypeInConditionBlock(std::make_shared<ExprIf>(std::move(*r)), tp);
+        }else if(auto *r = dynamic_cast<ExprBlock *>(& *exprIf->elseBlock)){
+            if(r->ExpressionWithoutBlock){
+                if(auto *s = dynamic_cast<ExprReturn *>(& *r->ExpressionWithoutBlock)){
+                    if(s->expr){
+                        if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != INTEGER_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }else if(tp == RustType::BOOL){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != TRUE && t->type != FALSE){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }else if(tp == RustType::CHAR){
+                            if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                if(t->type != CHAR_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                        }
+                        // todo other literals check    
+                    }
+                }
+            }else if(!r->statements.empty()){
+                if(auto *s = dynamic_cast<StmtExpr *>(& *r->statements[r->statements.size() - 1])){
+                    if(auto *t = dynamic_cast<ExprReturn *>(& *s->stmtExpr)){
+                        if(t->expr){
+                            if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                    if(u->type != INTEGER_LITERAL){
+                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                    }       
+                                }
+                            }else if(tp == RustType::BOOL){
+                                if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                    if(u->type != TRUE && u->type != FALSE){
+                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                    }       
+                                }
+                            }else if(tp == RustType::CHAR){
+                                if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                    if(u->type != CHAR_LITERAL){
+                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                    }       
+                                }   
+                            }
+                            // todo other literals check
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+
 std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     bool is_const = false;
     if(tokens[currentPos].type == kCONST){
@@ -369,6 +487,8 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
             tp = RustType::ARRAY;
         }else if(auto *p = dynamic_cast<TypeUnit *>(& *returnType)){
             tp = RustType::UNIT;
+        }else if(auto *p = dynamic_cast<Path *>(& *returnType)){
+            tp = RustType::PATH;
         }else{
             throw std::runtime_error("Wrong in item fn parsing, invalid return type.");
         }
@@ -527,9 +647,135 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                 }
             }
         }
+        // return type check in conditional blocks
+        if(returnType){
+            if(!fnBody->statements.empty()){
+                for(auto &stmt: fnBody->statements){
+                    if(auto *p = dynamic_cast<StmtExpr *>(& *stmt)){
+                        if(auto *q = dynamic_cast<ExprIf *>(& *p->stmtExpr)){
+                            if(q->thenBlock){
+                                if(q->thenBlock->ExpressionWithoutBlock){
+                                    if(auto *r = dynamic_cast<ExprReturn *>(& *q->thenBlock->ExpressionWithoutBlock)){
+                                        if(r->expr){
+                                            if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                                if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                    if(s->type != INTEGER_LITERAL){
+                                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                    }
+                                                }
+                                            }else if(tp == RustType::BOOL){
+                                                if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                    if(s->type != TRUE && s->type != FALSE){
+                                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                    }
+                                                }
+                                            }else if(tp == RustType::CHAR){
+                                                if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                    if(s->type != CHAR_LITERAL){
+                                                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                    }
+                                                }
+                                            }
+                                            // todo other literals check
+                                        }
+                                    }
+                                }else if(!q->thenBlock->statements.empty()){
+                                    if(auto *r = dynamic_cast<StmtExpr *>(& *q->thenBlock->statements[q->thenBlock->statements.size() - 1])){
+                                        if(auto *s = dynamic_cast<ExprReturn *>(& *r->stmtExpr)){
+                                            if(s->expr){
+                                                if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != INTEGER_LITERAL){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }else if(tp == RustType::BOOL){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != TRUE && t->type != FALSE){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }else if(tp == RustType::CHAR){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != CHAR_LITERAL){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }
+                                                // todo other literals check
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if(q->elseBlock){
+                                if(auto *r = dynamic_cast<ExprIf *>(& *q->elseBlock)){
+                                    checkReturntypeInConditionBlock(std::make_shared<ExprIf>(std::move(*r)), tp);
+                                }else if(auto *r = dynamic_cast<ExprBlock *>(& *q->elseBlock)){
+                                    if(r->ExpressionWithoutBlock){
+                                        if(auto *s = dynamic_cast<ExprReturn *>(& *r->ExpressionWithoutBlock)){
+                                            if(s->expr){
+                                                if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != INTEGER_LITERAL){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }else if(tp == RustType::BOOL){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != TRUE && t->type != FALSE){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }else if(tp == RustType::CHAR){
+                                                    if(auto *t = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(t->type != CHAR_LITERAL){
+                                                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                        }
+                                                    }
+                                                }
+                                                // todo other literals check
+                                            }
+                                        }
+                                    }else if(!r->statements.empty()){
+                                        if(auto *s = dynamic_cast<StmtExpr *>(& *r->statements[r->statements.size() - 1])){
+                                            if(auto *t = dynamic_cast<ExprReturn *>(& *s->stmtExpr)){
+                                                if(t->expr){
+                                                    if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                                        if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                            if(u->type != INTEGER_LITERAL){
+                                                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                            }
+                                                        }
+                                                    }else if(tp == RustType::BOOL){
+                                                        if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                            if(u->type != TRUE && u->type != FALSE){
+                                                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                            }
+                                                        }
+                                                    }else if(tp == RustType::CHAR){
+                                                        if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                            if(u->type != CHAR_LITERAL){
+                                                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                                            }       
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     return std::make_shared<ItemFnDecl>(std::move(identifier),std::move(param),std::move(fnBody),std::move(returnType),is_const);
 }
+
+
 
 std::shared_ptr<ItemConstDecl> Parser::parse_item_const() {
     currentPos ++;

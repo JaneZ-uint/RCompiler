@@ -116,7 +116,7 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
         tp = RustType::ARRAY;
     }else if(auto *p = dynamic_cast<TypeReference *>(& *type)){
         tp = RustType::REFERENCE;
-    }else if(auto *p = dynamic_cast<TypePath *>(& *type)){
+    }else if(auto *p = dynamic_cast<Path *>(& *type)){
         tp = RustType::PATH;
     }else if(auto *p = dynamic_cast<TypeUnit *>(& *type)){
         tp = RustType::UNIT;
