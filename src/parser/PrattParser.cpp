@@ -447,17 +447,42 @@ std::shared_ptr<ExprArray> Parser::parse_expr_array() {
     }
     //array element type mismatch check
     if(!arrayExpr.empty()){
+        //literal type check
         if(auto *p = dynamic_cast<ExprLiteral *>(& *arrayExpr[0])) {
             for(size_t i = 1; i < arrayExpr.size(); i ++) {
                 auto *q = dynamic_cast<ExprLiteral *>(& *arrayExpr[i]);
-                if(!q || q->type != p->type) {
+                if(q && q->type != p->type) {
                     throw std::runtime_error("Wrong in expr array parsing, type mismatch.");
                 }
             }
-        }else {
+        }
+        //array type check
+        bool isArray = false;
+        if(auto *p = dynamic_cast<ExprArray *>(& *arrayExpr[0])){
+            isArray = true;
             for(size_t i = 1; i < arrayExpr.size(); i ++) {
-                if(auto *q = dynamic_cast<ExprLiteral *>(& *arrayExpr[i])) {
+                if(!dynamic_cast<ExprArray *>(& *arrayExpr[i])){
+                    isArray = false;
+                    break;
+                }
+            }
+        }
+        if(isArray){
+            int arraysize = -1;
+            auto *p = dynamic_cast<ExprArray *>(& *arrayExpr[0]);
+            if(!p->arrayExpr.empty()){
+                arraysize = p->arrayExpr.size();
+            }
+            for(size_t i = 1; i < arrayExpr.size(); i ++) {
+                auto *q = dynamic_cast<ExprArray *>(& *arrayExpr[i]);
+                if(!q){
                     throw std::runtime_error("Wrong in expr array parsing, type mismatch.");
+                }else{
+                    if(!q->arrayExpr.empty() && arraysize != -1){
+                        if(q->arrayExpr.size() != arraysize){
+                            throw std::runtime_error("Wrong in expr array parsing, type mismatch.");
+                        }
+                    }
                 }
             }
         }
