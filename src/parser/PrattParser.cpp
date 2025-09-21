@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -400,6 +401,12 @@ std::shared_ptr<ExprArray> Parser::parse_expr_array() {
         size = parse_expr();
         if(tokens[currentPos].type != kR_BRACKET){
             throw std::runtime_error("Wrong in expr array parsing, missing R_BRACKET.");
+        }
+        //array size check
+        if(auto *p= dynamic_cast<ExprLiteral *>(& *size)){
+            if(p->type != INTEGER_LITERAL){
+                throw std::runtime_error("Wrong in expr array parsing, array size must be integer.");
+            }
         }
         currentPos ++;
         return std::make_shared<ExprArray>(std::move(type),std::move(size));
@@ -800,6 +807,10 @@ std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
         }
     }
     currentPos ++;
+    if(type == INTEGER_LITERAL){
+        int integer = std::stoi(literal);
+        return std::make_shared<ExprLiteral>(std::move(literal),type,integer);
+    }
     return std::make_shared<ExprLiteral>(std::move(literal),type);
 }
 

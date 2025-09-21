@@ -133,10 +133,28 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
         if(auto *p = dynamic_cast<ExprUnderscore *>(& *expr)){
             throw std::runtime_error("Wrong in stmt let parsing, cannot assign underscore.");
         }
+        // integer type check
         if(auto *p = dynamic_cast<ExprLiteral *>(& *expr)){
             if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::USIZE || tp == RustType::ISIZE){
                 if(p->type != INTEGER_LITERAL){
                     throw std::runtime_error("Wrong in stmt let parsing, type mismatch.");
+                }
+            }
+        }
+        //array size check
+        if(auto *m = dynamic_cast<TypeArray *>(& *type)){
+            if(auto *p = dynamic_cast<ExprArray *>(& *expr)){
+                if(!p->arrayExpr.empty()){
+                    int num = p->arrayExpr.size();
+                    if(auto *q = dynamic_cast<ExprLiteral *>(& *m->expr)){
+                        if(q->type != INTEGER_LITERAL){
+                            throw std::runtime_error("Wrong in stmt let parsing, array size must be integer.");
+                        }else{
+                            if(q->integer != num){
+                                throw std::runtime_error("Wrong in stmt let parsing, array size mismatch.");
+                            }
+                        }
+                    }
                 }
             }
         }
