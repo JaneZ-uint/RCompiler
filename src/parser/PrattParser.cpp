@@ -308,6 +308,12 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
             if(tokens[currentPos].type != kR_BRACKET) {
                 throw std::runtime_error("Wrong in expr index parsing, missing kR_BRACKET.");
             }
+            //string used as array index in matrix operations check
+            if(auto *p = dynamic_cast<ExprLiteral *>(& *index)){
+                if(p->type == STRING_LITERAL || p->type == RAW_STRING_LITERAL || p->type == C_STRING_LITERAL || p->type == RAW_C_STRING_LITERAL){
+                    throw std::runtime_error("Wrong in expr index parsing, string cannot be used as array index.");
+                }
+            }
             currentPos ++;
             return std::make_shared<ExprIndex>(std::move(firstExpr),std::move(index));
         }
