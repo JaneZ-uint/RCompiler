@@ -158,6 +158,28 @@ std::shared_ptr<StmtLet> Parser::parse_stmt_let(){
                 }
             }
         }
+        //array size check for format : [type; size]
+        if(auto *m = dynamic_cast<TypeArray *>(& *type)){
+            if(auto *p = dynamic_cast<ExprArray *>(& *expr)){
+                if(p->size){
+                    if(auto *q = dynamic_cast<ExprLiteral *>(& *p->size)){
+                        if(q->type != INTEGER_LITERAL){
+                            throw std::runtime_error("Wrong in stmt let parsing, array size must be integer.");
+                        }else{
+                            if(auto *r = dynamic_cast<ExprLiteral *>(& *m->expr)){
+                                if(r->type != INTEGER_LITERAL){
+                                    throw std::runtime_error("Wrong in stmt let parsing, array size must be integer.");
+                                }else{
+                                    if(r->integer != q->integer){
+                                        throw std::runtime_error("Wrong in stmt let parsing, array size mismatch.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
