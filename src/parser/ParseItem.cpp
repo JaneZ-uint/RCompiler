@@ -80,6 +80,8 @@ void checkReturntypeInConditionBlock(std::shared_ptr<ExprIf> &&exprIf, RustType 
                     }
                 }
                 // todo other literals check
+            }else if(auto *r = dynamic_cast<ExprUnderscore *>(& *exprIf->thenBlock->ExpressionWithoutBlock)){
+                throw std::runtime_error("Wrong in item fn body with underscore.");
             }
         }else if(!exprIf->thenBlock->statements.empty()){
             if(auto *r = dynamic_cast<StmtExpr *>(& *exprIf->thenBlock->statements[exprIf->thenBlock->statements.size() - 1])){
@@ -121,6 +123,8 @@ void checkReturntypeInConditionBlock(std::shared_ptr<ExprIf> &&exprIf, RustType 
                         }
                     }
                     // todo other literals check
+                }else if(auto *s = dynamic_cast<ExprUnderscore *>(& *r->stmtExpr)){
+                    throw std::runtime_error("Wrong in item fn body with underscore.");
                 }
             }
         }
@@ -168,6 +172,8 @@ void checkReturntypeInConditionBlock(std::shared_ptr<ExprIf> &&exprIf, RustType 
                         }
                     }
                     // todo other literals check
+                }else if(auto *s = dynamic_cast<ExprUnderscore *>(& *r->ExpressionWithoutBlock)){
+                    throw std::runtime_error("Wrong in item fn body with underscore.");
                 }
             }else if(!r->statements.empty()){
                 if(auto *s = dynamic_cast<StmtExpr *>(& *r->statements[r->statements.size() - 1])){
@@ -209,6 +215,8 @@ void checkReturntypeInConditionBlock(std::shared_ptr<ExprIf> &&exprIf, RustType 
                             }
                         }
                         // todo other literals check
+                    }else if(auto *t = dynamic_cast<ExprUnderscore *>(& *s->stmtExpr)){ 
+                        throw std::runtime_error("Wrong in item fn body with underscore.");
                     }
                 }
             }
@@ -569,6 +577,16 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     }else{
         currentPos --;
         fnBody = parse_expr_block();
+        //underscore check
+        if(fnBody->ExpressionWithoutBlock){
+            if(auto *p = dynamic_cast<ExprUnderscore *>(& *fnBody->ExpressionWithoutBlock)){
+                throw std::runtime_error("Wrong in item fn body with underscore.");
+            }
+        }else if(!fnBody->statements.empty()){
+            if(auto *p = dynamic_cast<ExprUnderscore *>(& *fnBody->statements[fnBody->statements.size() - 1])){
+                throw std::runtime_error("Wrong in item fn body with underscore.");
+            }
+        }
         //break statement check
         if(!fnBody->statements.empty() ){
             for (auto &stmt : fnBody->statements) {
@@ -752,6 +770,8 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                                             }
                                         }
                                         // todo other literals check
+                                    }else if(auto *r = dynamic_cast<ExprUnderscore *>(& *q->thenBlock->ExpressionWithoutBlock)){
+                                        throw std::runtime_error("Wrong in item fn body with underscore.");
                                     }
                                 }else if(!q->thenBlock->statements.empty()){
                                     if(auto *r = dynamic_cast<StmtExpr *>(& *q->thenBlock->statements[q->thenBlock->statements.size() - 1])){
@@ -793,6 +813,8 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                                                 }
                                             }
                                             // todo other literals check
+                                        }else if(auto *s = dynamic_cast<ExprUnderscore *>(& *r->stmtExpr)){
+                                            throw std::runtime_error("Wrong in item fn body with underscore.");
                                         }
                                     }
                                 }
@@ -840,6 +862,8 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                                                 }
                                             }
                                             // todo other literals check
+                                        }else if(auto *s = dynamic_cast<ExprUnderscore *>(& *r->ExpressionWithoutBlock)){
+                                            throw std::runtime_error("Wrong in item fn body with underscore.");
                                         }
                                     }else if(!r->statements.empty()){
                                         if(auto *s = dynamic_cast<StmtExpr *>(& *r->statements[r->statements.size() - 1])){
@@ -881,6 +905,8 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                                                     }
                                                 }
                                                 // todo other literals check
+                                            }else if(auto *t = dynamic_cast<ExprUnderscore *>(& *s->stmtExpr)){
+                                                throw std::runtime_error("Wrong in item fn body with underscore.");
                                             }
                                         }
                                     }
