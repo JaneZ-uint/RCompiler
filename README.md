@@ -12,7 +12,10 @@ A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 - Recursive Descent Parser (for others)
 
 ### Semantic check
-
+TBD:
+- Function missing return statement
+- Mutable variable
+- Scope tree build
 
 ## Base
 The project is based on [RLanguage Reference](https://github.com/peterzheng98/RCompiler-Spec/).

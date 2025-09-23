@@ -635,7 +635,6 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         throw std::runtime_error("Wrong in item fn body with break statement.");
                     }
                 }
-            
             }
         }
         if(fnBody->ExpressionWithoutBlock){
@@ -732,6 +731,23 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                         }
                         // todo other literals check
                     }
+                }else if(auto *p = dynamic_cast<ExprLiteral *>(& *fnBody->ExpressionWithoutBlock)){
+                    if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                        if(p->type != INTEGER_LITERAL){
+                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                        }
+                    }else if(tp == RustType::BOOL){
+                        if(p->type != TRUE && p->type != FALSE){
+                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                        }
+                    }else if(tp == RustType::CHAR){
+                        if(p->type != CHAR_LITERAL){
+                            throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                        }
+                    }
+                    // todo other literals check
+                }else if(auto *p = dynamic_cast<ExprUnderscore *>(& *fnBody->ExpressionWithoutBlock)){
+                    throw std::runtime_error("Wrong in item fn body with underscore.");
                 }
             }else{
                 if(!fnBody->statements.empty()) {
@@ -759,6 +775,23 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                                 }
                                 // todo other literals check
                             }
+                        }else if(auto *q = dynamic_cast<ExprLiteral *>(& *p->stmtExpr)){
+                            if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+                                if(q->type != INTEGER_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }else if(tp == RustType::BOOL){
+                                if(q->type != TRUE && q->type != FALSE){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }else if(tp == RustType::CHAR){
+                                if(q->type != CHAR_LITERAL){
+                                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                                }
+                            }
+                            // todo other literals check
+                        }else if(auto *q = dynamic_cast<ExprUnderscore *>(& *p->stmtExpr)){
+                            throw std::runtime_error("Wrong in item fn body with underscore.");
                         }
                     }
                 }
