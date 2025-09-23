@@ -577,6 +577,24 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
     }else{
         currentPos --;
         fnBody = parse_expr_block();
+        //return value existence check
+        if(returnType){
+            if(!fnBody->ExpressionWithoutBlock){
+                if(fnBody->statements.empty()){
+                    throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                }else{
+                    if(auto *p = dynamic_cast<StmtExpr *>(& *fnBody->statements[fnBody->statements.size() - 1])){
+                        if(auto *q = dynamic_cast<ExprReturn *>(& *p->stmtExpr)){
+                            if(!q->expr){
+                                throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                            }
+                        }
+                    }else{
+                        throw std::runtime_error("Wrong in item fn body with return type mismatch.");
+                    }
+                }
+            }
+        }
         //underscore check
         if(fnBody->ExpressionWithoutBlock){
             if(auto *p = dynamic_cast<ExprUnderscore *>(& *fnBody->ExpressionWithoutBlock)){
