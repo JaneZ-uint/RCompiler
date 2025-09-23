@@ -578,7 +578,7 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
         currentPos --;
         fnBody = parse_expr_block();
         //return value existence check
-        if(returnType){
+        if(returnType && tp != RustType::UNIT){
             if(!fnBody->ExpressionWithoutBlock){
                 if(fnBody->statements.empty()){
                     throw std::runtime_error("Wrong in item fn body with return type mismatch.");
@@ -592,6 +592,28 @@ std::shared_ptr<ItemFnDecl> Parser::parse_item_fn() {
                     }else{
                         throw std::runtime_error("Wrong in item fn body with return type mismatch.");
                     }
+                }
+            }
+        }
+        //return type unit check
+        if(tp == RustType::UNIT){
+            if(!fnBody->ExpressionWithoutBlock){
+                if(!fnBody->statements.empty()){
+                    if(auto *p = dynamic_cast<StmtExpr *>(& *fnBody->statements[fnBody->statements.size() - 1])){
+                        if(auto *q = dynamic_cast<ExprReturn *>(& *p->stmtExpr)){
+                            if(q->expr){
+                                throw std::runtime_error("Wrong in item fn body with return type unit mismatch.");
+                            }
+                        }
+                    }
+                }
+            }else{
+                if(auto *p = dynamic_cast<ExprReturn *>(& *fnBody->ExpressionWithoutBlock)){
+                    if(p->expr){
+                        throw std::runtime_error("Wrong in item fn body with return type unit mismatch.");
+                    }
+                }else{
+                    throw std::runtime_error("Wrong in item fn body with return type unit mismatch.");
                 }
             }
         }
