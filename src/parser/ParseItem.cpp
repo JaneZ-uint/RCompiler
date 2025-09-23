@@ -962,6 +962,53 @@ std::shared_ptr<ItemConstDecl> Parser::parse_item_const() {
     if(tokens[currentPos].type != kSEMI){
         throw std::runtime_error("Wrong in item const parsing, missing SEMI.");
     }
+    //type check 
+    RustType tp;
+    if(auto *p = dynamic_cast<Type *>(& *type)){
+        if(p->type == BOOL){
+            tp = RustType::BOOL;
+        }else if(p->type == I32){
+            tp = RustType::I32;
+        }else if(p->type == U32){
+            tp = RustType::U32;
+        }else if(p->type == ISIZE){
+            tp = RustType::ISIZE;
+        }else if(p->type == USIZE){
+            tp = RustType::USIZE;
+        }else if(p->type == CHAR){
+            tp = RustType::CHAR;
+        }else if(p->type == STR){
+            tp = RustType::STR;
+        }else if(p->type == ENUM){
+            tp = RustType::ENUM;    
+        }
+    }else if(auto *p = dynamic_cast<TypeReference *>(& *type)){
+        tp = RustType::REFERENCE;
+    }else if(auto *p = dynamic_cast<TypeArray *>(& *type)){
+        tp = RustType::ARRAY;
+    }else if(auto *p = dynamic_cast<TypeUnit *>(& *type)){
+        tp = RustType::UNIT;
+    }else if(auto *p = dynamic_cast<Path *>(& *type)){
+        tp = RustType::PATH;
+    }else{
+        throw std::runtime_error("Wrong in item const parsing, invalid type.");
+    }
+    if(auto *r = dynamic_cast<ExprLiteral *>(& *expr)){
+        if(tp == RustType::U32 || tp == RustType::I32 || tp == RustType::ISIZE || tp == RustType::USIZE ){
+            if(r->type != INTEGER_LITERAL){
+                throw std::runtime_error("Wrong in item const with type mismatch.");
+            }
+        }else if(tp == RustType::BOOL){
+            if(r->type != TRUE && r->type != FALSE){
+                throw std::runtime_error("Wrong in item const with type mismatch.");
+            }
+        }else if(tp == RustType::CHAR){
+            if(r->type != CHAR_LITERAL){
+                throw std::runtime_error("Wrong in item const with type mismatch.");
+            }
+        }
+        // todo other literals check
+    }
     currentPos ++;
     return std::make_shared<ItemConstDecl>(std::move(identifier),std::move(type),std::move(expr));
 }
