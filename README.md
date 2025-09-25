@@ -10,12 +10,10 @@ A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 ### Parser
 - Pratt Parser (for expression parsing)  Reference: https://zhuanlan.zhihu.com/p/471075848 
 - Recursive Descent Parser (for others)
-
+- Simple semantic check during parsing (without constructing scope tree)
 ### Semantic check
-TBD:
-- Function missing return statement
-- Mutable variable
-- Scope tree build
+- ConstEvaluator
+- NameResolver
 
 ## Base
 The project is based on [RLanguage Reference](https://github.com/peterzheng98/RCompiler-Spec/).
