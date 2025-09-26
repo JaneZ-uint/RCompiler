@@ -18,12 +18,12 @@ class ExprLiteral : public Expression {
 public:
     std::string literal;
     LiteralType type;
-     int integer;// for integer literal
+    long long int integer;// for integer literal
 
     ExprLiteral(std::string lit, LiteralType t)
         : literal(std::move(lit)), type(t) {}
 
-    ExprLiteral(std::string lit, LiteralType t, int integerValue)
+    ExprLiteral(std::string lit, LiteralType t,long long int integerValue)
         : literal(std::move(lit)), type(t), integer(integerValue) {}
     
     ~ExprLiteral() = default;
