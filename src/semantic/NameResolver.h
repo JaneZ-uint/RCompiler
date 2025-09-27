@@ -417,7 +417,33 @@ public:
     }
 
     void visit(ItemStructDecl &node) override{
-        //todo
+        auto symbol = current_scope->lookupTypeSymbol(node.identifier);
+        if(symbol){
+            throw std::runtime_error("Type symbol already exists: " + node.identifier);
+        }
+        current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
+        for(auto &struct_field: node.item_struct) {
+            if(auto *p = dynamic_cast<TypePath *>(& *struct_field.structElem)){
+                std::string id = p->typePath->pathSegments.identifier;
+                auto symbol = current_scope->lookupTypeSymbol(id);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + id);
+                }else{
+                    p->resolvedSymbol = symbol;
+                }
+            }
+            current_scope->addValueSymbol(struct_field.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Variable, struct_field.identifier));
+        }
+    }
+
+    void visit(ItemTraitDecl &node) override{
+        current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemTraitDecl>(node), Trait, node.identifier));
+        for(auto &const_item : node.item_trait_const) {
+            const_item->accept(*this);  
+        }
+        for(auto &fn_item : node.item_trait_fn) {
+            fn_item->accept(*this); 
+        }
     }
 
     //Pattern
