@@ -305,7 +305,6 @@ public:
         }
     }
 
-    //TODO
     void visit(ItemConstDecl &node) override{
         current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemConstDecl>(node), Const, node.identifier));
         node.type->accept(*this);
@@ -321,7 +320,6 @@ public:
         if(node.expr){
             node.expr->accept(*this);
         }
-        //TODO
     }
 
     void visit(ItemEnumDecl &node) override{
@@ -378,9 +376,9 @@ public:
 
     void visit(ItemImplDecl &node) override{
         if(node.identifier != ""){
-            auto symbolVALUE = current_scope->lookupValueSymbol(node.identifier);
-            if(!symbolVALUE) {
-                throw std::runtime_error("Value symbol not found: " + node.identifier);
+            auto symbolTYPE = current_scope->lookupTypeSymbol(node.identifier);
+            if(!symbolTYPE) {
+                throw std::runtime_error("Type symbol not found: " + node.identifier);
             }
             if(auto *p = dynamic_cast<TypePath *>(& *node.targetType)){
                 std::string id = p->typePath->pathSegments.identifier;
@@ -417,10 +415,6 @@ public:
     }
 
     void visit(ItemStructDecl &node) override{
-        auto symbol = current_scope->lookupTypeSymbol(node.identifier);
-        if(symbol){
-            throw std::runtime_error("Type symbol already exists: " + node.identifier);
-        }
         current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
         for(auto &struct_field: node.item_struct) {
             if(auto *p = dynamic_cast<TypePath *>(& *struct_field.structElem)){
@@ -465,7 +459,15 @@ public:
         }
     }
 
-    //TODO
+    void visit(PatternIdentifier &node) override{}
+
+    void visit(PatternLiteral &node) override{}
+
+    void visit(PatternPath &node) override{}
+
+    void visit(PatternReference &node) override{}
+
+    void visit(PatternWildCard &node) override{}
 
     //Statement
     void visit(Statement &node) override {
@@ -482,8 +484,35 @@ public:
         }
     }
 
-    //TODO
+    void visit(StmtEmpty &node) override{}
 
+    void visit(StmtExpr &node) override{
+        node.stmtExpr->accept(*this);
+    }
+
+    void visit(StmtItem &node) override{
+        node.stmt_item->accept(*this);
+    }
+
+    void visit(StmtLet &node) override{
+        if(auto *p = dynamic_cast<PatternIdentifier *>(& *node.PatternNoTopAlt)){
+            current_scope->addValueSymbol(p->identifier, std::make_shared<Symbol>(std::make_shared<StmtLet>(node), Variable, p->identifier));
+        }else if(auto *p = dynamic_cast<PatternReference *>(& *node.PatternNoTopAlt)){
+            if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
+                current_scope->addValueSymbol(q->identifier, std::make_shared<Symbol>(std::make_shared<PatternReference>(node), Variable, q->identifier));
+            }
+        }
+        if(auto *p = dynamic_cast<TypePath *>(& *node.type)){
+            std::string id = p->typePath->pathSegments.identifier;
+            auto symbol = current_scope->lookupTypeSymbol(id);
+            if(!symbol) {
+                throw std::runtime_error("Value symbol not found: " + id);
+            }else{
+                p->resolvedSymbol = symbol;
+            }
+        }
+        node.expression->accept(*this);
+    }
 
 };
 }
