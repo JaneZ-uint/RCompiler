@@ -13,24 +13,20 @@
 # include <vector>
 
 int main(){
-    try{
-        JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic4/basic4.rx");
-        //JaneZ::Simplifier simplifier("1.rs");
-        std::string source_code = simplifier.work();
-        //simplifier.print();
-        JaneZ::Lexer lexer(source_code);
-        std::vector<JaneZ::Token> tokens = lexer.work();
-        //lexer.print();
-        JaneZ::Parser parser(tokens);
-        std::shared_ptr<JaneZ::ASTRootNode> root = parser.parse();
-        //JaneZ::PrintVisitor printer;
-        //printer.visit(*root);
-        JaneZ::GlobalScopeBuilder global_scope_builder;
-        JaneZ::NameResolver name_resolver;
-        JaneZ::Checker checker;
-        checker.semantic_check(global_scope_builder,name_resolver,*root);
-    }catch(std::runtime_error){
-        return 0;
-    }
+    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic14/basic14.rx");
+    //JaneZ::Simplifier simplifier("1.rs");
+    std::string source_code = simplifier.work();
+    //simplifier.print();
+    JaneZ::Lexer lexer(source_code);
+    std::vector<JaneZ::Token> tokens = lexer.work();
+    //lexer.print();
+    JaneZ::Parser parser(tokens);
+    std::shared_ptr<JaneZ::ASTRootNode> root = parser.parse();
+    JaneZ::PrintVisitor printer;
+    printer.visit(*root);
+    JaneZ::GlobalScopeBuilder global_scope_builder;
+    JaneZ::NameResolver name_resolver;
+    JaneZ::Checker checker;
+    checker.semantic_check(global_scope_builder,name_resolver,*root);
     return 1;
 }

@@ -27,24 +27,24 @@ public:
         global_scope = std::make_shared<ScopeNode>();
         global_scope->ast_node = std::make_shared<ASTRootNode>(node);
         for(auto &item : node.child) {
-            item->accept(*this);
+            visit(*item);
         }
     }
 
     //Item
     void visit(Item &node) override {
         if(auto *p = dynamic_cast<ItemConstDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemFnDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemImplDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemStructDecl *>(& node)) {    
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemTraitDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else{
             std::cerr << "Unknown Item type in GlobalScopeBuilder\n";
         }

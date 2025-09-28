@@ -44,6 +44,7 @@
 #include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
 #include "../ast/Type/TypeUnit.h"
+#include "globalScope.h"
 #include "scope.h"
 #include "symbol.h"
 #include <iostream>
@@ -54,6 +55,8 @@ namespace JaneZ {
 class NameResolver : public ASTVisitor{
 public:
     std::shared_ptr<ScopeNode> current_scope;
+
+    GlobalScopeBuilder global_scope_builder;
 
     NameResolver() = default;
 
@@ -91,52 +94,53 @@ public:
 
     void visit(ASTRootNode &node) override {
         for(auto &item : node.child) {
-            item->accept(*this);
+            //item->accept(*this);
+            visit(*item);
         }
     }
 
     //Expression
     void visit(Expression &node) override {
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprBlock *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprBreak *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprCall *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprConstBlock *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprContinue *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprField *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprGroup *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprIf *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprIndex *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprLiteral *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprLoop *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprMatch *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprMethodcall *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprOpbinary *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprOpunary *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprPath *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprReturn *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprStruct *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ExprUnderscore *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else{
             std::cout << "Unknown Expression type in PrintVisitor\n";
         }
@@ -292,24 +296,27 @@ public:
     //Item
     void visit(Item &node) override {
         if(auto *p = dynamic_cast<ItemConstDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemFnDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemImplDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemStructDecl *>(& node)) {    
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<ItemTraitDecl *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else{
             std::cerr << "Unknown Item type in NameResolver\n";
         }
     }
 
     void visit(ItemConstDecl &node) override{
-        current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemConstDecl>(node), Const, node.identifier));
+        if(current_scope != global_scope_builder.global_scope){
+            current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemConstDecl>(node), Const, node.identifier));
+        }
+        //current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemConstDecl>(node), Const, node.identifier));
         node.type->accept(*this);
         if(auto *p = dynamic_cast<TypePath *>(& *node.type)) {
             std::string id = p->typePath->pathSegments.identifier;
@@ -326,18 +333,19 @@ public:
     }
 
     void visit(ItemEnumDecl &node) override{
-        auto symbol = current_scope->lookupTypeSymbol(node.identifier);
-        if(symbol){
-            throw std::runtime_error("Type symbol already exists: " + node.identifier);
+        if(current_scope != global_scope_builder.global_scope){
+            current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemEnumDecl>(node), Enum, node.identifier));
         }
-        current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemEnumDecl>(node), Enum, node.identifier));
         for(auto &variant : node.item_enum) {
             current_scope->addValueSymbol(variant, std::make_shared<Symbol>(std::make_shared<ItemEnumDecl>(node), Enum, variant));
         }
     }
 
     void visit(ItemFnDecl &node) override{
-        current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemFnDecl>(node), Function, node.identifier));
+        if(current_scope != global_scope_builder.global_scope){
+            current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemFnDecl>(node), Function, node.identifier));
+        }
+        //current_scope->addValueSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemFnDecl>(node), Function, node.identifier));
         auto fn_scope = std::make_shared<ScopeNode>();
         fn_scope->parent = current_scope;
         fn_scope->ast_node = std::make_shared<ItemFnDecl>(node);
@@ -353,7 +361,7 @@ public:
                 }else if(auto *r = dynamic_cast<TypeArray *>(& *param.type)){   
                     current_scope->addValueSymbol(p->identifier, std::make_shared<Symbol>(std::make_shared<TypeArray>(*r), Variable, p->identifier));
                 }else if(auto *r = dynamic_cast<TypeUnit *>(& *param.type)){
-0;                   current_scope->addValueSymbol(p->identifier, std::make_shared<Symbol>(std::make_shared<TypeUnit>(*r), Variable, p->identifier));
+                    current_scope->addValueSymbol(p->identifier, std::make_shared<Symbol>(std::make_shared<TypeUnit>(*r), Variable, p->identifier));
                 }
             }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
                 if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
@@ -438,7 +446,10 @@ public:
     }
 
     void visit(ItemStructDecl &node) override{
-        current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
+        if(current_scope != global_scope_builder.global_scope){
+            current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
+        }
+        //current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
         for(auto &struct_field: node.item_struct) {
             if(auto *p = dynamic_cast<TypePath *>(& *struct_field.structElem)){
                 std::string id = p->typePath->pathSegments.identifier;
@@ -454,7 +465,10 @@ public:
     }
 
     void visit(ItemTraitDecl &node) override{
-        current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemTraitDecl>(node), Trait, node.identifier));
+        if(current_scope != global_scope_builder.global_scope){
+            current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemTraitDecl>(node), Trait, node.identifier));
+        }
+        //current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemTraitDecl>(node), Trait, node.identifier));
         for(auto &const_item : node.item_trait_const) {
             const_item->accept(*this);  
         }
@@ -466,17 +480,17 @@ public:
     //Pattern
     void visit(Pattern &node) override {
         if(auto *p = dynamic_cast<PatternIdentifier *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<PatternLiteral *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<PatternPath *>(& node)) {
-            node.accept(*this);     
+            p->accept(*this);     
         }else if(auto *p = dynamic_cast<PatternReference *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<PatternWildCard *>(& node)) {   
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<PatternTupleStruct *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else{
             std::cout << "Unknown Pattern type in PrintVisitor\n";
         }
@@ -495,13 +509,13 @@ public:
     //Statement
     void visit(Statement &node) override {
         if(auto *p = dynamic_cast<StmtEmpty *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<StmtExpr *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<StmtItem *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else if(auto *p = dynamic_cast<StmtLet *>(& node)) {
-            node.accept(*this);
+            p->accept(*this);
         }else{
             std::cout << "Unknown Statement type in PrintVisitor\n";
         }
