@@ -228,26 +228,28 @@ public:
                 }
                 auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
                 if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
-                    auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
-                    if(!typeSymbol) {
-                        throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
-                    }
-                    if(typeSymbol->symbol_type != Struct) {
-                        throw std::runtime_error("Type symbol is not a struct: " + q->pathSegments.identifier);
-                    }
-                    auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
-                    bool field_found = false;
-                    for(auto &field : structSymbol->fields) {
-                        if(field.name == node.identifier) {
-                            field_found = true;
-                            break;
+                    if(q->pathSegments.type == IDENTIFIER){
+                        auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
+                        if(!typeSymbol) {
+                            throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
                         }
+                        if(typeSymbol->symbol_type != Struct) {
+                            throw std::runtime_error("Type symbol is not a struct: " + q->pathSegments.identifier);
+                        }
+                        auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                        bool field_found = false;
+                        for(auto &field : structSymbol->fields) {
+                            if(field.name == node.identifier) {
+                                field_found = true;
+                                break;
+                            }
+                        }
+                        if(!field_found) {
+                            throw std::runtime_error("Field not found in struct: " + node.identifier);
+                        }
+                        p->resolvedSymbol1 = typeSymbol;
+                        p->resolvedSymbol2 = symbol;
                     }
-                    if(!field_found) {
-                        throw std::runtime_error("Field not found in struct: " + node.identifier);
-                    }
-                    p->resolvedSymbol1 = typeSymbol;
-                    p->resolvedSymbol2 = symbol;
                 }
             }
         }
@@ -299,28 +301,30 @@ public:
                 }
                 auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
                 if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
-                    auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
-                    if(!typeSymbol) {
-                        throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
-                    }
-                    if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
-                        throw std::runtime_error("Type symbol is not a struct or trait: " + q->pathSegments.identifier);
-                    }
-                    if(typeSymbol->symbol_type == Struct){  
-                        auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
-                        if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
-                            throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
+                    if(q->pathSegments.type == IDENTIFIER){
+                        auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
+                        if(!typeSymbol) {
+                            throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
                         }
-                    }else if (typeSymbol->symbol_type == Trait){
-                        auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
-                        if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
-                            throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
+                        if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
+                            throw std::runtime_error("Type symbol is not a struct or trait: " + q->pathSegments.identifier);
                         }
-                    }else{
-                        throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
+                        if(typeSymbol->symbol_type == Struct){  
+                            auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                            if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
+                                throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
+                            }
+                        }else if (typeSymbol->symbol_type == Trait){
+                            auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
+                            if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
+                                throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
+                            }
+                        }else{
+                            throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
+                        }
+                        p->resolvedSymbol1 = typeSymbol;
+                        p->resolvedSymbol2 = symbol;
                     }
-                    p->resolvedSymbol1 = typeSymbol;
-                    p->resolvedSymbol2 = symbol;
                 }
             }
         }
@@ -386,12 +390,14 @@ public:
             current_scope->addValueSymbol(node.identifier, symbol);
         }
         if(auto *p = dynamic_cast<Path *>(& *node.type)) {
-            std::string id = p->pathSegments.identifier;
-            auto symbol = current_scope->lookupTypeSymbol(id);
-            if(!symbol) {
-                throw std::runtime_error("Value symbol not found: " + id);
-            }else{
-                p->resolvedSymbol = symbol;
+            if(p->pathSegments.type == IDENTIFIER) {
+                std::string id = p->pathSegments.identifier;
+                auto symbol = current_scope->lookupTypeSymbol(id);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + id);
+                }else{
+                    p->resolvedSymbol = symbol;
+                }
             }
         }
         if(node.expr){
@@ -462,23 +468,27 @@ public:
                 }
             }
             if(auto *p = dynamic_cast<Path *>(& *param.type)){
-                std::string id = p->pathSegments.identifier;
-                auto symbol = current_scope->lookupTypeSymbol(id);
-                if(!symbol) {
-                    throw std::runtime_error("Value symbol not found: " + id);
-                }else{
-                    p->resolvedSymbol = symbol;
+                if(p->pathSegments.type == IDENTIFIER) {
+                    std::string id = p->pathSegments.identifier;
+                    auto symbol = current_scope->lookupTypeSymbol(id);
+                    if(!symbol) {
+                        throw std::runtime_error("Value symbol not found: " + id);
+                    }else{
+                        p->resolvedSymbol = symbol;
+                    }
                 }
             }
         }
         if(node.returnType){
             if(auto *p = dynamic_cast<Path *>(& *node.returnType)){
-                std::string id = p->pathSegments.identifier;
-                auto symbol = current_scope->lookupTypeSymbol(id);
-                if(!symbol) {
-                    throw std::runtime_error("Value symbol not found: " + id);
-                }else{
-                    p->resolvedSymbol = symbol;
+                if(p->pathSegments.type == IDENTIFIER) {
+                    std::string id = p->pathSegments.identifier;
+                    auto symbol = current_scope->lookupTypeSymbol(id);
+                    if(!symbol) {
+                        throw std::runtime_error("Value symbol not found: " + id);
+                    }else{
+                        p->resolvedSymbol = symbol;
+                    }
                 }
             }
         }
@@ -498,12 +508,14 @@ public:
                 throw std::runtime_error("Type symbol is not a trait: " + node.identifier);
             }
             if(auto *p = dynamic_cast<Path *>(& *node.targetType)){
-                std::string id = p->pathSegments.identifier;
-                auto symbolTYPE = current_scope->lookupTypeSymbol(id);
-                if(!symbolTYPE) {
-                    throw std::runtime_error("Type symbol not found: " + id);
-                }else{
-                    p->resolvedSymbol = symbolTYPE;
+                if(p->pathSegments.type == IDENTIFIER) {
+                    std::string id = p->pathSegments.identifier;
+                    auto symbolTYPE = current_scope->lookupTypeSymbol(id);
+                    if(!symbolTYPE) {
+                        throw std::runtime_error("Type symbol not found: " + id);
+                    }else{
+                        p->resolvedSymbol = symbolTYPE;
+                    }
                 }
             }
             for(auto &const_item : node.item_trait_const) {
@@ -517,12 +529,14 @@ public:
             }
         }else{
             if(auto *p = dynamic_cast<Path *>(& *node.targetType)){
-                std::string id = p->pathSegments.identifier;
-                auto symbolTYPE = current_scope->lookupTypeSymbol(id);
-                if(!symbolTYPE) {
-                    throw std::runtime_error("Type symbol not found: " + id);
-                }else{
-                    p->resolvedSymbol = symbolTYPE;
+                if(p->pathSegments.type == IDENTIFIER){
+                    std::string id = p->pathSegments.identifier;
+                    auto symbolTYPE = current_scope->lookupTypeSymbol(id);
+                    if(!symbolTYPE) {
+                        throw std::runtime_error("Type symbol not found: " + id);
+                    }else{
+                        p->resolvedSymbol = symbolTYPE;
+                    }
                 }
             }
             for(auto &const_item : node.item_trait_const) {
@@ -547,12 +561,14 @@ public:
         //current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
         for(auto &struct_field: node.item_struct) {
             if(auto *p = dynamic_cast<Path *>(& *struct_field.structElem)){
-                std::string id = p->pathSegments.identifier;
-                auto symbol = current_scope->lookupTypeSymbol(id);
-                if(!symbol) {
-                    throw std::runtime_error("Value symbol not found: " + id);
-                }else{
-                    p->resolvedSymbol = symbol;
+                if(p->pathSegments.type == IDENTIFIER){
+                    std::string id = p->pathSegments.identifier;
+                    auto symbol = current_scope->lookupTypeSymbol(id);
+                    if(!symbol) {
+                        throw std::runtime_error("Value symbol not found: " + id);
+                    }else{
+                        p->resolvedSymbol = symbol;
+                    }
                 }
             }
         }

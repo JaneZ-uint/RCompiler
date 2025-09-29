@@ -35,6 +35,11 @@ public:
     void visit(ASTRootNode &node) override {
         global_scope = std::make_shared<ScopeNode>();
         global_scope->ast_node = std::make_shared<ASTRootNode>(node);
+        std::shared_ptr<FunctionSymbol> exitFunc = std::make_shared<FunctionSymbol>();
+        exitFunc->symbol_type = Function;
+        exitFunc->identifier = "exit";
+        exitFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<TypeUnit>());
+        global_scope->addValueSymbol("exit", exitFunc);
         for(auto &item : node.child) {
             visit(*item);
         }
