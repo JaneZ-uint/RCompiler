@@ -5,7 +5,7 @@
 # include "src/token/token.h"
 # include "src/ast/PrintVisitor.h"
 # include "src/semantic/globalScope.h"
-//# include "src/semantic/NameResolver.h"
+# include "src/semantic/NameResolver.h"
 # include "src/semantic/checker.h"
 #include <memory>
 #include <stdexcept>
@@ -24,9 +24,9 @@ int main(){
     std::shared_ptr<JaneZ::ASTRootNode> root = parser.parse();
     JaneZ::PrintVisitor printer;
     printer.visit(*root);
-    /*JaneZ::GlobalScopeBuilder global_scope_builder;
+    JaneZ::GlobalScopeBuilder global_scope_builder;
     JaneZ::NameResolver name_resolver;
     JaneZ::Checker checker;
-    checker.semantic_check(global_scope_builder,name_resolver,*root);*/
+    checker.semantic_check(global_scope_builder,name_resolver,*root);
     return 1;
 }

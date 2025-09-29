@@ -1,7 +1,9 @@
 # pragma once
 
 #include "ast.h"
+#include <memory>
 #include <string>
+#include "../semantic/symbol.h"
 
 namespace JaneZ {
 enum PathIdentSegmentType {
@@ -18,6 +20,8 @@ struct PathIdentSegment{
 class Path : public ASTNode{
 public:
     PathIdentSegment pathSegments;
+
+    std::shared_ptr<Symbol> resolvedSymbol = nullptr;
 
     Path(PathIdentSegment segments)
         : pathSegments(segments) {}

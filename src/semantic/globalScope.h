@@ -113,8 +113,8 @@ public:
     void visit(ItemImplDecl &node) override{
         if(node.identifier == ""){
             std::string typeName = "";
-            if(auto *p = dynamic_cast<TypePath *>(& *node.targetType)){
-                typeName = p->typePath->pathSegments.identifier;
+            if(auto *p = dynamic_cast<Path *>(& *node.targetType)){
+                typeName = p->pathSegments.identifier;
             }
             auto structSymbol = global_scope->lookupTypeSymbol(typeName);
             if(!structSymbol) {
