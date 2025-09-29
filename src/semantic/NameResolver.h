@@ -217,7 +217,40 @@ public:
     void visit(ExprContinue &node) override{}
 
     void visit(ExprField &node) override{
-        node.expr->accept(*this);
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                }
+                if(symbol->symbol_type != Variable) {
+                    throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                }
+                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
+                    auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
+                    if(!typeSymbol) {
+                        throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
+                    }
+                    if(typeSymbol->symbol_type != Struct) {
+                        throw std::runtime_error("Type symbol is not a struct: " + q->pathSegments.identifier);
+                    }
+                    auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                    bool field_found = false;
+                    for(auto &field : structSymbol->fields) {
+                        if(field.name == node.identifier) {
+                            field_found = true;
+                            break;
+                        }
+                    }
+                    if(!field_found) {
+                        throw std::runtime_error("Field not found in struct: " + node.identifier);
+                    }
+                    p->resolvedSymbol1 = typeSymbol;
+                    p->resolvedSymbol2 = symbol;
+                }
+            }
+        }
     }
 
     void visit(ExprGroup &node) override{
@@ -254,8 +287,43 @@ public:
 
     void visit(ExprMethodcall &node) override{
         //todo wait to be fixed
-        node.expr->accept(*this);
-        node.PathExprSegment->accept(*this);
+        //node.expr->accept(*this);
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.PathExprSegment)) {
+            if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                }
+                if(symbol->symbol_type != Variable) {
+                    throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                }
+                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
+                    auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
+                    if(!typeSymbol) {
+                        throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
+                    }
+                    if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
+                        throw std::runtime_error("Type symbol is not a struct or trait: " + q->pathSegments.identifier);
+                    }
+                    if(typeSymbol->symbol_type == Struct){  
+                        auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                        if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
+                            throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
+                        }
+                    }else if (typeSymbol->symbol_type == Trait){
+                        auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
+                        if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
+                            throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
+                        }
+                    }else{
+                        throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
+                    }
+                    p->resolvedSymbol1 = typeSymbol;
+                    p->resolvedSymbol2 = symbol;
+                }
+            }
+        }
         if(node.callParams.size() > 0) {
             for(auto &param : node.callParams) {
                 param->accept(*this);
@@ -272,43 +340,7 @@ public:
         node.right->accept(*this);
     }
 
-    void visit(ExprPath &node) override{
-        node.pathFirst->accept(*this);
-        if(node.pathSecond){
-            node.pathSecond->accept(*this);
-            if(node.pathFirst->pathSegments.type == IDENTIFIER) {
-                auto symbol = current_scope->lookupTypeSymbol(node.pathFirst->pathSegments.identifier);
-                if(!symbol) {
-                    throw std::runtime_error("Type symbol not found: " + node.pathFirst->pathSegments.identifier);
-                }
-                if(symbol->symbol_type == Enum){
-                    auto enumSymbol = std::dynamic_pointer_cast<EnumSymbol>(symbol);
-                    for(auto &variant : enumSymbol->variants) {
-                        if(variant == node.pathSecond->pathSegments.identifier){
-                            return;
-                        }
-                    }
-                    throw std::runtime_error("Enum variant not found: " + node.pathSecond->pathSegments.identifier);
-                }else if(symbol->symbol_type == Struct){
-
-                }
-            }
-        }else{
-            if(node.pathFirst->pathSegments.type == IDENTIFIER) {
-                auto symbol = current_scope->lookupValueSymbol(node.pathFirst->pathSegments.identifier);
-                if(!symbol) {
-                    symbol = current_scope->lookupTypeSymbol(node.pathFirst->pathSegments.identifier);
-                    if(!symbol) {
-                        throw std::runtime_error("Symbol not found: " + node.pathFirst->pathSegments.identifier);
-                    }else{
-                        node.resolvedSymbol1 = symbol;
-                    }
-                }else{
-                    node.resolvedSymbol1 = symbol; 
-                }
-            }
-        }
-    }
+    void visit(ExprPath &node) override{}
 
     void visit(ExprReturn &node) override{
         if(node.expr){
