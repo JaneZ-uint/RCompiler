@@ -287,9 +287,33 @@ public:
 
     void visit(ExprIf &node) override{
         node.condition->accept(*this);
-        node.thenBlock->accept(*this);
+        std::shared_ptr<ScopeNode> if_scope = std::make_shared<ScopeNode>();
+        if_scope->parent = current_scope;
+        current_scope = if_scope;
+        if(node.thenBlock){
+            for(auto &stmt : node.thenBlock->statements) {
+                stmt->accept(*this);
+            }
+            if(node.thenBlock->ExpressionWithoutBlock){
+                node.thenBlock->ExpressionWithoutBlock->accept(*this);
+            }
+        }
+        current_scope = current_scope->parent;
         if(node.elseBlock){
-            node.elseBlock->accept(*this);
+            if(auto *p = dynamic_cast<ExprBlock *>(& *node.elseBlock)){
+                std::shared_ptr<ScopeNode> else_scope = std::make_shared<ScopeNode>();
+                else_scope->parent = current_scope;
+                current_scope = else_scope;
+                for(auto &stmt : p->statements) {
+                    stmt->accept(*this);
+                }
+                if(p->ExpressionWithoutBlock){
+                    p->ExpressionWithoutBlock->accept(*this);
+                }
+                current_scope = current_scope->parent;
+            }else if(auto *p = dynamic_cast<ExprIf *>(& *node.elseBlock)){
+                node.elseBlock->accept(*this);
+            }
         }
     }
 
@@ -302,14 +326,32 @@ public:
 
     void visit(ExprLoop &node) override{
         if(node.infinitieLoop){
-            node.infinitieLoop->accept(*this);
+            std::shared_ptr<ScopeNode> loop_scope = std::make_shared<ScopeNode>();
+            loop_scope->parent = current_scope;
+            current_scope = loop_scope;
+            for(auto &stmt : node.infinitieLoop->statements) {
+                stmt->accept(*this);
+            }
+            if(node.infinitieLoop->ExpressionWithoutBlock){
+                node.infinitieLoop->ExpressionWithoutBlock->accept(*this);
+            }
+            current_scope = current_scope->parent;
         }else{
             if(node.condition){
                 node.condition->accept(*this);
             }
+            std::shared_ptr<ScopeNode> loop_scope = std::make_shared<ScopeNode>();
+            loop_scope->parent = current_scope;
+            current_scope = loop_scope;
             if(node.PredicateLoopExpression){
-                node.PredicateLoopExpression->accept(*this);
+                for(auto &stmt : node.PredicateLoopExpression->statements) {
+                    stmt->accept(*this);
+                }
+                if(node.PredicateLoopExpression->ExpressionWithoutBlock){
+                    node.PredicateLoopExpression->ExpressionWithoutBlock->accept(*this);
+                }
             }
+            current_scope = current_scope->parent;
         }
     }
 
@@ -585,7 +627,13 @@ public:
             }
         }
         if(node.fnBody){
-            node.fnBody->accept(*this);
+            //node.fnBody->accept(*this);
+            for(auto &stmt : node.fnBody->statements) {
+                stmt->accept(*this);
+            }
+            if(node.fnBody->ExpressionWithoutBlock){
+                node.fnBody->ExpressionWithoutBlock->accept(*this); 
+            }
         }
         if(node.fnBody->ExpressionWithoutBlock){
             if(auto *p = dynamic_cast<ExprPath *>(& *node.fnBody->ExpressionWithoutBlock)){

@@ -13,7 +13,7 @@
 # include <vector>
 
 int main(){
-    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic21/basic21.rx");
+    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic22/basic22.rx");
     //JaneZ::Simplifier simplifier("1.rs");
     std::string source_code = simplifier.work();
     //simplifier.print();
