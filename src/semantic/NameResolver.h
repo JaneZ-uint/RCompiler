@@ -47,6 +47,7 @@
 #include "globalScope.h"
 #include "scope.h"
 #include "symbol.h"
+#include <cstddef>
 #include <iostream>
 #include <memory>
 
@@ -151,8 +152,22 @@ public:
                 expr->accept(*this);
             }
         }else{
-            node.size->accept(*this);
             node.type->accept(*this);
+            node.size->accept(*this);
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.size)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type != Const) {
+                            throw std::runtime_error("Value symbol is not a const: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        p->resolvedSymbol1 = symbol;
+                    }
+                }
+            }
         }
     }
 
@@ -384,6 +399,24 @@ public:
                             }
                         }
                     }
+                }else if(auto *q = dynamic_cast<ExprIndex *>(& *p->name)){
+                    if(auto *r = dynamic_cast<ExprPath *>(& *q->name)){
+                        if(r->pathSecond == nullptr){
+                            if(r->pathFirst->pathSegments.type == IDENTIFIER) {
+                                auto symbol = current_scope->lookupValueSymbol(r->pathFirst->pathSegments.identifier);
+                                if(!symbol) {
+                                    throw std::runtime_error("Value symbol not found: " + r->pathFirst->pathSegments.identifier);
+                                }
+                                if(symbol->symbol_type != Variable) {
+                                    throw std::runtime_error("Value symbol is not a variable: " + r->pathFirst->pathSegments.identifier);
+                                }
+                                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                if(!varSymbol->is_mut){
+                                    throw std::runtime_error("Cannot assign to immutable variable: " + r->pathFirst->pathSegments.identifier);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -508,11 +541,21 @@ public:
             if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
                 varSymbol->identifier = p->identifier;
                 varSymbol->type = param.type;
+                if(auto *q = dynamic_cast<TypeReference *>(& *param.type)){
+                    varSymbol->is_mut = q->is_mut;
+                }else{
+                    varSymbol->is_mut = false;
+                }
                 current_scope->addValueSymbol(p->identifier, varSymbol);
             }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
                 if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
                     varSymbol->identifier = q->identifier;
                     varSymbol->type = param.type;
+                    if(auto *r = dynamic_cast<TypeReference *>(& *param.type)){
+                        varSymbol->is_mut = r->is_mut;
+                    }else{
+                        varSymbol->is_mut = false;
+                    }
                     current_scope->addValueSymbol(q->identifier, varSymbol);
                 }
             }
@@ -780,6 +823,46 @@ public:
                                     }
                                 }else{
                                     throw std::runtime_error("Type is not an array type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                }
+                            }
+                        }else if(auto *a = dynamic_cast<TypeReference *>(& *varSymbol->type)){
+                            if(auto *r = dynamic_cast<TypeArray *>(& *a->typeNoBounds)){
+                                if(auto *s = dynamic_cast<Type *>(& *r->type)){
+                                    if(auto *t = dynamic_cast<Type *>(& *node.type)){
+                                        if(s->type != t->type){
+                                            throw std::runtime_error("Type mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                        }else{
+                                            //may left with a size check
+                                        }
+                                    }else{
+                                        throw std::runtime_error("Type is not a simple type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                    }
+                                }else if(auto *s = dynamic_cast<TypeArray *>(& *r->type)){
+                                    if(auto *t = dynamic_cast<TypeArray *>(& *node.type)){
+                                        if(auto *u1 = dynamic_cast<Type *>(& *s->type)){
+                                            if(auto *u2 = dynamic_cast<Type *>(& *t->type)){
+                                                if(u1->type != u2->type){
+                                                    throw std::runtime_error("Type mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                                }else{
+                                                    if(auto *v1 = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(auto *v2 = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                            if(v1->type == INTEGER_LITERAL && v2->type == INTEGER_LITERAL){
+                                                                if(v1->integer != v2->integer){
+                                                                    throw std::runtime_error("Array size mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                                                }
+                                                            }else{
+                                                                throw std::runtime_error("Array size is not an integer literal in let statement: " + q->pathFirst->pathSegments.identifier);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }else{
+                                                throw std::runtime_error("Type is not a simple type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                            }
+                                        }
+                                    }else{
+                                        throw std::runtime_error("Type is not an array type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                    }
                                 }
                             }
                         }else{
