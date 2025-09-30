@@ -1183,6 +1183,7 @@ std::shared_ptr<ItemImplDecl> Parser::parse_item_impl() {
             currentPos --;
         }
         if(isTraitImpl){
+            identifier = tokens[currentPos - 1].value;
             currentPos ++;
             if(currentPos >= tokens.size()) {
                 throw std::runtime_error("End of Program.");

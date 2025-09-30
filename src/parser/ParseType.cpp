@@ -22,7 +22,7 @@ std::shared_ptr<ASTNode> Parser::parse_type() {
     }else if(tokens[currentPos].value == "char"){
         currentPos ++;
         return std::make_shared<Type>(CHAR);
-    }else if(tokens[currentPos].value == "str"){
+    }else if(tokens[currentPos].value == "String"){
         currentPos ++;
         return std::make_shared<Type>(STR);
     }else if(tokens[currentPos].value == "enum"){

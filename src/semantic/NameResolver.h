@@ -173,7 +173,7 @@ public:
         //todo may check function param type
         if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)) {
             if(p->pathSecond){
-                if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                if(p->pathFirst->pathSegments.type == IDENTIFIER && p->pathFirst->pathSegments.identifier != "String") {
                     auto symbol = current_scope->lookupTypeSymbol(p->pathFirst->pathSegments.identifier);
                     if(!symbol) {
                         throw std::runtime_error("Type symbol not found: " + p->pathFirst->pathSegments.identifier);
@@ -288,7 +288,6 @@ public:
     }
 
     void visit(ExprMethodcall &node) override{
-        //todo wait to be fixed
         //node.expr->accept(*this);
         if(auto *p = dynamic_cast<ExprPath *>(& *node.PathExprSegment)) {
             if(p->pathFirst->pathSegments.type == IDENTIFIER) {
@@ -485,7 +484,7 @@ public:
                     std::string id = p->pathSegments.identifier;
                     auto symbol = current_scope->lookupTypeSymbol(id);
                     if(!symbol) {
-                        throw std::runtime_error("Value symbol not found: " + id);
+                        throw std::runtime_error("Type symbol not found: " + id);
                     }else{
                         p->resolvedSymbol = symbol;
                     }
@@ -650,6 +649,11 @@ public:
             symbol->symbol_type = Variable;
             symbol->identifier = p->identifier;
             symbol->type = node.type;
+            if(p->is_mut){
+                symbol->is_mut = true;
+            }else{
+                symbol->is_mut = false;
+            }
             current_scope->addValueSymbol(p->identifier, symbol);
         }else if(auto *p = dynamic_cast<PatternReference *>(& *node.PatternNoTopAlt)){
             if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
@@ -657,16 +661,23 @@ public:
                 symbol->symbol_type = Variable;
                 symbol->identifier = q->identifier;
                 symbol->type = node.type;
-                current_scope->addValueSymbol(q->identifier,symbol );
+                if(p->is_mut){
+                    symbol->is_mut = true;
+                }else{
+                    symbol->is_mut = false;
+                }
+                current_scope->addValueSymbol(q->identifier,symbol);
             }
         }
         if(auto *p = dynamic_cast<Path *>(& *node.type)){
-            std::string id = p->pathSegments.identifier;
-            auto symbol = current_scope->lookupTypeSymbol(id);
-            if(!symbol) {
-                throw std::runtime_error("Value symbol not found: " + id);
-            }else{
-                p->resolvedSymbol = symbol;
+            if(p->pathSegments.type == IDENTIFIER) {
+                std::string id = p->pathSegments.identifier;
+                auto symbol = current_scope->lookupTypeSymbol(id);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + id);
+                }else{
+                    p->resolvedSymbol = symbol;
+                }
             }
         }
         node.expression->accept(*this);

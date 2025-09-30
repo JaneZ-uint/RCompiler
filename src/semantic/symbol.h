@@ -33,6 +33,7 @@ public:
 class VariableSymbol : public Symbol{
 public:
     std::shared_ptr<ASTNode> type;
+    bool is_mut = false;
 
     VariableSymbol(std::shared_ptr<ASTNode> t, std::string id) : Symbol(Variable, std::move(id)), type(std::move(t)) {}   
     
