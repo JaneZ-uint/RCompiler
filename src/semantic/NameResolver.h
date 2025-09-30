@@ -157,6 +157,17 @@ public:
     }
 
     void visit(ExprBlock &node) override{
+        /*if(node.statements.size() > 0){
+            for(auto &stmt : node.statements) {
+                stmt->accept(*this);
+            }
+        }
+        if(node.ExpressionWithoutBlock){
+            node.ExpressionWithoutBlock->accept(*this);
+        }*/
+        auto block_scope = std::make_shared<ScopeNode>();
+        block_scope->parent = current_scope;
+        current_scope = block_scope;
         if(node.statements.size() > 0){
             for(auto &stmt : node.statements) {
                 stmt->accept(*this);
@@ -337,6 +348,45 @@ public:
     void visit(ExprOpbinary &node) override{
         node.left->accept(*this);
         node.right->accept(*this);
+        if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || 
+           node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL || node.op == AND_EQUAL || node.op == OR_EQUAL || 
+           node.op == XOR_EQUAL || node.op == LEFT_SHIFT_EQUAL || node.op == RIGHT_SHIFT_EQUAL){
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.left)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type != Variable) {
+                            throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                        if(!varSymbol->is_mut){
+                            throw std::runtime_error("Cannot assign to immutable variable: " + p->pathFirst->pathSegments.identifier);
+                        }
+                    }
+                }
+            }else if(auto *p = dynamic_cast<ExprIndex *>(& *node.left)){
+                if(auto *q = dynamic_cast<ExprPath *>(& *p->name)){
+                    if(q->pathSecond == nullptr){
+                        if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                            auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type != Variable) {
+                                throw std::runtime_error("Value symbol is not a variable: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                            if(!varSymbol->is_mut){
+                                throw std::runtime_error("Cannot assign to immutable variable: " + q->pathFirst->pathSegments.identifier);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void visit(ExprOpunary &node) override{

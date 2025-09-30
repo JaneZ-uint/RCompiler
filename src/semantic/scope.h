@@ -16,6 +16,8 @@ public:
     std::unordered_map<std::string, std::shared_ptr<Symbol>> type_table;// struct enum trait
     std::unordered_map<std::string, std::shared_ptr<Symbol>> value_table;// variable function const 
 
+    ScopeNode() = default;
+
     void addTypeSymbol(const std::string &id, std::shared_ptr<Symbol> symbol) {
         if(type_table.find(id) != type_table.end()) {
             throw std::runtime_error("Type symbol redefinition: " + id);

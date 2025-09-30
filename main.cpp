@@ -13,7 +13,7 @@
 # include <vector>
 
 int main(){
-    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic5/basic5.rx");
+    JaneZ::Simplifier simplifier("../RCompiler-Testcases/semantic-1/basic3/basic3.rx");
     //JaneZ::Simplifier simplifier("1.rs");
     std::string source_code = simplifier.work();
     //simplifier.print();
@@ -28,5 +28,5 @@ int main(){
     JaneZ::NameResolver name_resolver;
     JaneZ::Checker checker;
     checker.semantic_check(global_scope_builder,name_resolver,*root);
-    return 1;
+    return 0;
 }
