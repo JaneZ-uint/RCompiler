@@ -730,7 +730,65 @@ public:
                 }
             }
         }
+        //type checker in let stmt
         node.expression->accept(*this);
+        if(auto *p = dynamic_cast<ExprIndex *>(& *node.expression)){
+            if(auto *q = dynamic_cast<ExprPath *>(& *p->name)){
+                if(q->pathSecond == nullptr){
+                    if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type != Variable) {
+                            throw std::runtime_error("Value symbol is not a variable: " + q->pathFirst->pathSegments.identifier);
+                        }
+                        auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                        if(auto *r = dynamic_cast<TypeArray *>(& *varSymbol->type)){
+                            if(auto *s = dynamic_cast<Type *>(& *r->type)){
+                                if(auto *t = dynamic_cast<Type *>(& *node.type)){
+                                    if(s->type != t->type){
+                                        throw std::runtime_error("Type mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                    }else{
+                                        //may left with a size check
+                                    }
+                                }else{
+                                    throw std::runtime_error("Type is not a simple type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                }
+                            }else if(auto *s = dynamic_cast<TypeArray *>(& *r->type)){
+                                if(auto *t = dynamic_cast<TypeArray *>(& *node.type)){
+                                    if(auto *u1 = dynamic_cast<Type *>(& *s->type)){
+                                        if(auto *u2 = dynamic_cast<Type *>(& *t->type)){
+                                            if(u1->type != u2->type){
+                                                throw std::runtime_error("Type mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                            }else{
+                                                if(auto *v1 = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                    if(auto *v2 = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                        if(v1->type == INTEGER_LITERAL && v2->type == INTEGER_LITERAL){
+                                                            if(v1->integer != v2->integer){
+                                                                throw std::runtime_error("Array size mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                                            }
+                                                        }else{
+                                                            throw std::runtime_error("Array size is not an integer literal in let statement: " + q->pathFirst->pathSegments.identifier);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }else{
+                                            throw std::runtime_error("Type is not a simple type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                        }
+                                    }
+                                }else{
+                                    throw std::runtime_error("Type is not an array type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                }
+                            }
+                        }else{
+                            throw std::runtime_error("Type is not an array: " + q->pathFirst->pathSegments.identifier);
+                        }
+                    }
+                }
+            }
+        }
     }
 
 
