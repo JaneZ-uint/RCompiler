@@ -583,20 +583,18 @@ public:
             if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
                 varSymbol->identifier = p->identifier;
                 varSymbol->type = param.type;
+                varSymbol->is_mut = p->is_mut;
                 if(auto *q = dynamic_cast<TypeReference *>(& *param.type)){
                     varSymbol->is_mut = q->is_mut;
-                }else{
-                    varSymbol->is_mut = false;
                 }
                 current_scope->addValueSymbol(p->identifier, varSymbol);
             }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
                 if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
                     varSymbol->identifier = q->identifier;
                     varSymbol->type = param.type;
+                    varSymbol->is_mut = q->is_mut || p->is_mut;
                     if(auto *r = dynamic_cast<TypeReference *>(& *param.type)){
                         varSymbol->is_mut = r->is_mut;
-                    }else{
-                        varSymbol->is_mut = false;
                     }
                     current_scope->addValueSymbol(q->identifier, varSymbol);
                 }
@@ -862,6 +860,7 @@ public:
         }
         //type checker in let stmt
         node.expression->accept(*this);
+        //first index expr
         if(auto *p = dynamic_cast<ExprIndex *>(& *node.expression)){
             if(auto *q = dynamic_cast<ExprPath *>(& *p->name)){
                 if(q->pathSecond == nullptr){
@@ -954,6 +953,89 @@ public:
                             }
                         }else{
                             throw std::runtime_error("Type is not an array: " + q->pathFirst->pathSegments.identifier);
+                        }
+                    }
+                }
+            }
+        }
+
+        //array expr
+        if(auto *o = dynamic_cast<TypeArray *>(& *node.type)){
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.expression)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type != Variable) {
+                            throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                        if(auto *q = dynamic_cast<TypeArray *>(& *varSymbol->type)){
+                            if(auto *r = dynamic_cast<Type *>(& *q->type)){
+                                if(auto *s = dynamic_cast<Type *>(& *o->type)){
+                                    if(r->type != s->type){
+                                        throw std::runtime_error("Type mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                    }else{
+                                        if(auto *t1 = dynamic_cast<ExprLiteral *>(& *q->expr)){
+                                            if(auto *t2 = dynamic_cast<ExprLiteral *>(& *o->expr)){
+                                                if(t1->type == INTEGER_LITERAL && t2->type == INTEGER_LITERAL){
+                                                    if(t1->integer != t2->integer){
+                                                        throw std::runtime_error("Array size mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                    }
+                                                }else{
+                                                    throw std::runtime_error("Array size is not an integer literal in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                }
+                                            }
+                                        }
+                                        //Const expr path check
+                                        //todo todo todo !!!
+                                        if(auto *t1 = dynamic_cast<ExprPath *>(& *q->expr)){
+                                            if(t1->pathSecond == nullptr){
+                                                if(t1->pathFirst->pathSegments.type == IDENTIFIER) {
+                                                    auto symbol = current_scope->lookupValueSymbol(t1->pathFirst->pathSegments.identifier);
+                                                    if(!symbol) {
+                                                        throw std::runtime_error("Value symbol not found: " + t1->pathFirst->pathSegments.identifier);
+                                                    }
+                                                    if(symbol->symbol_type != Const) {
+                                                        throw std::runtime_error("Value symbol is not a const: " + t1->pathFirst->pathSegments.identifier);
+                                                    }
+                                                    //todo
+                                                }
+                                            }
+                                        }
+                                    }
+                                }else{
+                                    throw std::runtime_error("Type is not a simple type in let statement: " + p->pathFirst->pathSegments.identifier);
+                                }
+                            }else if(auto *r = dynamic_cast<TypeArray *>(& *q->type)){
+                                if(auto *s = dynamic_cast<TypeArray *>(& *o->type)){
+                                    if(auto *u1 = dynamic_cast<Type *>(& *r->type)){
+                                        if(auto *u2 = dynamic_cast<Type *>(& *s->type)){
+                                            if(u1->type != u2->type){
+                                                throw std::runtime_error("Type mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                            }else{
+                                                if(auto *v1 = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                    if(auto *v2 = dynamic_cast<ExprLiteral *>(& *s->expr)){
+                                                        if(v1->type == INTEGER_LITERAL && v2->type == INTEGER_LITERAL){
+                                                            if(v1->integer != v2->integer){
+                                                                throw std::runtime_error("Array size mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                            }
+                                                        }else{
+                                                            throw std::runtime_error("Array size is not an integer literal in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }else{
+                                            throw std::runtime_error("Type is not a simple type in let statement: " + p->pathFirst->pathSegments.identifier);
+                                        }
+                                    }
+                                }else{
+                                    throw std::runtime_error("Type is not an array type in let statement: " + p->pathFirst->pathSegments.identifier);
+                                }
+                            }
                         }
                     }
                 }

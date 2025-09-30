@@ -40,6 +40,11 @@ public:
         exitFunc->identifier = "exit";
         exitFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<TypeUnit>());
         global_scope->addValueSymbol("exit", exitFunc);
+        std::shared_ptr<FunctionSymbol> printFunc = std::make_shared<FunctionSymbol>();
+        printFunc->symbol_type = Function;
+        printFunc->identifier = "printInt";
+        printFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<TypeUnit>());
+        global_scope->addValueSymbol("printInt", printFunc);
         for(auto &item : node.child) {
             visit(*item);
         }
