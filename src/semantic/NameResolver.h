@@ -587,6 +587,45 @@ public:
         if(node.fnBody){
             node.fnBody->accept(*this);
         }
+        if(node.fnBody->ExpressionWithoutBlock){
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.fnBody->ExpressionWithoutBlock)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type != Variable) {
+                            throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                        if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                            if(auto *r = dynamic_cast<Type *>(& *node.returnType)){
+                                if(q->type != r->type){
+                                    throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                }
+                            }else{
+                                throw std::runtime_error("Function has no return type: " + node.identifier);
+                            }
+                        }else if(auto *q = dynamic_cast<TypeArray *>(& *varSymbol->type)){
+                            if(auto *r = dynamic_cast<TypeArray *>(& *node.returnType)){
+                                if(auto *u1 = dynamic_cast<Type *>(& *q->type)){
+                                    if(auto *u2 = dynamic_cast<Type *>(& *r->type)){
+                                        if(u1->type != u2->type){
+                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                        }
+                                    }else{
+                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                    }
+                                }
+                            }else{
+                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         current_scope = current_scope->parent;
     }
 
