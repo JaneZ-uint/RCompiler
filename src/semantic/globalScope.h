@@ -12,6 +12,7 @@
 #include "../ast/Pattern/PatternIdentifier.h"
 #include "../ast/Pattern/PatternReference.h"
 #include "../ast/Type/TypePath.h"
+#include "../ast/Type/type.h"
 #include "../ast/Path.h"
 #include "symbol.h"
 #include <iostream>
@@ -45,6 +46,11 @@ public:
         printFunc->identifier = "printInt";
         printFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<TypeUnit>());
         global_scope->addValueSymbol("printInt", printFunc);
+        std::shared_ptr<FunctionSymbol> getIntFunc = std::make_shared<FunctionSymbol>();
+        getIntFunc->symbol_type = Function;
+        getIntFunc->identifier = "getInt";
+        getIntFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<Type>(JaneZ::RustType::I32));
+        global_scope->addValueSymbol("getInt", getIntFunc);
         for(auto &item : node.child) {
             visit(*item);
         }

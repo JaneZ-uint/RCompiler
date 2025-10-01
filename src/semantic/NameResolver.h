@@ -468,7 +468,18 @@ public:
         node.right->accept(*this);
     }
 
-    void visit(ExprPath &node) override{}
+    void visit(ExprPath &node) override{
+        if(node.pathSecond == nullptr){
+            if(node.pathFirst->pathSegments.type == IDENTIFIER) {
+                auto symbol = current_scope->lookupValueSymbol(node.pathFirst->pathSegments.identifier);
+                if(!symbol) {
+                    throw std::runtime_error("Value symbol not found: " + node.pathFirst->pathSegments.identifier);
+                }else{
+                    node.resolvedSymbol1 = symbol;
+                }
+            }
+        }
+    }
 
     void visit(ExprReturn &node) override{
         if(node.expr){
@@ -477,9 +488,50 @@ public:
     }
 
     void visit(ExprStruct &node) override{
-        node.pathInExpr->accept(*this);
+        /*node.pathInExpr->accept(*this);
         for(auto &field : node.structExprFields) {
             field.expr->accept(*this);
+        }*/
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.pathInExpr)){
+            if(p->pathSecond == nullptr){
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    auto symbol = current_scope->lookupTypeSymbol(p->pathFirst->pathSegments.identifier);
+                    if(!symbol) {
+                        throw std::runtime_error("Type symbol not found: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    if(symbol->symbol_type != Struct) {
+                        throw std::runtime_error("Type symbol is not a struct: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(symbol);  
+                    if(structSymbol->fields.size() != node.structExprFields.size()){
+                        throw std::runtime_error("Struct field count mismatch: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    for(auto &field : node.structExprFields) {
+                        bool field_found = false;
+                        for(auto &struct_field : structSymbol->fields) {
+                            if(struct_field.name == field.identifier) {
+                                field_found = true;
+                                if(auto *q = dynamic_cast<Type *>(& *struct_field.type)){
+                                    if(auto *r = dynamic_cast<ExprLiteral *>(& *field.expr)){
+                                        if(q->type == I32 || q->type == U32 || q->type == USIZE || q->type == ISIZE){
+                                            if(r->type != INTEGER_LITERAL){
+                                                throw std::runtime_error("Struct field type mismatch: " + field.identifier);
+                                            }
+                                        }
+                                        //TODO left with more type check
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        if(!field_found) {
+                            throw std::runtime_error("Field not found in struct: " + field.identifier);
+                        }
+                        field.expr->accept(*this);
+                    }
+                }
+            }
+
         }
     }
 
