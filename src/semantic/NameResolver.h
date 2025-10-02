@@ -229,6 +229,28 @@ public:
                 }else{
                     throw std::runtime_error("Value symbol is not a function: " + p->pathFirst->pathSegments.identifier);
                 }
+                if(p->pathFirst->pathSegments.identifier == "exit"){
+                    auto param = node.callParams[0];
+                    if(auto *q = dynamic_cast<ExprPath *>(& *param)){
+                        if(q->pathSecond == nullptr){
+                            if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                                auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                                if(!symbol) {
+                                    throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                                }
+                                if(symbol->symbol_type == Variable){
+                                    auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                    if(auto *r = dynamic_cast<Type *>(& *varSymbol->type)){
+                                        if(r->type != I32 && r->type != U32 && r->type != ISIZE && r->type != USIZE){
+                                            throw std::runtime_error("exit function parameter must be integer type");
+                                        }
+                                    }
+                                }
+                                
+                            }
+                        }
+                    }
+                }
             }
         }
         if(node.callParams.size() > 0) {
@@ -946,6 +968,28 @@ public:
                                 }
                             }else{
                                 throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // check for Missing return value for non-unit return type
+        if(node.returnType){
+            if(auto *p = dynamic_cast<TypeUnit *>(& *node.returnType)){
+                //nothing
+            }else{
+                if(node.fnBody){
+                    if(!node.fnBody->ExpressionWithoutBlock){
+                        if(node.fnBody->statements.size() > 0){
+                            auto &last_stmt = node.fnBody->statements.back();
+                            if(auto *p = dynamic_cast<StmtExpr *>(& *last_stmt)){
+                                if(auto *q = dynamic_cast<ExprIf *>(& *p->stmtExpr)){
+                                    if(!q->elseBlock){
+                                        throw std::runtime_error("Missing return value for non-unit return type in function: " + node.identifier);
+                                    }
+                                }
                             }
                         }
                     }
