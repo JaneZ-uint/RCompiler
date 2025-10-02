@@ -404,8 +404,10 @@ public:
     }
 
     void visit(ExprOpbinary &node) override{
-        node.left->accept(*this);
-        node.right->accept(*this);
+        if(node.op != AS_CAST){
+            node.left->accept(*this);
+            node.right->accept(*this);
+        }
         //can't assign to immutable variable
         if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || 
            node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL || node.op == AND_EQUAL || node.op == OR_EQUAL || 
@@ -665,6 +667,24 @@ public:
                 }
             }
         }
+
+        // Type cast expression
+        if(node.op == AS_CAST){
+            node.left->accept(*this);
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.right)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        std::string id = p->pathFirst->pathSegments.identifier;
+                        if(id != "i32" && id != "u32" && id != "isize" && id != "usize" && id != "bool" && id != "char" && id != "String"){
+                            auto symbol = current_scope->lookupTypeSymbol(id);
+                            if(!symbol) {
+                                throw std::runtime_error("Type symbol not found: " + p->pathFirst->pathSegments.identifier);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void visit(ExprOpunary &node) override{
@@ -888,7 +908,7 @@ public:
                 node.fnBody->ExpressionWithoutBlock->accept(*this); 
             }
         }
-        if(node.fnBody->ExpressionWithoutBlock){
+        if(node.fnBody && node.fnBody->ExpressionWithoutBlock){
             if(auto *p = dynamic_cast<ExprPath *>(& *node.fnBody->ExpressionWithoutBlock)){
                 if(p->pathSecond == nullptr){
                     if(p->pathFirst->pathSegments.type == IDENTIFIER) {
