@@ -1117,7 +1117,13 @@ public:
             if(p->is_mut){
                 symbol->is_mut = true;
             }else{
-                symbol->is_mut = false;
+                if(auto *q = dynamic_cast<TypeReference *>(& *node.type)){
+                    if(q->is_mut){
+                        symbol->is_mut = true;
+                    }
+                }else{
+                    symbol->is_mut = false;
+                }
             }
             current_scope->addValueSymbol(p->identifier, symbol);
         }else if(auto *p = dynamic_cast<PatternReference *>(& *node.PatternNoTopAlt)){
@@ -1129,7 +1135,13 @@ public:
                 if(p->is_mut){
                     symbol->is_mut = true;
                 }else{
-                    symbol->is_mut = false;
+                    if(auto *q = dynamic_cast<TypeReference *>(& *node.type)){
+                        if(q->is_mut){
+                            symbol->is_mut = true;
+                        }
+                    }else{
+                        symbol->is_mut = false;
+                    }
                 }
                 current_scope->addValueSymbol(q->identifier,symbol);
             }
