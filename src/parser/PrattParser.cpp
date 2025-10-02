@@ -833,6 +833,9 @@ std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
     }
     currentPos ++;
     if(type == INTEGER_LITERAL){
+        if(std::stoll(literal) > 2147483647){
+            throw std::runtime_error("Integer out of range.");
+        }
         int integer = std::stoi(literal);
         return std::make_shared<ExprLiteral>(std::move(literal),type,integer);
     }
