@@ -1384,6 +1384,37 @@ public:
                 }
             }
         }
+
+        //unary expr
+        if(auto *p = dynamic_cast<ExprOpunary *>(& *node.expression)){
+            if(p->op == DEREFERENCE){
+                if(auto *q = dynamic_cast<ExprPath *>(& *p->right)){
+                    if(q->pathSecond == nullptr){
+                        if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                            auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type != Variable) {
+                                throw std::runtime_error("Value symbol is not a variable: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                            if(auto *r = dynamic_cast<TypeReference *>(& *varSymbol->type)){
+                                if(auto *s = dynamic_cast<Type *>(& *r->typeNoBounds)){
+                                    if(auto *t = dynamic_cast<Type *>(& *node.type)){
+                                        if(s->type != t->type){
+                                            throw std::runtime_error("Type mismatch in let statement: " + q->pathFirst->pathSegments.identifier);
+                                        }
+                                    }else{
+                                        throw std::runtime_error("Type is not a simple type in let statement: " + q->pathFirst->pathSegments.identifier);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
 
