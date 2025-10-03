@@ -259,6 +259,36 @@ public:
                 param->accept(*this);
             }
         }
+
+        //check callParams type
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(p->pathSecond == nullptr){
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                    if(!symbol) {
+                        throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    if(symbol->symbol_type != Function){
+                        throw std::runtime_error("Value symbol is not a function: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    auto funcSymbol = std::dynamic_pointer_cast<FunctionSymbol>(symbol);
+                    if(funcSymbol->parameters.size() != node.callParams.size()){
+                        throw std::runtime_error("Function call parameter count mismatch: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    for(int i = 0;i < funcSymbol->parameters.size();i ++){
+                        auto funParam = funcSymbol->parameters[i];
+                        auto callParam = node.callParams[i];
+                        if(auto *q = dynamic_cast<Type *>(& *funParam.type)){
+                            if(auto *r = dynamic_cast<Type *>(& *funParam.type)){
+                                if(q->type != r->type){
+                                    throw std::runtime_error("Function call parameter type mismatch: " + p->pathFirst->pathSegments.identifier);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void visit(ExprConstBlock &node) override{
