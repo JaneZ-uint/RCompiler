@@ -732,6 +732,89 @@ public:
                 }
             }
         }
+
+        //Arithimetic
+        if(node.op == PLUS || node.op == MINUS || node.op == MULTIPLY || node.op == DIVIDE || node.op == MODULO ||
+           node.op == AND || node.op == OR || node.op == XOR || node.op == LEFT_SHIFT || node.op == RIGHT_SHIFT){
+            auto leftType = std::shared_ptr<Type>();
+            bool isLeftPointer = false;
+            auto rightType = std::shared_ptr<Type>();
+            bool isRightPointer = false;
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.left)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type == Variable){
+                            auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                                isLeftPointer = true;
+                                leftType = std::make_shared<Type>(*q);
+                            }
+                        }else if(symbol->symbol_type == Const){
+                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *constSymbol->type)){
+                                isLeftPointer = true;
+                                leftType = std::make_shared<Type>(*q);
+                            }
+                        }
+                    }
+                }
+            }
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.right)){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type == Variable){
+                            auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                                isRightPointer = true;
+                                rightType = std::make_shared<Type>(*q);
+                            }
+                        }else if(symbol->symbol_type == Const){
+                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *constSymbol->type)){
+                                isRightPointer = true;
+                                rightType = std::make_shared<Type>(*q);
+                            }
+                        }
+                    }
+                }
+            }
+            if(isLeftPointer && isRightPointer){
+                if(leftType->type != rightType->type){
+                    throw std::runtime_error("Arithmetic operation between incompatible types");
+                }
+                if(leftType->type != I32 && leftType->type != U32 && leftType->type != ISIZE && leftType->type != USIZE){
+                    throw std::runtime_error("Arithmetic operation between non-integer types");
+                }
+            }else if(isLeftPointer && !isRightPointer){
+                if(auto *p = dynamic_cast<ExprLiteral *>(& *node.right)){
+                    if(p->type != INTEGER_LITERAL){
+                        throw std::runtime_error("Arithmetic operation between incompatible types");
+                    }
+                }
+            }else if(!isLeftPointer && isRightPointer){
+                if(auto *p = dynamic_cast<ExprLiteral *>(& *node.left)){
+                    if(p->type != INTEGER_LITERAL){
+                        throw std::runtime_error("Arithmetic operation between incompatible types");
+                    }
+                }
+            }else{
+                if(auto *p = dynamic_cast<ExprLiteral *>(& *node.left)){
+                    if(auto *q = dynamic_cast<ExprLiteral *>(& *node.right)){
+                        if(p->type != INTEGER_LITERAL || q->type != INTEGER_LITERAL){
+                            throw std::runtime_error("Arithmetic operation between incompatible literal types");
+                        }
+                    }
+                }
+            }
+        }
     }
 
     void visit(ExprOpunary &node) override{
