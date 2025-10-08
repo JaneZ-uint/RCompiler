@@ -1155,6 +1155,49 @@ public:
         }
     }
 
+    bool checkReturnInIf(std::shared_ptr<ExprIf> ifExpr) {
+        bool is_return = false;
+        if(ifExpr->thenBlock){
+            if(checkReturn(ifExpr->thenBlock)){
+                is_return = true;
+            }
+        }
+        if(!is_return && ifExpr->elseBlock){
+            if(auto *p = dynamic_cast<ExprIf *>(& *ifExpr->elseBlock)){
+                if(checkReturnInIf(std::make_shared<ExprIf>(*p))){
+                    is_return = true;
+                }
+            }else if(auto *p = dynamic_cast<ExprBlock *>(& *ifExpr->elseBlock)){
+                if(checkReturn(std::make_shared<ExprBlock>(*p))){
+                    is_return = true;
+                }
+            }
+        }
+        return is_return;
+    }
+
+    bool checkReturn(std::shared_ptr<ExprBlock> block) {
+        for(auto &stmt : block->statements) {
+            if(auto *p = dynamic_cast<StmtExpr *>(& *stmt)){
+                if(auto *q = dynamic_cast<ExprReturn *>(& *p->stmtExpr)){
+                    return true;
+                }else if(auto *q = dynamic_cast<ExprBlock *>(& *p->stmtExpr)){
+                    if(checkReturn(std::make_shared<ExprBlock>(*q))){
+                        return true;
+                    }
+                }else if(auto *q = dynamic_cast<ExprIf *>(& *p->stmtExpr)){
+                    if(checkReturnInIf(std::make_shared<ExprIf>(*q))){
+                        return true;
+                    }
+                }
+            }
+        }
+        if(block->ExpressionWithoutBlock){
+            return true;
+        }
+        return false;
+    }
+
     void visit(ItemFnDecl &node) override{
         if(current_scope != global_scope_builder.global_scope){
             std::shared_ptr<FunctionSymbol> symbol = std::make_shared<FunctionSymbol>();
@@ -1376,6 +1419,16 @@ public:
                             }
                         }
                     }
+                }
+            }
+        }
+
+        if(!checkReturn(node.fnBody)){
+            if(node.returnType){
+                if(auto *p = dynamic_cast<TypeUnit *>(& *node.returnType)){
+                    //nothing
+                }else{
+                    throw std::runtime_error("Missing return statement in function: " + node.identifier);
                 }
             }
         }
