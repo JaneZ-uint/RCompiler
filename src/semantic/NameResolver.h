@@ -1280,6 +1280,106 @@ public:
             }
         }
 
+        // check for return stmt in if expr
+        if(node.returnType){
+            if(auto *o = dynamic_cast<StmtExpr *>(& *node.fnBody->statements[node.fnBody->statements.size() - 1])){
+                if(auto *p = dynamic_cast<ExprIf *>(& *o->stmtExpr)){
+                    if(p->thenBlock){
+                        for(auto &stmt : p->thenBlock->statements) {
+                            if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
+                                if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
+                                    if(r->expr){
+                                        if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                            if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
+                                                if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
+                                                    if(s->type != INTEGER_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(t->type == BOOL){
+                                                    if(s->type != TRUE && s->type != FALSE){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(t->type == CHAR){
+                                                    if(s->type != CHAR_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(t->type == STR){
+                                                    if(s->type != STRING_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(p->elseBlock){
+                        if(auto *m = dynamic_cast<ExprBlock *>(& *p->elseBlock)){
+                            if(m->statements.size() > 0){
+                                for(auto &stmt : m->statements) {
+                                    if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
+                                        if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
+                                            if(r->expr){
+                                                if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                    if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
+                                                        if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
+                                                            if(s->type != INTEGER_LITERAL){
+                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                            }
+                                                        }else if(t->type == BOOL){
+                                                            if(s->type != TRUE && s->type != FALSE){
+                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                            }
+                                                        }else if(t->type == CHAR){
+                                                            if(s->type != CHAR_LITERAL){
+                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                            }
+                                                        }else if(t->type == STR){
+                                                            if(s->type != STRING_LITERAL){
+                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }else if(m->ExpressionWithoutBlock){
+                                if(auto *q = dynamic_cast<ExprReturn *>(& *m->ExpressionWithoutBlock)){
+                                    if(q->expr){
+                                        if(auto *r = dynamic_cast<ExprLiteral *>(& *q->expr)){
+                                            if(auto *s = dynamic_cast<Type *>(& *node.returnType)){
+                                                if(s->type == I32 || s->type == U32 || s->type == ISIZE || s->type == USIZE){
+                                                    if(r->type != INTEGER_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(s->type == BOOL){
+                                                    if(r->type != TRUE && r->type != FALSE){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(s->type == CHAR){
+                                                    if(r->type != CHAR_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }else if(s->type == STR){
+                                                    if(r->type != STRING_LITERAL){
+                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // check for Missing return value for non-unit return type
         if(node.returnType){
             if(auto *p = dynamic_cast<TypeUnit *>(& *node.returnType)){
