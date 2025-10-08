@@ -265,7 +265,7 @@ public:
         if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
             if(p->pathSecond == nullptr){
                 if(p->pathFirst->pathSegments.type == IDENTIFIER){
-                    if(p->pathFirst->pathSegments.identifier != "exit" && p->pathFirst->pathSegments.identifier != "println" && p->pathFirst->pathSegments.identifier != "getInt" && p->pathFirst->pathSegments.identifier != "printlnInt"){
+                    if(p->pathFirst->pathSegments.identifier != "exit" && p->pathFirst->pathSegments.identifier != "printInt" && p->pathFirst->pathSegments.identifier != "getInt" && p->pathFirst->pathSegments.identifier != "printlnInt"){
                         auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
                         if(!symbol) {
                             throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
@@ -348,12 +348,54 @@ public:
         std::shared_ptr<ScopeNode> if_scope = std::make_shared<ScopeNode>();
         if_scope->parent = current_scope;
         current_scope = if_scope;
+        std::string then_type = "";
         if(node.thenBlock){
             for(auto &stmt : node.thenBlock->statements) {
                 stmt->accept(*this);
             }
             if(node.thenBlock->ExpressionWithoutBlock){
                 node.thenBlock->ExpressionWithoutBlock->accept(*this);
+                if(auto *p = dynamic_cast<ExprLiteral *>(& *node.thenBlock->ExpressionWithoutBlock)){
+                    if(p->type == INTEGER_LITERAL){
+                        then_type = "int";
+                    }else if(p->type == STRING_LITERAL){
+                        then_type = "string";
+                    }else if(p->type == TRUE || p->type == FALSE){
+                        then_type = "bool";
+                    }
+                }else if(auto *p = dynamic_cast<ExprPath *>(& *node.thenBlock->ExpressionWithoutBlock)){
+                    if(p->pathSecond == nullptr){
+                        if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                            auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type == Variable){
+                                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                                    if(q->type == I32 || q->type == U32 || q->type == ISIZE || q->type == USIZE){
+                                        then_type = "int";
+                                    }else if(q->type == BOOL){
+                                        then_type = "bool";
+                                    }else if(q->type == STR){
+                                        then_type = "string";
+                                    }
+                                }
+                            }else if(symbol->symbol_type == Const){
+                                auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                if(auto *q = dynamic_cast<Type *>(& *constSymbol->type)){
+                                    if(q->type == I32 || q->type == U32 || q->type == ISIZE || q->type == USIZE){
+                                        then_type = "int";
+                                    }else if(q->type == BOOL){
+                                        then_type = "bool";
+                                    }else if(q->type == STR){
+                                        then_type = "string";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         current_scope = current_scope->parent;
@@ -367,6 +409,65 @@ public:
                 }
                 if(p->ExpressionWithoutBlock){
                     p->ExpressionWithoutBlock->accept(*this);
+                    if(auto *q = dynamic_cast<ExprLiteral *>(& *p->ExpressionWithoutBlock)){
+                        if(q->type == INTEGER_LITERAL){
+                            if(then_type != "int" && then_type != ""){
+                                throw std::runtime_error("If-else expression type mismatch");
+                            }
+                        }else if(q->type == STRING_LITERAL){
+                            if(then_type != "string" && then_type != ""){
+                                throw std::runtime_error("If-else expression type mismatch");
+                            }
+                        }else if(q->type == TRUE || q->type == FALSE){
+                            if(then_type != "bool" && then_type != ""){
+                                throw std::runtime_error("If-else expression type mismatch");
+                            }
+                        }
+                    }else if(auto *q = dynamic_cast<ExprPath *>(& *p->ExpressionWithoutBlock)){
+                        if(q->pathSecond == nullptr){
+                            if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                                auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                                if(!symbol) {
+                                    throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                                }
+                                if(symbol->symbol_type == Variable){
+                                    auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                    if(auto *r = dynamic_cast<Type *>(& *varSymbol->type)){
+                                        if(r->type == I32 || r->type == U32 || r->type == ISIZE || r->type == USIZE){
+                                            if(then_type != "int" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }else if(r->type == BOOL){
+                                            if(then_type != "bool" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }else if(r->type == STR){
+                                            if(then_type != "string" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }
+                                    }
+                                }else if(symbol->symbol_type == Const){
+                                    auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                    if(auto *r = dynamic_cast<Type *>(& *constSymbol->type)){
+                                        if(r->type == I32 || r->type == U32 || r->type == ISIZE || r->type == USIZE){
+                                            if(then_type != "int" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }else if(r->type == BOOL){
+                                            if(then_type != "bool" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }else if(r->type == STR){
+                                            if(then_type != "string" && then_type != ""){
+                                                throw std::runtime_error("If-else expression type mismatch");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 current_scope = current_scope->parent;
             }else if(auto *p = dynamic_cast<ExprIf *>(& *node.elseBlock)){
