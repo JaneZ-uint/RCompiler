@@ -51,6 +51,11 @@ public:
         getIntFunc->identifier = "getInt";
         getIntFunc->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<Type>(JaneZ::RustType::I32));
         global_scope->addValueSymbol("getInt", getIntFunc);
+        std::shared_ptr<FunctionSymbol> printlnInt = std::make_shared<FunctionSymbol>();
+        printlnInt->symbol_type = Function;
+        printlnInt->identifier = "printlnInt";
+        printlnInt->return_type = std::dynamic_pointer_cast<ASTNode>(std::make_shared<TypeUnit>());
+        global_scope->addValueSymbol("printlnInt", printlnInt);   
         for(auto &item : node.child) {
             visit(*item);
         }
