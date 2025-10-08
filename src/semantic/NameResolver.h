@@ -1739,6 +1739,8 @@ public:
                                         }
                                         //Const expr path check
                                         //todo todo todo !!!
+                                        int t1_size = -1;
+                                        int t2_size = -1;
                                         if(auto *t1 = dynamic_cast<ExprPath *>(& *q->expr)){
                                             if(t1->pathSecond == nullptr){
                                                 if(t1->pathFirst->pathSegments.type == IDENTIFIER) {
@@ -1749,8 +1751,187 @@ public:
                                                     if(symbol->symbol_type != Const) {
                                                         throw std::runtime_error("Value symbol is not a const: " + t1->pathFirst->pathSegments.identifier);
                                                     }
-                                                    //todo
+                                                    auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                    if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                        if(u->type == INTEGER_LITERAL){
+                                                            t1_size = u->integer;
+                                                        }else{
+                                                            throw std::runtime_error("Const expr is not an integer literal in let statement: " + t1->pathFirst->pathSegments.identifier);   
+                                                        }
+                                                    }
                                                 }
+                                            }
+                                        }else if(auto *t1 = dynamic_cast<ExprOpbinary *>(& *q->expr)){
+                                            if(t1->op == PLUS || t1->op == MINUS || t1->op == MULTIPLY || t1->op == DIVIDE){
+                                                int left_val = -1;
+                                                int right_val = -1;
+                                                if(auto *t3 = dynamic_cast<ExprPath *>(& *t1->left)){
+                                                    if(t3->pathSecond == nullptr){
+                                                        if(t3->pathFirst->pathSegments.type == IDENTIFIER) {
+                                                            auto symbol = current_scope->lookupValueSymbol(t3->pathFirst->pathSegments.identifier);
+                                                            if(!symbol) {
+                                                                throw std::runtime_error("Value symbol not found: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            if(symbol->symbol_type != Const) {
+                                                                throw std::runtime_error("Value symbol is not a const: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                            if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                                if(u->type == INTEGER_LITERAL){
+                                                                    left_val = u->integer;
+                                                                }else{
+                                                                    throw std::runtime_error("Const expr is not an integer literal in let statement: " + t3->pathFirst->pathSegments.identifier);   
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }else if(auto *t3 = dynamic_cast<ExprLiteral *>(& *t1->left)){
+                                                    if(t3->type == INTEGER_LITERAL){
+                                                        left_val = t3->integer;
+                                                    }else{
+                                                        throw std::runtime_error("Const expr is not an integer literal in let statement");   
+                                                    }
+                                                }
+                                                if(auto *t3 = dynamic_cast<ExprPath *>(& *t1->right)){
+                                                    if(t3->pathSecond == nullptr){
+                                                        if(t3->pathFirst->pathSegments.type == IDENTIFIER) {    
+                                                            auto symbol = current_scope->lookupValueSymbol(t3->pathFirst->pathSegments.identifier);
+                                                            if(!symbol) {
+                                                                throw std::runtime_error("Value symbol not found: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            if(symbol->symbol_type != Const) {
+                                                                throw std::runtime_error("Value symbol is not a const: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                            if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                                if(u->type == INTEGER_LITERAL){
+                                                                    right_val = u->integer;
+                                                                }else{
+                                                                    throw std::runtime_error("Const expr is not an integer literal in let statement: " + t3->pathFirst->pathSegments.identifier);   
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }else if(auto *t3 = dynamic_cast<ExprLiteral *>(& *t1->right)){
+                                                    if(t3->type == INTEGER_LITERAL){
+                                                        right_val = t3->integer;
+                                                    }else{
+                                                        throw std::runtime_error("Const expr is not an integer literal in let statement");   
+                                                    }
+                                                }
+                                                if(left_val != -1 && right_val != -1){
+                                                    if(t1->op == PLUS){
+                                                        t1_size = left_val + right_val;
+                                                    }else if(t1->op == MINUS){
+                                                        t1_size = left_val - right_val;
+                                                    }else if(t1->op == MULTIPLY){   
+                                                        t1_size = left_val * right_val;
+                                                    }else if(t1->op == DIVIDE){
+                                                        if(right_val == 0){
+                                                            throw std::runtime_error("Division by zero in const expr in let statement");
+                                                        }
+                                                        t1_size = left_val / right_val;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if(auto *t2 = dynamic_cast<ExprPath *>(& *o->expr)){
+                                            if(t2->pathSecond == nullptr){
+                                                if(t2->pathFirst->pathSegments.type == IDENTIFIER) {
+                                                    auto symbol = current_scope->lookupValueSymbol(t2->pathFirst->pathSegments.identifier);
+                                                    if(!symbol) {
+                                                        throw std::runtime_error("Value symbol not found: " + t2->pathFirst->pathSegments.identifier);
+                                                    }
+                                                    if(symbol->symbol_type != Const) {
+                                                        throw std::runtime_error("Value symbol is not a const: " + t2->pathFirst->pathSegments.identifier);
+                                                    }
+                                                    auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                    if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                        if(u->type == INTEGER_LITERAL){
+                                                            t2_size = u->integer;
+                                                        }else{
+                                                            throw std::runtime_error("Const expr is not an integer literal in let statement: " + t2->pathFirst->pathSegments.identifier);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }else if(auto *t2 = dynamic_cast<ExprOpbinary *>(& *o->expr)){
+                                            if(t2->op == PLUS || t2->op == MINUS || t2->op == MULTIPLY || t2->op == DIVIDE){
+                                                int left_val2 = -1;
+                                                int right_val2 = -1;
+                                                if(auto *t3 = dynamic_cast<ExprPath *>(& *t2->left)){
+                                                    if(t3->pathSecond == nullptr){
+                                                        if(t3->pathFirst->pathSegments.type == IDENTIFIER) {
+                                                            auto symbol = current_scope->lookupValueSymbol(t3->pathFirst->pathSegments.identifier);
+                                                            if(!symbol) {
+                                                                throw std::runtime_error("Value symbol not found: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            if(symbol->symbol_type != Const) {
+                                                                throw std::runtime_error("Value symbol is not a const: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                            if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                                if(u->type == INTEGER_LITERAL){
+                                                                    left_val2 = u->integer;
+                                                                }else{
+                                                                    throw std::runtime_error("Const expr is not an integer literal in let statement: " + t3->pathFirst->pathSegments.identifier);   
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }else if(auto *t3 = dynamic_cast<ExprLiteral *>(& *t2->left)){
+                                                    if(t3->type == INTEGER_LITERAL){
+                                                        left_val2 = t3->integer;
+                                                    }else{
+                                                        throw std::runtime_error("Const expr is not an integer literal in let statement");   
+                                                    }
+                                                }
+                                                if(auto *t3 = dynamic_cast<ExprPath *>(& *t2->right)){
+                                                    if(t3->pathSecond == nullptr){
+                                                        if(t3->pathFirst->pathSegments.type == IDENTIFIER) {    
+                                                            auto symbol = current_scope->lookupValueSymbol(t3->pathFirst->pathSegments.identifier);
+                                                            if(!symbol) {
+                                                                throw std::runtime_error("Value symbol not found: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            if(symbol->symbol_type != Const) {
+                                                                throw std::runtime_error("Value symbol is not a const: " + t3->pathFirst->pathSegments.identifier);
+                                                            }
+                                                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                                                            if(auto *u = dynamic_cast<ExprLiteral *>(& *constSymbol->value)){
+                                                                if(u->type == INTEGER_LITERAL){
+                                                                    right_val2 = u->integer;
+                                                                }else{
+                                                                    throw std::runtime_error("Const expr is not an integer literal in let statement: "+ t3->pathFirst->pathSegments.identifier);  
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }else if(auto *t3 = dynamic_cast<ExprLiteral *>(& *t2->right)){
+                                                    if(t3->type == INTEGER_LITERAL){
+                                                        right_val2 = t3->integer;
+                                                    }else{
+                                                        throw std::runtime_error("Const expr is not an integer literal in let statement");   
+                                                    }
+                                                }
+                                                if(left_val2 != -1 && right_val2 != -1){
+                                                    if(t2->op == PLUS){
+                                                        t2_size = left_val2 + right_val2;
+                                                    }else if(t2->op == MINUS){
+                                                        t2_size = left_val2 - right_val2;
+                                                    }else if(t2->op == MULTIPLY){   
+                                                        t2_size = left_val2 * right_val2;
+                                                    }else if(t2->op == DIVIDE){
+                                                        if(right_val2 == 0){
+                                                            throw std::runtime_error("Division by zero in const expr in let statement");
+                                                        }
+                                                        t2_size = left_val2 / right_val2;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if(t1_size != -1 && t2_size != -1){
+                                            if(t1_size != t2_size){
+                                                throw std::runtime_error("Array size mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
                                             }
                                         }
                                     }
