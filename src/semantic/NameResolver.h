@@ -1683,6 +1683,29 @@ public:
                                 }else{
                                     throw std::runtime_error("Type is not an array type in let statement: " + p->pathFirst->pathSegments.identifier);
                                 }
+                            }else if(auto *r = dynamic_cast<Path *>(& *q->type)){
+                                if(auto *s = dynamic_cast<Path *>(& *o->type)){
+                                    if(r->pathSegments.type == IDENTIFIER && s->pathSegments.type == IDENTIFIER){
+                                        if(r->pathSegments.identifier != s->pathSegments.identifier){
+                                            throw std::runtime_error("Type mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                        }
+                                        auto symbol_r = current_scope->lookupTypeSymbol(r->pathSegments.identifier);
+                                        if(!symbol_r) {
+                                            throw std::runtime_error("Value symbol not found: " + r->pathSegments.identifier);
+                                        }
+                                        if(auto *t1 = dynamic_cast<ExprLiteral *>(& *q->expr)){
+                                            if(auto *t2 = dynamic_cast<ExprLiteral *>(& *o->expr)){
+                                                if(t1->type == INTEGER_LITERAL && t2->type == INTEGER_LITERAL){
+                                                    if(t1->integer != t2->integer){
+                                                        throw std::runtime_error("Array size mismatch in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                    }
+                                                }else{
+                                                    throw std::runtime_error("Array size is not an integer literal in let statement: " + p->pathFirst->pathSegments.identifier);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
