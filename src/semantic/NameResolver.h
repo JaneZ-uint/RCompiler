@@ -535,16 +535,16 @@ public:
 
     void visit(ExprMethodcall &node) override{
         //node.expr->accept(*this);
-        if(auto *p = dynamic_cast<ExprPath *>(& *node.PathExprSegment)) {
-            if(p->pathFirst->pathSegments.type == IDENTIFIER) {
-                auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
-                if(!symbol) {
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(p->pathSecond == nullptr){
+                auto symbolVar = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                if(!symbolVar) {
                     throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
                 }
-                if(symbol->symbol_type != Variable) {
+                if(symbolVar->symbol_type != Variable) {
                     throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
                 }
-                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbolVar);
                 if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
                     if(q->pathSegments.type == IDENTIFIER){
                         auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
@@ -567,8 +567,37 @@ public:
                         }else{
                             throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
                         }
-                        p->resolvedSymbol1 = typeSymbol;
-                        p->resolvedSymbol2 = symbol;
+                    }
+                }else if(auto *q = dynamic_cast<TypeReference *>(& *varSymbol->type)){
+                    if(auto *r = dynamic_cast<Path *>(& *q->typeNoBounds)){
+                        if(r->pathSegments.type == IDENTIFIER){
+                            auto typeSymbol = current_scope->lookupTypeSymbol(r->pathSegments.identifier);
+                            if(!typeSymbol) {
+                                throw std::runtime_error("Type symbol not found: " + r->pathSegments.identifier);
+                            }
+                            if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
+                                throw std::runtime_error("Type symbol is not a struct or trait: " + r->pathSegments.identifier);
+                            }
+                            if(typeSymbol->symbol_type == Struct){  
+                                auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                                if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
+                                    throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
+                                }
+                                auto methodSymbol = structSymbol->methods[node.PathExprSegment->pathSegments.identifier];
+                                if(methodSymbol->is_mut &&methodSymbol->is_ref){
+                                    if(!q->is_mut){
+                                        throw std::runtime_error("Cannot call mutable method on immutable reference");
+                                    }
+                                }
+                            }else if (typeSymbol->symbol_type == Trait){
+                                auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
+                                if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
+                                    throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
+                                }
+                            }else{
+                                throw std::runtime_error("Type is not a struct or trait: " + r->pathSegments.identifier);
+                            }
+                        }
                     }
                 }
             }
@@ -1208,6 +1237,12 @@ public:
             }else{
                 symbol->return_type = std::make_shared<TypeUnit>(TypeUnit());
             }
+            if(node.fnParameters.SelfParam.short_self.is_and){
+                symbol->is_ref = true;
+            }
+            if(node.fnParameters.SelfParam.short_self.is_mut){
+                symbol->is_mut = true;
+            }
             if(node.fnParameters.FunctionParam.size() > 0){
                 for(auto &param : node.fnParameters.FunctionParam){
                     if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
@@ -1454,6 +1489,7 @@ public:
                 }
             }
         }
+
         current_scope = current_scope->parent;
     }
 

@@ -98,6 +98,12 @@ public:
         std::shared_ptr<FunctionSymbol> symbol = std::make_shared<FunctionSymbol>();
         symbol->symbol_type = Function;
         symbol->identifier = node.identifier;
+        if(node.fnParameters.SelfParam.short_self.is_and){
+            symbol->is_ref = true;
+        }
+        if(node.fnParameters.SelfParam.short_self.is_mut){
+            symbol->is_mut = true;
+        }
         if(node.fnParameters.FunctionParam.size() > 0){
             for(auto &param : node.fnParameters.FunctionParam){
                 if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
@@ -159,6 +165,12 @@ public:
                 std::shared_ptr<FunctionSymbol> symbol = std::make_shared<FunctionSymbol>();
                 symbol->symbol_type = Function;
                 symbol->identifier = fn_item->identifier;
+                if(fn_item->fnParameters.SelfParam.short_self.is_and){
+                    symbol->is_ref = true;
+                }
+                if(fn_item->fnParameters.SelfParam.short_self.is_mut){
+                    symbol->is_mut = true;
+                }
                 if(fn_item->fnParameters.FunctionParam.size() > 0){
                     for(auto &param : fn_item->fnParameters.FunctionParam){
                         if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
@@ -238,6 +250,12 @@ public:
             std::shared_ptr<FunctionSymbol> fn_symbol = std::make_shared<FunctionSymbol>();
             fn_symbol->symbol_type = Function;
             fn_symbol->identifier = fn_item->identifier;
+            if(fn_item->fnParameters.SelfParam.short_self.is_and){
+                fn_symbol->is_ref = true;
+            }
+            if(fn_item->fnParameters.SelfParam.short_self.is_mut){
+                fn_symbol->is_mut = true;
+            }
             if(fn_item->fnParameters.FunctionParam.size() > 0){
                 for(auto &param : fn_item->fnParameters.FunctionParam){
                     if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){

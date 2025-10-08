@@ -44,6 +44,8 @@ public:
 
 class FunctionSymbol : public Symbol{
 public:
+    bool is_ref = false;
+    bool is_mut = false;
     struct Param{
         std::string name;
         std::shared_ptr<ASTNode> type;
