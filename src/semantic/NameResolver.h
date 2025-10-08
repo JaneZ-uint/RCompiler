@@ -893,6 +893,40 @@ public:
                                 isLeftPointer = true;
                                 leftType = std::make_shared<Type>(*q);
                             }
+                        }else if(symbol->symbol_type == Function){
+                            auto funcSymbol = std::dynamic_pointer_cast<FunctionSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *funcSymbol->return_type)){
+                                isLeftPointer = true;
+                                leftType = std::make_shared<Type>(*q);
+                            }else if(auto *q = dynamic_cast<TypeUnit *>(& *funcSymbol->return_type)){
+                                throw std::runtime_error("Arithmetic operation on function with void return type");
+                            }else if(!funcSymbol->return_type){
+                                throw std::runtime_error("Arithmetic operation on function with no return type");
+                            }
+                        }
+                    }
+                }
+            }else if(auto *p = dynamic_cast<ExprCall *>(& *node.left)){
+                if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                    if(q->pathSecond == nullptr){
+                        if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                            auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type == Function){
+                                auto funcSymbol = std::dynamic_pointer_cast<FunctionSymbol>(symbol);
+                                if(auto *r = dynamic_cast<Type *>(& *funcSymbol->return_type)){
+                                    isLeftPointer = true;
+                                    leftType = std::make_shared<Type>(*r);
+                                }else if(auto *r = dynamic_cast<TypeUnit *>(& *funcSymbol->return_type)){
+                                    throw std::runtime_error("Arithmetic operation on function with void return type");
+                                }else if(!funcSymbol->return_type){
+                                    throw std::runtime_error("Arithmetic operation on function with no return type");
+                                }
+                            }else{
+                                throw std::runtime_error("Arithmetic operation on non-function");
+                            }
                         }
                     }
                 }
@@ -915,6 +949,40 @@ public:
                             if(auto *q = dynamic_cast<Type *>(& *constSymbol->type)){
                                 isRightPointer = true;
                                 rightType = std::make_shared<Type>(*q);
+                            }
+                        }else if(symbol->symbol_type == Function){
+                            auto funcSymbol = std::dynamic_pointer_cast<FunctionSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *funcSymbol->return_type)){
+                                isRightPointer = true;
+                                rightType = std::make_shared<Type>(*q);
+                            }else if(auto *q = dynamic_cast<TypeUnit *>(& *funcSymbol->return_type)){
+                                throw std::runtime_error("Arithmetic operation on function with void return type");
+                            }else if(!funcSymbol->return_type){
+                                throw std::runtime_error("Arithmetic operation on function with no return type");
+                            }
+                        }
+                    }
+                }
+            }else if(auto *p = dynamic_cast<ExprCall *>(& *node.right)){
+                if(auto *q = dynamic_cast<ExprPath *>(& *p->expr)){
+                    if(q->pathSecond == nullptr){
+                        if(q->pathFirst->pathSegments.type == IDENTIFIER) {
+                            auto symbol = current_scope->lookupValueSymbol(q->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + q->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type == Function){
+                                auto funcSymbol = std::dynamic_pointer_cast<FunctionSymbol>(symbol);
+                                if(auto *r = dynamic_cast<Type *>(& *funcSymbol->return_type)){
+                                    isRightPointer = true;
+                                    rightType = std::make_shared<Type>(*r);
+                                }else if(auto *r = dynamic_cast<TypeUnit *>(& *funcSymbol->return_type)){
+                                    throw std::runtime_error("Arithmetic operation on function with void return type");
+                                }else if(!funcSymbol->return_type){
+                                    throw std::runtime_error("Arithmetic operation on function with no return type");
+                                }
+                            }else{
+                                throw std::runtime_error("Arithmetic operation on non-function");
                             }
                         }
                     }
