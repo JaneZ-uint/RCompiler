@@ -154,6 +154,113 @@ public:
             for(auto &expr : node.arrayExpr) {
                 expr->accept(*this);
             }
+            bool isBool = false;
+            bool isI32 = false;
+            bool isU32 = false;
+            bool isISize = false;
+            bool isUSize = false;
+            bool isString = false;
+            bool isEnum = false;
+            bool isStruct = false;
+            if(auto *p = dynamic_cast<ExprLiteral *>(& *node.arrayExpr[0])){
+                if(p->type == TRUE || p->type == FALSE){
+                    isBool = true;
+                }else if(p->type == INTEGER_LITERAL){
+                    isI32 = true;
+                    isU32 = true;
+                    isISize = true;
+                    isUSize = true;
+                }else if(p->type == STRING_LITERAL){
+                    isString = true;
+                }
+            }else if(auto *p = dynamic_cast<ExprPath *>(& *node.arrayExpr[0])){
+                if(p->pathSecond == nullptr){
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type == Variable){
+                            auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                                if(q->type == BOOL){
+                                    isBool = true;
+                                }else if(q->type == I32 ){
+                                    isI32 = true;   
+                                }else if(q->type == U32 ){
+                                    isU32 = true;
+                                }else if(q->type == ISIZE ){
+                                    isISize = true; 
+                                }else if(q->type == USIZE ){
+                                    isUSize = true;
+                                }else if(q->type == STR){
+                                    isString = true;
+                                }
+                            }else if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)){
+                                if(q->pathSegments.type == IDENTIFIER){
+                                    auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
+                                    if(!typeSymbol) {
+                                        throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
+                                    }
+                                    if(typeSymbol->symbol_type == Struct){
+                                        isStruct = true;
+                                    }
+                                }
+                            }
+                        }else if(symbol->symbol_type == Const){
+                            auto constSymbol = std::dynamic_pointer_cast<ConstSymbol>(symbol);
+                            if(auto *q = dynamic_cast<Type *>(& *constSymbol->type)){
+                                if(q->type == BOOL){
+                                    isBool = true;  
+                                }else if(q->type == I32 ){
+                                    isI32 = true;   
+                                }else if(q->type == U32 ){
+                                    isU32 = true;
+                                }else if(q->type == ISIZE ){
+                                    isISize = true; 
+                                }else if(q->type == USIZE ){
+                                    isUSize = true;
+                                }else if(q->type == STR){
+                                    isString = true;
+                                }
+                            }
+                        }
+                    }
+                }else{
+                    if(p->pathFirst->pathSegments.type == IDENTIFIER) {
+                        auto symbol = current_scope->lookupTypeSymbol(p->pathFirst->pathSegments.identifier);
+                        if(!symbol) {
+                            throw std::runtime_error("Type symbol not found: " + p->pathFirst->pathSegments.identifier);
+                        }
+                        if(symbol->symbol_type == Enum){
+                            isEnum = true;
+                        }else if(symbol->symbol_type == Struct){
+                            isStruct = true;    
+                        }
+                    }
+                }
+            }
+            if(isBool || isEnum || isI32 || isU32 || isISize || isUSize || isString || isStruct){
+                for(int i = 1;i < node.arrayExpr.size();i ++){
+                    auto &expr = node.arrayExpr[i];
+                    if(isEnum || isStruct){
+                        if(auto *p = dynamic_cast<ExprLiteral *>(& *expr)){
+                            throw std::runtime_error("Array element type mismatch, expected enum or struct");
+                        }else if(auto *p = dynamic_cast<ExprPath *>(& *expr)){ 
+                            auto symbol = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                            if(!symbol) {
+                                throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
+                            }
+                            if(symbol->symbol_type == Variable){
+                                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                if(auto *q = dynamic_cast<Type *>(& *varSymbol->type)){
+                                    throw std::runtime_error("Array element type mismatch, expected enum or struct");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }else{
             node.type->accept(*this);
             node.size->accept(*this);
@@ -280,11 +387,23 @@ public:
                         for(int i = 0;i < funcSymbol->parameters.size();i ++){
                             auto funParam = funcSymbol->parameters[i];
                             auto callParam = node.callParams[i];
-                            if(auto *q = dynamic_cast<Type *>(& *funParam.type)){
+                            if(auto *q = dynamic_cast<ExprLiteral *>(& *callParam)){
                                 if(auto *r = dynamic_cast<Type *>(& *funParam.type)){
-                                    if(q->type != r->type){
-                                        throw std::runtime_error("Function call parameter type mismatch: " + p->pathFirst->pathSegments.identifier);
+                                    if(r->type == I32 || r->type == U32 || r->type == ISIZE || r->type == USIZE ){
+                                        if(q->type != INTEGER_LITERAL){
+                                            throw std::runtime_error("Function call parameter type mismatch: " + p->pathFirst->pathSegments.identifier);
+                                        }else if(r->type == I32){
+                                            if(q->integer < -2147483648 || q->integer > 2147483647){
+                                                throw std::runtime_error("Function call parameter out of range: " + p->pathFirst->pathSegments.identifier);
+                                            }
+                                        }
+                                    }else if(r->type == STR){
+                                        if(q->type != STRING_LITERAL){
+                                            throw std::runtime_error("Function call parameter type mismatch: " + p->pathFirst->pathSegments.identifier);
+                                        }
                                     }
+                                }else if(auto *r = dynamic_cast<Path *>(& *funParam.type)){
+                                    throw std::runtime_error("Function call parameter type mismatch: " + p->pathFirst->pathSegments.identifier);
                                 }
                             }
                         }
@@ -537,46 +656,23 @@ public:
         //node.expr->accept(*this);
         if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
             if(p->pathSecond == nullptr){
-                auto symbolVar = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
-                if(!symbolVar) {
-                    throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
-                }
-                if(symbolVar->symbol_type != Variable) {
-                    throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
-                }
-                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbolVar);
-                if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
-                    if(q->pathSegments.type == IDENTIFIER){
-                        auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
-                        if(!typeSymbol) {
-                            throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
-                        }
-                        if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
-                            throw std::runtime_error("Type symbol is not a struct or trait: " + q->pathSegments.identifier);
-                        }
-                        if(typeSymbol->symbol_type == Struct){  
-                            auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
-                            if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
-                                throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
-                            }
-                        }else if (typeSymbol->symbol_type == Trait){
-                            auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
-                            if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
-                                throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
-                            }
-                        }else{
-                            throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
-                        }
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    auto symbolVar = current_scope->lookupValueSymbol(p->pathFirst->pathSegments.identifier);
+                    if(!symbolVar) {
+                        throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
                     }
-                }else if(auto *q = dynamic_cast<TypeReference *>(& *varSymbol->type)){
-                    if(auto *r = dynamic_cast<Path *>(& *q->typeNoBounds)){
-                        if(r->pathSegments.type == IDENTIFIER){
-                            auto typeSymbol = current_scope->lookupTypeSymbol(r->pathSegments.identifier);
+                    if(symbolVar->symbol_type != Variable) {
+                        throw std::runtime_error("Value symbol is not a variable: " + p->pathFirst->pathSegments.identifier);
+                    }
+                    auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbolVar);
+                    if(auto *q = dynamic_cast<Path *>(& *varSymbol->type)) {
+                        if(q->pathSegments.type == IDENTIFIER){
+                            auto typeSymbol = current_scope->lookupTypeSymbol(q->pathSegments.identifier);
                             if(!typeSymbol) {
-                                throw std::runtime_error("Type symbol not found: " + r->pathSegments.identifier);
+                                throw std::runtime_error("Type symbol not found: " + q->pathSegments.identifier);
                             }
                             if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
-                                throw std::runtime_error("Type symbol is not a struct or trait: " + r->pathSegments.identifier);
+                                throw std::runtime_error("Type symbol is not a struct or trait: " + q->pathSegments.identifier);
                             }
                             if(typeSymbol->symbol_type == Struct){  
                                 auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
@@ -585,7 +681,7 @@ public:
                                 }
                                 auto methodSymbol = structSymbol->methods[node.PathExprSegment->pathSegments.identifier];
                                 if(methodSymbol->is_mut &&methodSymbol->is_ref){
-                                    if(!q->is_mut){
+                                    if(!varSymbol->is_mut){
                                         throw std::runtime_error("Cannot call mutable method on immutable reference");
                                     }
                                 }
@@ -595,7 +691,38 @@ public:
                                     throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
                                 }
                             }else{
-                                throw std::runtime_error("Type is not a struct or trait: " + r->pathSegments.identifier);
+                                throw std::runtime_error("Type is not a struct or trait: " + q->pathSegments.identifier);
+                            }
+                        }
+                    }else if(auto *q = dynamic_cast<TypeReference *>(& *varSymbol->type)){
+                        if(auto *r = dynamic_cast<Path *>(& *q->typeNoBounds)){
+                            if(r->pathSegments.type == IDENTIFIER){
+                                auto typeSymbol = current_scope->lookupTypeSymbol(r->pathSegments.identifier);
+                                if(!typeSymbol) {
+                                    throw std::runtime_error("Type symbol not found: " + r->pathSegments.identifier);
+                                }
+                                if(typeSymbol->symbol_type != Struct && typeSymbol->symbol_type != Trait) {
+                                    throw std::runtime_error("Type symbol is not a struct or trait: " + r->pathSegments.identifier);
+                                }
+                                if(typeSymbol->symbol_type == Struct){  
+                                    auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                                    if(structSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == structSymbol->methods.end()){
+                                        throw std::runtime_error("Method not found in struct: " + node.PathExprSegment->pathSegments.identifier);
+                                    }
+                                    auto methodSymbol = structSymbol->methods[node.PathExprSegment->pathSegments.identifier];
+                                    if(methodSymbol->is_mut &&methodSymbol->is_ref){
+                                        if(!q->is_mut){
+                                            throw std::runtime_error("Cannot call mutable method on immutable reference");
+                                        }
+                                    }
+                                }else if (typeSymbol->symbol_type == Trait){
+                                    auto traitSymbol = std::dynamic_pointer_cast<TraitSymbol>(typeSymbol);
+                                    if(traitSymbol->methods.find(node.PathExprSegment->pathSegments.identifier) == traitSymbol->methods.end()){
+                                        throw std::runtime_error("Method not found in trait: " + node.PathExprSegment->pathSegments.identifier);
+                                    }
+                                }else{
+                                    throw std::runtime_error("Type is not a struct or trait: " + r->pathSegments.identifier);
+                                }
                             }
                         }
                     }
@@ -691,6 +818,7 @@ public:
                             throw std::runtime_error("Value symbol not found: " + p->pathFirst->pathSegments.identifier);
                         }
                         if(symbol->symbol_type == Variable){
+                            //auto varSymbol = std::
                             if(auto *q = dynamic_cast<Type *>(& *std::dynamic_pointer_cast<VariableSymbol>(symbol)->type)){
                                if(q->type == I32){
                                    ltp.type_name = "i32";
@@ -710,6 +838,24 @@ public:
                             }else if(auto *q = dynamic_cast<Path *>(& *std::dynamic_pointer_cast<VariableSymbol>(symbol)->type)){
                                 if(q->pathSegments.type == IDENTIFIER){
                                     ltp.type_name = q->pathSegments.identifier;
+                                }
+                            }else if(auto *q = dynamic_cast<TypeReference *>(& *std::dynamic_pointer_cast<VariableSymbol>(symbol)->type)){
+                                if(auto *r = dynamic_cast<Type *>(& *q->typeNoBounds)){
+                                    if(r->type == I32){
+                                        ltp.type_name = "i32";
+                                    }else if (r->type == U32){
+                                        ltp.type_name = "u32";
+                                    }else if (r->type == ISIZE){
+                                        ltp.type_name = "isize";
+                                    }else if(r->type == USIZE){
+                                        ltp.type_name = "usize";
+                                    }else if(r->type == BOOL){
+                                        ltp.type_name = "bool";
+                                    }else if(r->type == CHAR){
+                                        ltp.type_name = "char";
+                                    }else if(r->type == STR){
+                                        ltp.type_name = "str";
+                                    }
                                 }
                             }
                         }else if(symbol->symbol_type == Const){ 
@@ -1200,6 +1346,8 @@ public:
                 if(checkReturn(std::make_shared<ExprBlock>(*p))){
                     is_return = true;
                 }
+            }else if(auto *p = dynamic_cast<ExprStruct *>(& *ifExpr->elseBlock)){
+                is_return = true;
             }
         }
         return is_return;
@@ -1218,6 +1366,20 @@ public:
                     if(checkReturnInIf(std::make_shared<ExprIf>(*q))){
                         return true;
                     }
+                }else if(auto *q = dynamic_cast<ExprStruct *>(& *p->stmtExpr)){
+                    return true;
+                }else if(auto *q = dynamic_cast<ExprLoop *>(& *p->stmtExpr)){
+                    if(q->PredicateLoopExpression){
+                        if(checkReturn(q->PredicateLoopExpression)){
+                            return true;
+                        }
+                    }else if(q->infinitieLoop){
+                        if(checkReturn(q->infinitieLoop)){
+                            return true;
+                        }
+                    }
+                }else if(auto *q = dynamic_cast<ExprBreak *>(& *p->stmtExpr)){
+                    return true;
                 }
             }
         }
@@ -1360,30 +1522,32 @@ public:
 
         // check for return stmt in if expr
         if(node.returnType){
-            if(auto *o = dynamic_cast<StmtExpr *>(& *node.fnBody->statements[node.fnBody->statements.size() - 1])){
-                if(auto *p = dynamic_cast<ExprIf *>(& *o->stmtExpr)){
-                    if(p->thenBlock){
-                        for(auto &stmt : p->thenBlock->statements) {
-                            if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
-                                if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
-                                    if(r->expr){
-                                        if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
-                                            if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
-                                                if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
-                                                    if(s->type != INTEGER_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(t->type == BOOL){
-                                                    if(s->type != TRUE && s->type != FALSE){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(t->type == CHAR){
-                                                    if(s->type != CHAR_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(t->type == STR){
-                                                    if(s->type != STRING_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+            if(node.fnBody && node.fnBody->statements.size() > 0){
+                if(auto *o = dynamic_cast<StmtExpr *>(& *node.fnBody->statements[node.fnBody->statements.size() - 1])){
+                    if(auto *p = dynamic_cast<ExprIf *>(& *o->stmtExpr)){
+                        if(p->thenBlock){
+                            for(auto &stmt : p->thenBlock->statements) {
+                                if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
+                                    if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
+                                        if(r->expr){
+                                            if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
+                                                    if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
+                                                        if(s->type != INTEGER_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(t->type == BOOL){
+                                                        if(s->type != TRUE && s->type != FALSE){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(t->type == CHAR){
+                                                        if(s->type != CHAR_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(t->type == STR){
+                                                        if(s->type != STRING_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1392,31 +1556,31 @@ public:
                                 }
                             }
                         }
-                    }
-                    if(p->elseBlock){
-                        if(auto *m = dynamic_cast<ExprBlock *>(& *p->elseBlock)){
-                            if(m->statements.size() > 0){
-                                for(auto &stmt : m->statements) {
-                                    if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
-                                        if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
-                                            if(r->expr){
-                                                if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
-                                                    if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
-                                                        if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
-                                                            if(s->type != INTEGER_LITERAL){
-                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                            }
-                                                        }else if(t->type == BOOL){
-                                                            if(s->type != TRUE && s->type != FALSE){
-                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                            }
-                                                        }else if(t->type == CHAR){
-                                                            if(s->type != CHAR_LITERAL){
-                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                            }
-                                                        }else if(t->type == STR){
-                                                            if(s->type != STRING_LITERAL){
-                                                                throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                        if(p->elseBlock){
+                            if(auto *m = dynamic_cast<ExprBlock *>(& *p->elseBlock)){
+                                if(m->statements.size() > 0){
+                                    for(auto &stmt : m->statements) {
+                                        if(auto *q = dynamic_cast<StmtExpr *>(& *stmt)){
+                                            if(auto *r = dynamic_cast<ExprReturn *>(& *q->stmtExpr)){
+                                                if(r->expr){
+                                                    if(auto *s = dynamic_cast<ExprLiteral *>(& *r->expr)){
+                                                        if(auto *t = dynamic_cast<Type *>(& *node.returnType)){
+                                                            if(t->type == I32 || t->type == U32 || t->type == ISIZE || t->type == USIZE){
+                                                                if(s->type != INTEGER_LITERAL){
+                                                                    throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                                }
+                                                            }else if(t->type == BOOL){
+                                                                if(s->type != TRUE && s->type != FALSE){
+                                                                    throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                                }
+                                                            }else if(t->type == CHAR){
+                                                                if(s->type != CHAR_LITERAL){
+                                                                    throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                                }
+                                                            }else if(t->type == STR){
+                                                                if(s->type != STRING_LITERAL){
+                                                                    throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -1424,27 +1588,27 @@ public:
                                             }
                                         }
                                     }
-                                }
-                            }else if(m->ExpressionWithoutBlock){
-                                if(auto *q = dynamic_cast<ExprReturn *>(& *m->ExpressionWithoutBlock)){
-                                    if(q->expr){
-                                        if(auto *r = dynamic_cast<ExprLiteral *>(& *q->expr)){
-                                            if(auto *s = dynamic_cast<Type *>(& *node.returnType)){
-                                                if(s->type == I32 || s->type == U32 || s->type == ISIZE || s->type == USIZE){
-                                                    if(r->type != INTEGER_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(s->type == BOOL){
-                                                    if(r->type != TRUE && r->type != FALSE){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(s->type == CHAR){
-                                                    if(r->type != CHAR_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
-                                                    }
-                                                }else if(s->type == STR){
-                                                    if(r->type != STRING_LITERAL){
-                                                        throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                }else if(m->ExpressionWithoutBlock){
+                                    if(auto *q = dynamic_cast<ExprReturn *>(& *m->ExpressionWithoutBlock)){
+                                        if(q->expr){
+                                            if(auto *r = dynamic_cast<ExprLiteral *>(& *q->expr)){
+                                                if(auto *s = dynamic_cast<Type *>(& *node.returnType)){
+                                                    if(s->type == I32 || s->type == U32 || s->type == ISIZE || s->type == USIZE){
+                                                        if(r->type != INTEGER_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(s->type == BOOL){
+                                                        if(r->type != TRUE && r->type != FALSE){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(s->type == CHAR){
+                                                        if(r->type != CHAR_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
+                                                    }else if(s->type == STR){
+                                                        if(r->type != STRING_LITERAL){
+                                                            throw std::runtime_error("Return type mismatch in function: " + node.identifier);
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1458,12 +1622,14 @@ public:
             }
         }
 
-        if(!checkReturn(node.fnBody)){
-            if(node.returnType){
-                if(auto *p = dynamic_cast<TypeUnit *>(& *node.returnType)){
-                    //nothing
-                }else{
-                    throw std::runtime_error("Missing return statement in function: " + node.identifier);
+        if(node.fnBody){
+            if(!checkReturn(node.fnBody)){
+                if(node.returnType){
+                    if(auto *p = dynamic_cast<TypeUnit *>(& *node.returnType)){
+                        //nothing
+                    }else{
+                        throw std::runtime_error("Missing return statement in function: " + node.identifier);
+                    }
                 }
             }
         }

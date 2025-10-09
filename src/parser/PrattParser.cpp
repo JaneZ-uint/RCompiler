@@ -833,10 +833,10 @@ std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
     }
     currentPos ++;
     if(type == INTEGER_LITERAL){
-        if(std::stoll(literal) > 2147483647){
+        /*if(std::stoll(literal) > 2147483647){
             throw std::runtime_error("Integer out of range.");
-        }
-        int integer = std::stoi(literal);
+        }*/
+        long long int integer = std::stoll(literal);
         return std::make_shared<ExprLiteral>(std::move(literal),type,integer);
     }
     return std::make_shared<ExprLiteral>(std::move(literal),type);
@@ -977,6 +977,11 @@ std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
     }
     std::shared_ptr<Expression> right = nullptr;
     right = parse_expr();
+    if(op == DEREFERENCE){
+        if(auto *p = dynamic_cast<ExprLiteral *>(& *right)){
+            throw std::runtime_error("Wrong in expr unaryOp parsing, literal cannot be borrowed or dereferenced.");
+        }
+    }
     return std::make_shared<ExprOpunary>(op, right, is_mut);
 }
 
