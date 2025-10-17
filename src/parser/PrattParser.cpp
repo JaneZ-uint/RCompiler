@@ -228,6 +228,11 @@ std::shared_ptr<Expression> Parser::parse_expr_interface(int power) {
         if(auto *p = dynamic_cast<ExprIf *>(& *left)) {
             break;
         }
+        if(auto *p = dynamic_cast<ExprBlock *>(& *left)) {
+            if(current.type == kL_BRACE) {
+                break;
+            }
+        }
         left = parse_expr_infix(std::move(left));
     }
     return left;
@@ -506,12 +511,16 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     size_t ptr = currentPos;
     size_t bracePair = 1;
     bool isBracket = false;
+    bool isParen = false;
     while(true){
         if(ptr == tokens.size()){
             break;
         }
         if(tokens[ptr].type == kR_BRACE){
             bracePair --;
+            if(bracePair == 1 && !isBracket && !isParen){
+                break;
+            }
         }else if(tokens[ptr].type == kL_BRACE){
             bracePair ++;
         }else if(tokens[ptr].type == kL_BRACKET){
@@ -520,13 +529,19 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
             if(isBracket) {
                 isBracket = false;
             }
+        }else if(tokens[ptr].type == kL_PAREN){
+            isParen = true;
+        }else if(tokens[ptr].type == kR_PAREN){
+            if(isParen){
+                isParen = false;
+            }
         }
         if(bracePair == 0){
             isExprBlock = true;
             break;
         }
         if(tokens[ptr].type == kSEMI) {
-            if(!isBracket) {
+            if(!isBracket && bracePair == 1 && !isParen) {
                 break;
             }
         }
@@ -551,13 +566,14 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
     size_t pos = currentPos;
     int pair = 1;
     isBracket = false;
+    isParen = false;
     while(true) {
         if(pos == tokens.size()){
             break;
         }
         if(tokens[pos].type == kR_BRACE) {
             pair --;
-            if(pair == 1){
+            if(pair == 1 && !isBracket && !isParen) {
                 lastSemi = pos;
             }
         }else if(tokens[pos].type == kL_BRACE) {
@@ -568,11 +584,14 @@ std::shared_ptr<ExprBlock> Parser::parse_expr_block() {
             if(isBracket) {
                 isBracket = false;
             }
-        }else if(!isBracket && tokens[pos].type == kSEMI) {
+        }else if(!isBracket && !isParen && pair == 1 && tokens[pos].type == kSEMI) {
             lastSemi = pos;
-        }
-        if(pair == 1 && tokens[pos].type == kR_BRACE) {
-            lastSemi = pos;
+        }else if(tokens[pos].type == kL_PAREN){
+            isParen = true;
+        }else if(tokens[pos].type == kR_PAREN){
+            if(isParen){
+                isParen = false;
+            }
         }
         if(pair == 0){
             break;

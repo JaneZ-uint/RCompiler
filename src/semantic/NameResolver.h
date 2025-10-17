@@ -1284,14 +1284,14 @@ public:
     }
 
     void visit(ItemConstDecl &node) override{
-        if(current_scope != global_scope_builder.global_scope){
+        /*if(current_scope != global_scope_builder.global_scope){
             std::shared_ptr<ConstSymbol> symbol = std::make_shared<ConstSymbol>();
             symbol->symbol_type = Const;
             symbol->identifier = node.identifier;
             symbol->type = node.type;
             symbol->value = node.expr;
             current_scope->addValueSymbol(node.identifier, symbol);
-        }
+        }*/
         if(auto *p = dynamic_cast<Path *>(& *node.type)) {
             if(p->pathSegments.type == IDENTIFIER) {
                 std::string id = p->pathSegments.identifier;
@@ -1387,7 +1387,7 @@ public:
     }
 
     void visit(ItemFnDecl &node) override{
-        if(current_scope != global_scope_builder.global_scope){
+        /*if(current_scope != global_scope_builder.global_scope){
             std::shared_ptr<FunctionSymbol> symbol = std::make_shared<FunctionSymbol>();
             symbol->symbol_type = Function;
             symbol->identifier = node.identifier;
@@ -1416,7 +1416,7 @@ public:
                 }
             }
             current_scope->addValueSymbol(node.identifier, symbol);
-        }
+        }*/
         auto fn_scope = std::make_shared<ScopeNode>();
         fn_scope->parent = current_scope;
         fn_scope->ast_node = std::make_shared<ItemFnDecl>(node);
@@ -1469,6 +1469,121 @@ public:
             }
         }
         if(node.fnBody){
+            for(auto &stmt : node.fnBody->statements) {
+                if(auto *p = dynamic_cast<StmtItem *>(& *stmt)){
+                    if(auto *q = dynamic_cast<ItemConstDecl *>(& *p->stmt_item)){
+                        //todo
+                        std::shared_ptr<ConstSymbol> symbol = std::make_shared<ConstSymbol>();
+                        symbol->symbol_type = Const;
+                        symbol->identifier = q->identifier;
+                        symbol->type = q->type;
+                        symbol->value = q->expr;
+                        current_scope->addValueSymbol(q->identifier, symbol);
+                    }else if(auto *q = dynamic_cast<ItemEnumDecl *>(& *p->stmt_item)){
+                        //todo
+                        std::shared_ptr<EnumSymbol> symbol = std::make_shared<EnumSymbol>();
+                        symbol->symbol_type = Enum;
+                        symbol->identifier = q->identifier;
+                        if(q->item_enum.size() > 0){
+                            for(auto &variant : q->item_enum) {
+                                symbol->variants.push_back(variant);
+                            }
+                        }
+                        current_scope->addTypeSymbol(q->identifier, symbol);
+                    }else if(auto *q = dynamic_cast<ItemFnDecl *>(& *p->stmt_item)){
+                        //todo
+                        std::shared_ptr<FunctionSymbol> symbol = std::make_shared<FunctionSymbol>();
+                        symbol->symbol_type = Function;
+                        symbol->identifier = q->identifier;
+                        if(q->fnParameters.SelfParam.short_self.is_and){
+                            symbol->is_ref = true;
+                        }
+                        if(q->fnParameters.SelfParam.short_self.is_mut){
+                            symbol->is_mut = true;
+                        }
+                        if(q->fnParameters.FunctionParam.size() > 0){
+                            for(auto &param : q->fnParameters.FunctionParam){
+                                if(auto *r = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
+                                    symbol->parameters.push_back({r->identifier,param.type});
+                                }else if(auto *r = dynamic_cast<PatternReference *>(& *param.pattern)){
+                                    if(auto *s = dynamic_cast<PatternIdentifier *>(& *r->patternWithoutRange)){
+                                        symbol->parameters.push_back({s->identifier,param.type});
+                                    }else{
+                                        std::cerr << "Unsupported pattern in function parameter in NameResolver\n";
+                                    }
+                                }
+                            }
+                        }
+                        if(q->returnType){
+                            symbol->return_type = q->returnType;
+                        }else{
+                            symbol->return_type = std::make_shared<TypeUnit>(TypeUnit());
+                        }
+                        current_scope->addValueSymbol(q->identifier, symbol);
+                    }else if(auto *q = dynamic_cast<ItemImplDecl *>(& *p->stmt_item)){
+                        //todo
+                        continue;
+                    }else if(auto *q = dynamic_cast<ItemStructDecl *>(& *p->stmt_item)){
+                        //todo
+                        std::shared_ptr<StructSymbol> symbol = std::make_shared<StructSymbol>();
+                        symbol->symbol_type = Struct;
+                        symbol->identifier = q->identifier;
+                        for(auto &field : q->item_struct) {
+                            symbol->fields.push_back({field.identifier, field.structElem});
+                        }
+                        current_scope->addTypeSymbol(q->identifier, symbol);
+                    }else if(auto *q = dynamic_cast<ItemTraitDecl *>(& *p->stmt_item)){
+                        //todo  
+                        std::shared_ptr<TraitSymbol> symbol = std::make_shared<TraitSymbol>();
+                        symbol->symbol_type = Trait;
+                        symbol->identifier = q->identifier;
+                        for(auto &constraint : q->item_trait_const) {
+                            std::shared_ptr<ConstSymbol> constSymbol = std::make_shared<ConstSymbol>();
+                            constSymbol->symbol_type = Const;
+                            constSymbol->identifier = constraint->identifier;
+                            constSymbol->type = constraint->type;
+                            constSymbol->value = constraint->expr;
+                            if(symbol->associated_consts.find(constraint->identifier) != symbol->associated_consts.end()) {
+                                throw std::runtime_error("Duplicate associated constant in trait: " + constraint->identifier);
+                            }
+                            symbol->associated_consts[constraint->identifier] = constSymbol;
+                        }
+                        for(auto &method : q->item_trait_fn) {
+                            std::shared_ptr<FunctionSymbol> funcSymbol = std::make_shared<FunctionSymbol>();
+                            funcSymbol->symbol_type = Function;
+                            funcSymbol->identifier = method->identifier;
+                            if(method->returnType){
+                                funcSymbol->return_type = method->returnType;
+                            }else{
+                                funcSymbol->return_type = std::make_shared<TypeUnit>(TypeUnit());
+                            }
+                            if(method->fnParameters.SelfParam.short_self.is_and){
+                                funcSymbol->is_ref = true;
+                            }
+                            if(method->fnParameters.SelfParam.short_self.is_mut){
+                                funcSymbol->is_mut = true;
+                            }
+                            if(method->fnParameters.FunctionParam.size() > 0){
+                                for(auto &param : method->fnParameters.FunctionParam){
+                                    if(auto *r = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
+                                        funcSymbol->parameters.push_back({r->identifier,param.type});
+                                    }else if(auto *r = dynamic_cast<PatternReference *>(& *param.pattern)){
+                                        if(auto *s = dynamic_cast<PatternIdentifier *>(& *r->patternWithoutRange)){
+                                            funcSymbol->parameters.push_back({s->identifier,param.type});
+                                        }else{
+                                            std::cerr << "Unsupported pattern in function parameter in NameResolver\n";
+                                        }
+                                    }
+                                }
+                            }
+                            symbol->methods[method->identifier] = funcSymbol;
+                        }
+                        current_scope->addTypeSymbol(q->identifier, symbol);
+                    }
+                }
+            }
+        }
+        if(node.fnBody){
             //node.fnBody->accept(*this);
             for(auto &stmt : node.fnBody->statements) {
                 stmt->accept(*this);
@@ -1477,6 +1592,7 @@ public:
                 node.fnBody->ExpressionWithoutBlock->accept(*this); 
             }
         }
+        
         if(node.fnBody && node.fnBody->ExpressionWithoutBlock){
             if(auto *p = dynamic_cast<ExprPath *>(& *node.fnBody->ExpressionWithoutBlock)){
                 if(p->pathSecond == nullptr){
@@ -1714,7 +1830,7 @@ public:
     }
 
     void visit(ItemStructDecl &node) override{
-        if(current_scope != global_scope_builder.global_scope){
+        /*if(current_scope != global_scope_builder.global_scope){
             std::shared_ptr<StructSymbol> symbol = std::make_shared<StructSymbol>();
             symbol->symbol_type = Struct;
             symbol->identifier = node.identifier;
@@ -1722,7 +1838,7 @@ public:
                 symbol->fields.push_back({struct_field.identifier, struct_field.structElem});
             }
             current_scope->addTypeSymbol(node.identifier, symbol);
-        }
+        }*/
         //current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemStructDecl>(node), Struct, node.identifier));
         for(auto &struct_field: node.item_struct) {
             if(auto *p = dynamic_cast<Path *>(& *struct_field.structElem)){
@@ -1740,12 +1856,12 @@ public:
     }
 
     void visit(ItemTraitDecl &node) override{
-        if(current_scope != global_scope_builder.global_scope){
+        /*if(current_scope != global_scope_builder.global_scope){
             std::shared_ptr<TraitSymbol> symbol = std::make_shared<TraitSymbol>();
             symbol->symbol_type = Trait;
             symbol->identifier = node.identifier;
             current_scope->addTypeSymbol(node.identifier, symbol);
-        }
+        }*/
         //current_scope->addTypeSymbol(node.identifier, std::make_shared<Symbol>(std::make_shared<ItemTraitDecl>(node), Trait, node.identifier));
         for(auto &const_item : node.item_trait_const) {
             const_item->accept(*this);  

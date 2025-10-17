@@ -27,7 +27,11 @@ public:
 
     void addValueSymbol(const std::string &id, std::shared_ptr<Symbol> symbol) {
         if(value_table.find(id) != value_table.end()) {
-            throw std::runtime_error("Value symbol redefinition: " + id);
+            if(symbol->symbol_type == Variable && value_table[id]->symbol_type == Variable) {
+                // 允许变量重复定义（覆盖）
+            } else{
+                throw std::runtime_error("Value symbol redefinition: " + id);
+            }
         }
         value_table[id] = symbol;
     }
