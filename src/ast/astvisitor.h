@@ -58,10 +58,17 @@ class ASTRootNode;
 
 class Path;
 
+//IR Part
+class IRNode;
+class IRFunction;
+class IRBlock;
+
 class ASTVisitor{
 public:
     ASTVisitor() = default;
     virtual ~ASTVisitor() = default;
+
+    //AST 
 
     virtual void visit(ASTNode &node) = 0;
 
@@ -124,5 +131,12 @@ public:
 
     //Path
     virtual void visit(Path &node) = 0;
+
+    //IR
+
+    virtual void visit(IRNode &node) = 0;
+
+    virtual void visit(IRFunction &node) = 0;
+    virtual void visit(IRBlock &node) = 0;
 };
 }

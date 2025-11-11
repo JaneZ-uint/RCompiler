@@ -3,10 +3,10 @@
 # include "../ast/astvisitor.h"
 
 namespace JaneZ {
-class IRBlock : public IRNode {
+class IRCondbranch : public IRNode {
 public:
-    IRBlock() : IRNode() {}
-    virtual ~IRBlock() = default;
+    IRCondbranch() : IRNode() {}
+    virtual ~IRCondbranch() = default;
     void accept(ASTVisitor &visitor) override {
         visitor.visit(*this);
     }

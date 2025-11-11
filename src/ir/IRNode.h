@@ -1,12 +1,12 @@
 # pragma once
-# include "../ir/IRVisitor.h"
+# include "../ast/astvisitor.h"
 
 namespace JaneZ{
 class IRNode {
 public:
     IRNode() = default;
     virtual ~IRNode() = default;
-    virtual void accept(IRVisitor &visitor) = 0;
+    virtual void accept(ASTVisitor &visitor) = 0;
 };
 
 }
