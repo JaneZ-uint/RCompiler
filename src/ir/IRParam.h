@@ -1,13 +1,13 @@
 # pragma once
 # include "IRNode.h"
-# include "../ast/astvisitor.h"
+# include "IRVisitor.h"
 
 namespace JaneZ {
 class IRBinaryop : public IRNode {
 public:
     IRBinaryop() : IRNode() {}
     virtual ~IRBinaryop() = default;
-    void accept(ASTVisitor &visitor) override {
+    void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
     }
 };

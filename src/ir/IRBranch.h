@@ -1,13 +1,13 @@
 # pragma once
 # include "IRNode.h"
-# include "../ast/astvisitor.h"
+# include "IRVisitor.h"
 
 namespace JaneZ {
 class IRBranch : public IRNode {
 public:
     IRBranch() : IRNode() {}
     virtual ~IRBranch() = default;
-    void accept(ASTVisitor &visitor) override { 
+    void accept(IRVisitor &visitor) override { 
         visitor.visit(*this);   
     }
 };
