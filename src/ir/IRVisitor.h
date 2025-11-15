@@ -1,5 +1,4 @@
 # pragma once
-# include "../visitor/visitor.h"
 
 namespace JaneZ {
 //IR Part
