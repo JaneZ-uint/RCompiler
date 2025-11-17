@@ -16,6 +16,7 @@ A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 - Type checking
 - Borrow checking
 ### IR Generation
+- IRNode build
 - LLVM-IR Generation
 
 ## Base

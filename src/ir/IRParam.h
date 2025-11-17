@@ -1,12 +1,16 @@
 # pragma once
 # include "IRNode.h"
 # include "IRVisitor.h"
+#include <memory>
+#include <vector>
 
 namespace JaneZ {
-class IRBinaryop : public IRNode {
+class IRParam : public IRNode {
 public:
-    IRBinaryop() : IRNode() {}
-    virtual ~IRBinaryop() = default;
+    std::vector<std::shared_ptr<IRNode>> paramList; // IRVar or IRLiteral 
+
+    IRParam() : IRNode() {}
+    ~IRParam() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
     }
