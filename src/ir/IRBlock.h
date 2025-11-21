@@ -12,11 +12,16 @@ public:
     std::vector<std::shared_ptr<IRNode>> instrList;
     std::shared_ptr<IRReturn> retInstr;
     std::shared_ptr<IRBr> brInstr;
+    int label;
 
-    IRBlock(std::vector<std::shared_ptr<IRNode>> il,
-            std::shared_ptr<IRReturn> ri,
-            std::shared_ptr<IRBr> bi)
-        : instrList(std::move(il)), retInstr(std::move(ri)), brInstr(std::move(bi)) {}
+    IRBlock(std::vector<std::shared_ptr<IRNode>> instrList,
+            std::shared_ptr<IRReturn> retInstr,
+            std::shared_ptr<IRBr> brInstr,
+            int label)
+        : instrList(std::move(instrList)),
+          retInstr(std::move(retInstr)),
+          brInstr(std::move(brInstr)),
+          label(label) {}
     ~IRBlock() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);

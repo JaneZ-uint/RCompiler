@@ -43,6 +43,8 @@
 #include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
 #include "../ast/Type/TypeUnit.h"
+#include "IRType.h"
+#include <memory>
 
 namespace JaneZ {
 class IR;
@@ -62,6 +64,13 @@ public:
     }
 
     void visit(ASTRootNode &node) override{
+        llvm_ir.types["i32"] = std::make_shared<IRIntType>(32);
+        llvm_ir.types["u32"] = std::make_shared<IRIntType>(32);
+        llvm_ir.types["isize"] = std::make_shared<IRIntType>(32);
+        llvm_ir.types["usize"] = std::make_shared<IRIntType>(32);
+        llvm_ir.types["bool"] = std::make_shared<IRIntType>(8);
+        llvm_ir.types["void"] = std::make_shared<IRVoidType>();
+        
         for(auto & item : node.child){
             item->accept(*this);
         }
@@ -113,7 +122,16 @@ public:
             throw std::runtime_error("IRBuilder visit Expression error");
         }
     }
-    void visit(ExprArray &node) override;
+    void visit(ExprArray &node) override{
+        if(!node.arrayExpr.empty()){
+            //TODO: have no idea yet
+        }else{
+            // rmk: 疑似在建ASTNode的时候认为是 [type;size] ，实际上是和ArrayType搞混了
+            // 所以这里的type完全是一个虚假的名字 应该是
+            // [initial;size] 滑跪了
+            
+        }
+    }
     void visit(ExprBlock &node) override;
     void visit(ExprBreak &node) override;
     void visit(ExprCall &node) override;
@@ -201,7 +219,34 @@ public:
 
     //Type
     void visit(Type &node) override;
-    void visit(TypeArray &node) override;
+    void visit(TypeArray &node) override{
+        auto currentType = std::make_shared<IRType>();
+        if(node.type){
+            if(auto *p = dynamic_cast<Type *>(& *node.type)){
+                if(p->type == I32){
+                    currentType = std::make_shared<IRIntType>(32);
+                }else if(p->type == U32){
+                    currentType = std::make_shared<IRIntType>(32);
+                }else if(p->type == ISIZE){
+                    currentType = std::make_shared<IRIntType>(32);
+                }else if(p->type == USIZE){
+                    currentType = std::make_shared<IRIntType>(32);
+                }else if(p->type == BOOL){
+                    currentType = std::make_shared<IRIntType>(8);
+                }
+            }else if(auto *p = dynamic_cast<Path *>(& *node.type)){
+                if(p->pathSegments.type == IDENTIFIER){
+                    std::string type_name = p->pathSegments.identifier;
+                    if(llvm_ir.types.find(type_name) != llvm_ir.types.end()){
+                        currentType = llvm_ir.types[type_name];
+                    }else{
+                        throw std::runtime_error("IRBuilder visit TypeArray error: unknown type " + type_name);
+                    }
+                }
+                //TODO Left with self judge
+            }
+        }
+    }
     void visit(TypePath &node) override;
     void visit(TypeReference &node) override;
     void visit(TypeUnit &node) override;

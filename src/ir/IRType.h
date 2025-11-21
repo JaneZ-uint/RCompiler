@@ -3,6 +3,7 @@
 # include "IRVisitor.h"
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace JaneZ {
 enum class BaseType {
@@ -83,10 +84,12 @@ public:
 
 class IRStructType : public IRType {
 public:
+    std::string name;
+    std::string true_name;
     std::vector<std::shared_ptr<IRType>> memberTypes;
     
-    IRStructType(std::vector<std::shared_ptr<IRType>> mts) 
-        : IRType(BaseType::STRUCT), memberTypes(std::move(mts)) {}
+    IRStructType(std::string n, std::string tn, std::vector<std::shared_ptr<IRType>> mts) 
+        : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)) {}
     ~IRStructType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   

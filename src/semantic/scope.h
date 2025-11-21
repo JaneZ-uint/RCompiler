@@ -3,6 +3,7 @@
 #include <memory>
 #include <stdexcept>
 #include <unordered_map>
+#include <vector>
 #include "../ast/ast.h"
 #include "symbol.h"
 
@@ -12,7 +13,8 @@ class ScopeNode{
 public:
     std::shared_ptr<ASTNode> ast_node;
     std::shared_ptr<ScopeNode> parent = nullptr;
-   
+    std::vector<std::shared_ptr<ScopeNode>> children;
+
     std::unordered_map<std::string, std::shared_ptr<Symbol>> type_table;// struct enum trait
     std::unordered_map<std::string, std::shared_ptr<Symbol>> value_table;// variable function const 
 
