@@ -7,6 +7,7 @@
 #include "src/semantic/globalScope.h"
 #include "src/semantic/NameResolver.h"
 #include "src/semantic/checker.h"
+#include "src/semantic/ConstEvaluator.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -314,6 +315,12 @@ int main() {
             JaneZ::Checker checker;
 
             checker.semantic_check(global_scope_builder, name_resolver, *root);
+            
+            JaneZ::ConstEvaluator const_evaluator;
+            const_evaluator.visit(*root);
+
+            auto scope_root = global_scope_builder.global_scope;
+
 
             std::cout << "  ✅ Passed" << std::endl;
             actual_result[name] = "✔";

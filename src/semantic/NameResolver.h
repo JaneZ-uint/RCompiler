@@ -289,6 +289,7 @@ public:
         }*/
         auto block_scope = std::make_shared<ScopeNode>();
         block_scope->parent = current_scope;
+        current_scope->children.push_back(block_scope);
         current_scope = block_scope;
         if(node.statements.size() > 0){
             for(auto &stmt : node.statements) {
@@ -298,6 +299,7 @@ public:
         if(node.ExpressionWithoutBlock){
             node.ExpressionWithoutBlock->accept(*this);
         }
+        current_scope = current_scope->parent;
         //std::shared_ptr<Symbol> printInInt = 
     }
 
@@ -463,6 +465,7 @@ public:
         node.condition->accept(*this);
         std::shared_ptr<ScopeNode> if_scope = std::make_shared<ScopeNode>();
         if_scope->parent = current_scope;
+        current_scope->children.push_back(if_scope);
         current_scope = if_scope;
         std::string then_type = "";
         if(node.thenBlock){
@@ -519,6 +522,7 @@ public:
             if(auto *p = dynamic_cast<ExprBlock *>(& *node.elseBlock)){
                 std::shared_ptr<ScopeNode> else_scope = std::make_shared<ScopeNode>();
                 else_scope->parent = current_scope;
+                current_scope->children.push_back(else_scope);
                 current_scope = else_scope;
                 for(auto &stmt : p->statements) {
                     stmt->accept(*this);
@@ -622,6 +626,7 @@ public:
         if(node.infinitieLoop){
             std::shared_ptr<ScopeNode> loop_scope = std::make_shared<ScopeNode>();
             loop_scope->parent = current_scope;
+            current_scope->children.push_back(loop_scope);
             current_scope = loop_scope;
             for(auto &stmt : node.infinitieLoop->statements) {
                 stmt->accept(*this);
@@ -1419,6 +1424,7 @@ public:
         }*/
         auto fn_scope = std::make_shared<ScopeNode>();
         fn_scope->parent = current_scope;
+        current_scope->children.push_back(fn_scope);
         fn_scope->ast_node = std::make_shared<ItemFnDecl>(node);
         current_scope = fn_scope;
         for(auto &param: node.fnParameters.FunctionParam){
