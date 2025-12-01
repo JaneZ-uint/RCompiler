@@ -21,6 +21,9 @@ public:
     std::vector<std::shared_ptr<IRStore>> storeList;
     std::shared_ptr<IRBlock> body;
 
+    bool isImplFn = false;
+    std::shared_ptr<IRStructType> structType;
+
     IRFunction(std::shared_ptr<IRType> rT,
         std::string n , 
         std::shared_ptr<IRParam> pL,
