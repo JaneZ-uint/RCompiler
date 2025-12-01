@@ -444,8 +444,19 @@ public:
         }
         current_scope = current_scope->parent;
     }
-    void visit(ItemImplDecl &node) override;
-    void visit(ItemStructDecl &node) override;
+    void visit(ItemImplDecl &node) override{
+        for (auto & item_const: node.item_trait_const) {
+            visit(*item_const);
+        }
+        for(auto & item_fn : node.item_trait_fn){
+            visit(*item_fn);
+        }
+    }
+    void visit(ItemStructDecl &node) override{
+        for(auto &structVar : node.item_struct){
+            visit(*structVar.structElem);
+        }
+    }
     void visit(ItemTraitDecl &node) override;
 
     //Pattern
@@ -481,12 +492,26 @@ public:
         visit(*node.stmt_item);
     }
 
-    void visit(StmtLet &node) override;
+    void visit(StmtLet &node) override{
+        if(node.type){
+            visit(*node.type);
+        }
+        if(node.expression){
+            visit(*node.expression);
+        }
+    }
 
     //Type
     void visit(Type &node) override;
 
-    void visit(TypeArray &node) override;
+    void visit(TypeArray &node) override{
+        if(node.type){
+            visit(*node.type);
+        }
+        if(node.expr){
+            visit(*node.expr);
+        }
+    }
 
     void visit(TypePath &node) override;
 

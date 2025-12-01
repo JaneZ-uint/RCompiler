@@ -1,7 +1,6 @@
 # pragma once
-# include "../ast/astvisitor.h"
-# include "IR.h"
-# include "../ast/root.h"
+#include "../ast/astvisitor.h"
+#include "../ast/root.h"
 #include "../ast/Expression/ExprConstBlock.h"
 #include "../ast/Expression/ExprStruct.h"
 #include "../ast/Expression/expression.h"
@@ -45,17 +44,27 @@
 #include "../ast/Type/TypeUnit.h"
 #include "IRType.h"
 #include <memory>
+#include <map>
 
 namespace JaneZ {
 class IR;
-class IRBuilder : public ASTVisitor {
+class IRVar;
+class IRBuilder {
 public:
-    IR llvm_ir;
+    std::map<std::string, std::shared_ptr<IRFunction>> functions;
+    std::map<std::string, std::shared_ptr<IRType>> types;
+    std::map<std::string, std::shared_ptr<IRVar>> vars;
+    std::map<std::string, int> vars_cnt;
+    std::map<std::string, int> types_cnt;
+    std::shared_ptr<IRNode> current_ir_node;
+    int label_cnt = 0;
+    
+    IRBuilder() = default;
 
     ~IRBuilder() = default;
 
     //AST 
-    void visit(ASTNode &node) override{
+    void visit(ASTNode &node){
         if(auto *p = dynamic_cast<ASTRootNode *>(& node)){
             visit(*p);
         }else{
@@ -63,21 +72,21 @@ public:
         }
     }
 
-    void visit(ASTRootNode &node) override{
-        llvm_ir.types["i32"] = std::make_shared<IRIntType>(32);
-        llvm_ir.types["u32"] = std::make_shared<IRIntType>(32);
-        llvm_ir.types["isize"] = std::make_shared<IRIntType>(32);
-        llvm_ir.types["usize"] = std::make_shared<IRIntType>(32);
-        llvm_ir.types["bool"] = std::make_shared<IRIntType>(8);
-        llvm_ir.types["void"] = std::make_shared<IRVoidType>();
+    void visit(ASTRootNode &node){
+        types["i32"] = std::make_shared<IRIntType>(32);
+        types["u32"] = std::make_shared<IRIntType>(32);
+        types["isize"] = std::make_shared<IRIntType>(32);
+        types["usize"] = std::make_shared<IRIntType>(32);
+        types["bool"] = std::make_shared<IRIntType>(8);
+        types["void"] = std::make_shared<IRVoidType>();
         
         for(auto & item : node.child){
-            item->accept(*this);
+            visit(*item);
         }
     }
 
     //Expression
-    void visit(Expression &node) override{
+    void visit(Expression &node){
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ExprBlock *>(& node)) {
@@ -122,7 +131,7 @@ public:
             throw std::runtime_error("IRBuilder visit Expression error");
         }
     }
-    void visit(ExprArray &node) override{
+    void visit(ExprArray &node){
         if(!node.arrayExpr.empty()){
             //TODO: have no idea yet
         }else{
@@ -132,27 +141,27 @@ public:
             
         }
     }
-    void visit(ExprBlock &node) override;
-    void visit(ExprBreak &node) override;
-    void visit(ExprCall &node) override;
-    void visit(ExprConstBlock &node) override;
-    void visit(ExprContinue &node) override;
-    void visit(ExprField &node) override;
-    void visit(ExprGroup &node) override;
-    void visit(ExprIf &node) override;
-    void visit(ExprIndex &node) override;
-    void visit(ExprLiteral &node) override;
-    void visit(ExprLoop &node) override;
-    void visit(ExprMethodcall &node) override;
-    void visit(ExprOpbinary &node) override;
-    void visit(ExprOpunary &node) override;
-    void visit(ExprPath &node) override;
-    void visit(ExprReturn &node) override;
-    void visit(ExprStruct &node) override;
-    void visit(ExprUnderscore &node) override;
+    void visit(ExprBlock &node);
+    void visit(ExprBreak &node);
+    void visit(ExprCall &node);
+    void visit(ExprConstBlock &node);
+    void visit(ExprContinue &node);
+    void visit(ExprField &node);
+    void visit(ExprGroup &node);
+    void visit(ExprIf &node);
+    void visit(ExprIndex &node);
+    void visit(ExprLiteral &node);
+    void visit(ExprLoop &node);
+    void visit(ExprMethodcall &node);
+    void visit(ExprOpbinary &node);
+    void visit(ExprOpunary &node);
+    void visit(ExprPath &node);
+    void visit(ExprReturn &node);
+    void visit(ExprStruct &node);
+    void visit(ExprUnderscore &node);
     
     //Item 
-    void visit(Item &node) override{
+    void visit(Item &node){
         if(auto *p = dynamic_cast<ItemConstDecl *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& node)) {
@@ -169,15 +178,15 @@ public:
             throw std::runtime_error("IRBuilder visit Item error");
         }
     }
-    void visit(ItemConstDecl &node) override;
-    void visit(ItemEnumDecl &node) override;
-    void visit(ItemFnDecl &node) override;
-    void visit(ItemImplDecl &node) override;
-    void visit(ItemStructDecl &node) override;
-    void visit(ItemTraitDecl &node) override;
+    void visit(ItemConstDecl &node);
+    void visit(ItemEnumDecl &node);
+    void visit(ItemFnDecl &node);
+    void visit(ItemImplDecl &node);
+    void visit(ItemStructDecl &node);
+    void visit(ItemTraitDecl &node);
 
     //Pattern
-    void visit(Pattern &node) override{
+    void visit(Pattern &node){
         if(auto *p = dynamic_cast<PatternIdentifier *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<PatternLiteral *>(& node)) {
@@ -192,14 +201,14 @@ public:
             throw std::runtime_error("IRBuilder visit Pattern error");
         }
     }
-    void visit(PatternIdentifier &node) override;
-    void visit(PatternLiteral &node) override;
-    void visit(PatternPath &node) override;
-    void visit(PatternReference &node) override;
-    void visit(PatternWildCard &node) override;
+    void visit(PatternIdentifier &node);
+    void visit(PatternLiteral &node);
+    void visit(PatternPath &node);
+    void visit(PatternReference &node);
+    void visit(PatternWildCard &node);
 
     //Statement
-    void visit(Statement &node) override{
+    void visit(Statement &node){
         if(auto *p = dynamic_cast<StmtEmpty *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<StmtExpr *>(& node)) {
@@ -212,47 +221,60 @@ public:
             throw std::runtime_error("IRBuilder visit Statement error");
         }
     }
-    void visit(StmtEmpty &node) override;
-    void visit(StmtExpr &node) override;
-    void visit(StmtItem &node) override;
-    void visit(StmtLet &node) override;
+    void visit(StmtEmpty &node);
+    void visit(StmtExpr &node);
+    void visit(StmtItem &node);
+    void visit(StmtLet &node);
 
     //Type
-    void visit(Type &node) override;
-    void visit(TypeArray &node) override{
+    std::shared_ptr<IRType> resolveType(ASTNode &node){
+        if(auto *p = dynamic_cast<Type *>(& node)){
+            return visit(*p);
+        }else if(auto *p = dynamic_cast<TypeArray *>(& node)){
+            return visit(*p);
+        }else if(auto *p = dynamic_cast<TypePath *>(& node)){
+            return visit(*p);
+        }else if(auto *p = dynamic_cast<TypeReference *>(& node)){
+            visit(*p);
+        }else if(auto *p = dynamic_cast<TypeUnit *>(& node)){
+            return visit(*p);
+        }
+        throw std::runtime_error("IRBuilder resolveType error");
+    }
+
+    std::shared_ptr<IRIntType> visit(Type &node){
+        if(node.type == I32){
+            return std::dynamic_pointer_cast<IRIntType>(types["i32"]);
+        }else if(node.type == U32){
+            return std::dynamic_pointer_cast<IRIntType>(types["u32"]);
+        }else if(node.type == ISIZE){
+            return std::dynamic_pointer_cast<IRIntType>(types["isize"]);
+        }else if(node.type == USIZE){
+            return std::dynamic_pointer_cast<IRIntType>(types["usize"]);
+        }else if(node.type == BOOL){
+            return std::dynamic_pointer_cast<IRIntType>(types["bool"]);
+        }
+        throw std::runtime_error("IRBuilder visit Type error: unknown primitive type");
+    }
+
+    std::shared_ptr<IRArrayType> visit(TypeArray &node){
         auto currentType = std::make_shared<IRType>();
+        int size = 0;
         if(node.type){
-            if(auto *p = dynamic_cast<Type *>(& *node.type)){
-                if(p->type == I32){
-                    currentType = std::make_shared<IRIntType>(32);
-                }else if(p->type == U32){
-                    currentType = std::make_shared<IRIntType>(32);
-                }else if(p->type == ISIZE){
-                    currentType = std::make_shared<IRIntType>(32);
-                }else if(p->type == USIZE){
-                    currentType = std::make_shared<IRIntType>(32);
-                }else if(p->type == BOOL){
-                    currentType = std::make_shared<IRIntType>(8);
-                }
-            }else if(auto *p = dynamic_cast<Path *>(& *node.type)){
-                if(p->pathSegments.type == IDENTIFIER){
-                    std::string type_name = p->pathSegments.identifier;
-                    if(llvm_ir.types.find(type_name) != llvm_ir.types.end()){
-                        currentType = llvm_ir.types[type_name];
-                    }else{
-                        throw std::runtime_error("IRBuilder visit TypeArray error: unknown type " + type_name);
-                    }
-                }
-                //TODO Left with self judge
-            }
+            currentType = resolveType(*node.type);
+        }
+        if(node.expr){
+            //TODO
         }
     }
-    void visit(TypePath &node) override;
-    void visit(TypeReference &node) override;
-    void visit(TypeUnit &node) override;
+    std::shared_ptr<IRStructType> visit(TypePath &node){
+        //TODO
+    }
+    void visit(TypeReference &node);
+    std::shared_ptr<IRVoidType> visit(TypeUnit &node);
 
     //Path
-    void visit(Path &node) override;
+    void visit(Path &node);
 };
 
 }
