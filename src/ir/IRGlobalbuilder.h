@@ -47,6 +47,7 @@
 #include "IRScope.h"
 #include "IRType.h"
 #include "IRVar.h"
+#include "IRSelf.h"
 #include <memory>
 #include <vector>
 
@@ -106,20 +107,39 @@ public:
         std::string funcName = node.identifier;
         std::shared_ptr<IRParam> paramList = std::make_shared<IRParam>();
         if(node.fnParameters.SelfParam.isShortSelf){
-            //TODO handle self param
+            auto selfParam = std::make_shared<IRSelf>();
+            paramList->paramList.push_back(selfParam);
         } 
+        if(node.fnParameters.FunctionParam.size() > 0){
+            for(auto& param : node.fnParameters.FunctionParam){
+                auto currentVar = std::make_shared<IRVar>();
+                //left with ref and mut to do
+                if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
+                    currentVar->varName = p->identifier;
+                }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
+                    if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
+                        currentVar->varName = q->identifier;
+                    }
+                }
+                currentVar->reName = currentVar->varName;
+                if(param.type){
+                    currentVar->type = resolveType(*param.type);
+                }
+            }
+        }
+        globalScope->addFunctionSymbol(node.identifier,std::make_shared<IRFunction>(retType,funcName,paramList));
     }
 
     void visit(ItemImplDecl &node){
-
+        //idk what to do here
     }
 
     void visit(ItemStructDecl &node){
-
+        std::vector<std::shared_ptr<IRType>> fieldTypes;
     }
 
     void visit(ItemTraitDecl &node){
-
+        //no need 
     }
 
     std::shared_ptr<IRType> resolveType(ASTNode &typeNode){

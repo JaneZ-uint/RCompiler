@@ -73,9 +73,10 @@ public:
     std::string name;
     std::string true_name;
     std::vector<std::shared_ptr<IRType>> memberTypes;
+    std::vector<std::shared_ptr<IRFunction>> memberFunctions;
     
-    IRStructType(std::string n, std::string tn, std::vector<std::shared_ptr<IRType>> mts) 
-        : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)) {}
+    IRStructType(std::string n, std::string tn, std::vector<std::shared_ptr<IRType>> mts,std::vector<std::shared_ptr<IRFunction>> mfs) 
+        : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)), memberFunctions(std::move(mfs)) {}
     ~IRStructType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   

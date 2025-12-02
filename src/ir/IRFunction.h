@@ -17,20 +17,16 @@ public:
     std::shared_ptr<IRType> retType;
     std::string name;
     std::shared_ptr<IRParam> paramList;
-    std::vector<std::shared_ptr<IRAlloca>> allocaList;
-    std::vector<std::shared_ptr<IRStore>> storeList;
     std::shared_ptr<IRBlock> body;
 
     bool isImplFn = false;
     std::shared_ptr<IRStructType> structType;
 
-    IRFunction(std::shared_ptr<IRType> rT,
-        std::string n , 
-        std::shared_ptr<IRParam> pL,
-        std::vector<std::shared_ptr<IRAlloca>> aL,
-        std::vector<std::shared_ptr<IRStore>> sL, 
-        std::shared_ptr<IRBlock> b): retType(std::move(rT)),name(std::move(n)),
-        paramList(std::move(pL)),allocaList(std::move(aL)),storeList(std::move(sL)),body(std::move(b)){}
+    IRFunction(std::shared_ptr<IRType> retType, std::string name,
+               std::shared_ptr<IRParam> paramList,
+               std::shared_ptr<IRBlock> body = nullptr)
+        : retType(std::move(retType)), name(std::move(name)),
+          paramList(std::move(paramList)), body(std::move(body)){}
     ~IRFunction() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);
