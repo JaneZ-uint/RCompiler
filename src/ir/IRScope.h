@@ -2,6 +2,7 @@
 
 # include <memory>
 # include <unordered_map>
+#include "IRFunction.h"
 # include "IRType.h"
 # include "IRVar.h"
 # include <stdexcept>
@@ -13,6 +14,8 @@ public:
 
     std::unordered_map<std::string, std::shared_ptr<IRType>> type_table;
     std::unordered_map<std::string, std::shared_ptr<IRVar>> value_table;
+    std::unordered_map<std::string, std::shared_ptr<IRFunction>> function_table;
+    std::unordered_map<std::string ,long long int> constant_table;
 
     IRScope() = default;
 
@@ -28,6 +31,20 @@ public:
             throw std::runtime_error("Variable " + name + " already defined in this scope.");
         }
         value_table[name] = var;
+    }
+
+    void addFunctionSymbol(const std::string &name, std::shared_ptr<IRFunction> func) {
+        if(function_table.find(name) != function_table.end()) {
+            throw std::runtime_error("Function " + name + " already defined in this scope.");
+        }
+        function_table[name] = func;
+    }
+
+    void addConstantSymbol(const std::string &name, long long int value) {
+        if(constant_table.find(name) != constant_table.end()) {
+            throw std::runtime_error("Constant " + name + " already defined in this scope.");
+        }
+        constant_table[name] = value;
     }
 
     std::shared_ptr<IRType> lookupTypeSymbol(const std::string &name) {
@@ -47,6 +64,26 @@ public:
             return parent->lookupValueSymbol(name);
         } else {
             throw std::runtime_error("Variable " + name + " not found.");
+        }
+    }
+
+    std::shared_ptr<IRFunction> lookupFunctionSymbol(const std::string &name) {
+        if(function_table.find(name) != function_table.end()) {
+            return function_table[name];
+        } else if(parent != nullptr) {
+            return parent->lookupFunctionSymbol(name);
+        } else {
+            throw std::runtime_error("Function " + name + " not found.");
+        }
+    }
+
+    long long int lookupConstantSymbol(const std::string &name) {
+        if(constant_table.find(name) != constant_table.end()) {
+            return constant_table[name];
+        } else if(parent != nullptr) {
+            return parent->lookupConstantSymbol(name);
+        } else {
+            throw std::runtime_error("Constant " + name + " not found.");
         }
     }
 };  

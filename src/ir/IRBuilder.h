@@ -43,7 +43,9 @@
 #include "../ast/Type/TypeReference.h"
 #include "../ast/Type/TypeUnit.h"
 #include "IRFunction.h"
+#include "IRNode.h"
 #include "IRParam.h"
+#include "IRRoot.h"
 #include "IRType.h"
 #include "IRSelf.h"
 #include "IRScope.h"
@@ -56,14 +58,13 @@ class IR;
 class IRVar;
 class IRBuilder {
 public:
-    std::map<std::string, std::shared_ptr<IRFunction>> functions;
-    std::map<std::string, std::shared_ptr<IRType>> types;
-    std::map<std::string, std::shared_ptr<IRVar>> vars;
     std::map<std::string, int> vars_cnt;
     std::map<std::string, int> types_cnt;
     int label_cnt = 0;
     
     std::shared_ptr<IRScope> currentScope;
+
+    std::shared_ptr<IRRoot> irRoot;
 
     IRBuilder() = default;
 
@@ -78,17 +79,12 @@ public:
         }
     }
 
-    void visit(ASTRootNode &node){
-        types["i32"] = std::make_shared<IRIntType>(32);
-        types["u32"] = std::make_shared<IRIntType>(32);
-        types["isize"] = std::make_shared<IRIntType>(32);
-        types["usize"] = std::make_shared<IRIntType>(32);
-        types["bool"] = std::make_shared<IRIntType>(8);
-        types["void"] = std::make_shared<IRVoidType>();
-        
+    std::shared_ptr<IRRoot> visit(ASTRootNode &node){
+        irRoot = std::make_shared<IRRoot>();
         for(auto & item : node.child){
-            visit(*item);
+            irRoot->children.push_back(visit(*item));
         }
+        return irRoot;
     }
 
     //Expression
@@ -167,7 +163,7 @@ public:
     void visit(ExprUnderscore &node);
     
     //Item 
-    void visit(Item &node){
+    std::shared_ptr<IRNode> visit(Item &node){
         if(auto *p = dynamic_cast<ItemConstDecl *>(& node)) {
             visit(*p);
         }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& node)) {
@@ -184,8 +180,8 @@ public:
             throw std::runtime_error("IRBuilder visit Item error");
         }
     }
-    void visit(ItemConstDecl &node);
-    void visit(ItemEnumDecl &node);
+    std::shared_ptr<IRNode> visit(ItemConstDecl &node);
+    std::shared_ptr<IRNode> visit(ItemEnumDecl &node);
     std::shared_ptr<IRFunction> visit(ItemFnDecl &node,bool isImplFn=false,std::string implForType=""){
         std::shared_ptr<IRType> retType;
         if(node.returnType){
@@ -195,24 +191,26 @@ public:
         bool isIMPL = isImplFn;
         std::shared_ptr<IRStructType> implType;
         if(node.fnParameters.SelfParam.isShortSelf && !isImplFn){
-            if(types.find(implForType) != types.end()){
-                implType = std::dynamic_pointer_cast<IRStructType>(types[implForType]);
+            if(currentScope->lookupTypeSymbol(implForType)){
+                implType = std::dynamic_pointer_cast<IRStructType>(currentScope->lookupTypeSymbol(implForType));
             }else{
-                throw std::runtime_error("IRBuilder visit ItemFnDecl error: unknown implForType " + implForType);
+                throw std::runtime_error("IRBuilder visit ItemFnDecl error: unknown impl type " + implForType);
             }
             param->paramList.push_back(std::make_shared<IRSelf>());
         }
         if(!node.fnParameters.FunctionParam.empty()){
             for(auto &param: node.fnParameters.FunctionParam){
                 auto paramType = resolveType(*param.type);
-                
+                //TODO
             }
         }
         
     }
-    void visit(ItemImplDecl &node);
-    void visit(ItemStructDecl &node);
-    void visit(ItemTraitDecl &node);
+    std::shared_ptr<IRNode> visit(ItemImplDecl &node){
+        
+    }
+    std::shared_ptr<IRNode> visit(ItemStructDecl &node);
+    std::shared_ptr<IRNode> visit(ItemTraitDecl &node);
 
     //Pattern
     void visit(Pattern &node){
@@ -273,15 +271,15 @@ public:
 
     std::shared_ptr<IRIntType> visit(Type &node){
         if(node.type == I32){
-            return std::dynamic_pointer_cast<IRIntType>(types["i32"]);
+            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("i32"));
         }else if(node.type == U32){
-            return std::dynamic_pointer_cast<IRIntType>(types["u32"]);
+            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("u32"));
         }else if(node.type == ISIZE){
-            return std::dynamic_pointer_cast<IRIntType>(types["isize"]);
+            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("isize"));
         }else if(node.type == USIZE){
-            return std::dynamic_pointer_cast<IRIntType>(types["usize"]);
+            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("usize"));
         }else if(node.type == BOOL){
-            return std::dynamic_pointer_cast<IRIntType>(types["bool"]);
+            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("bool"));
         }
         throw std::runtime_error("IRBuilder visit Type error: unknown primitive type");
     }
@@ -301,8 +299,9 @@ public:
     std::shared_ptr<IRStructType> visit(Path &node){
         if(node.pathSegments.type == IDENTIFIER){
             auto typeName = node.pathSegments.identifier;
-            if(types.find(typeName) != types.end()){
-                return std::dynamic_pointer_cast<IRStructType>(types[typeName]);
+            auto structType = currentScope->lookupTypeSymbol(typeName);
+            if(structType){
+                return std::dynamic_pointer_cast<IRStructType>(structType);
             }else{
                 throw std::runtime_error("IRBuilder visit Path error: unknown type " + typeName);
             }
@@ -319,7 +318,7 @@ public:
     }
 
     std::shared_ptr<IRVoidType> visit(TypeUnit &node){
-        return std::dynamic_pointer_cast<IRVoidType>(types["void"]);
+        return std::dynamic_pointer_cast<IRVoidType>(currentScope->lookupTypeSymbol("void"));
     }
 };
 

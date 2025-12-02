@@ -11,7 +11,6 @@ enum class BaseType {
     VOID,
     PTR,
     ARRAY,
-    FUNC,
     STRUCT,
 };    
 
@@ -66,19 +65,6 @@ public:
     ~IRArrayType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
-    }
-};
-
-class IRFuncType : public IRType {
-public:
-    std::shared_ptr<IRType> returnType;
-    std::vector<std::shared_ptr<IRType>> paramTypes;
-
-    IRFuncType(std::shared_ptr<IRType> rt, std::vector<std::shared_ptr<IRType>> pts) 
-        : IRType(BaseType::FUNC), returnType(std::move(rt)), paramTypes(std::move(pts)) {}
-    ~IRFuncType() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
     }
 };
 
