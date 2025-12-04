@@ -2,6 +2,7 @@
 # include "IRNode.h"
 # include "IRVisitor.h"
 #include <memory>
+#include <utility>
 #include <vector>
 #include <string>
 
@@ -72,11 +73,15 @@ class IRStructType : public IRType {
 public:
     std::string name;
     std::string true_name;
-    std::vector<std::shared_ptr<IRType>> memberTypes;
+    std::vector<std::pair<std::string,std::shared_ptr<IRType>>> memberTypes;
+    // for impl
     std::vector<std::shared_ptr<IRFunction>> memberFunctions;
+    std::vector<std::pair<std::string, long long int>> memberConstants;
     
-    IRStructType(std::string n, std::string tn, std::vector<std::shared_ptr<IRType>> mts,std::vector<std::shared_ptr<IRFunction>> mfs) 
-        : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)), memberFunctions(std::move(mfs)) {}
+    IRStructType(std::string n, std::string tn, std::vector<std::pair<std::string,std::shared_ptr<IRType>>> mts,
+        std::vector<std::shared_ptr<IRFunction>> mfs,std::vector<std::pair<std::string, long long int>> mcs) 
+        : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)), 
+        memberFunctions(std::move(mfs)), memberConstants(std::move(mcs)) {}
     ~IRStructType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   

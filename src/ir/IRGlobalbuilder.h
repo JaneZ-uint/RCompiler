@@ -2,27 +2,26 @@
 
 #include "../ast/astvisitor.h"
 #include "../ast/root.h"
-#include "../ast/Expression/ExprConstBlock.h"
 #include "../ast/Expression/ExprStruct.h"
-#include "../ast/Expression/expression.h"
-#include "../ast/Expression/ExprArray.h"
-#include "../ast/Expression/ExprBlock.h"
-#include "../ast/Expression/ExprBreak.h"
-#include "../ast/Expression/ExprCall.h"
-#include "../ast/Expression/ExprContinue.h"
-#include "../ast/Expression/ExprField.h"
-#include "../ast/Expression/ExprGroup.h"
-#include "../ast/Expression/ExprIf.h"
-#include "../ast/Expression/ExprIndex.h"
-#include "../ast/Expression/ExprLiteral.h"
-#include "../ast/Expression/ExprLoop.h"
-#include "../ast/Expression/ExprMatch.h"
+//#include "../ast/Expression/expression.h"
+//#include "../ast/Expression/ExprArray.h"
+//#include "../ast/Expression/ExprBlock.h"
+//#include "../ast/Expression/ExprBreak.h"
+//#include "../ast/Expression/ExprCall.h"
+//#include "../ast/Expression/ExprContinue.h"
+//#include "../ast/Expression/ExprField.h"
+//#include "../ast/Expression/ExprGroup.h"
+//#include "../ast/Expression/ExprIf.h"
+//#include "../ast/Expression/ExprIndex.h"
+//#include "../ast/Expression/ExprLiteral.h"
+//#include "../ast/Expression/ExprLoop.h"
+//#include "../ast/Expression/ExprMatch.h"
 #include "../ast/Expression/ExprMethodcall.h"
-#include "../ast/Expression/ExprOpbinary.h"
-#include "../ast/Expression/ExprOpunary.h"
+//#include "../ast/Expression/ExprOpbinary.h"
+//#include "../ast/Expression/ExprOpunary.h"
 #include "../ast/Expression/ExprPath.h"
-#include "../ast/Expression/ExprReturn.h"
-#include "../ast/Expression/ExprUnderscore.h"
+//#include "../ast/Expression/ExprReturn.h"
+//#include "../ast/Expression/ExprUnderscore.h"
 #include "../ast/Item/ItemConst.h"
 #include "../ast/Item/ItemEnum.h"
 #include "../ast/Item/ItemFn.h"
@@ -30,12 +29,12 @@
 #include "../ast/Item/ItemStruct.h"
 #include "../ast/Item/ItemTrait.h"
 #include "../ast/Pattern/PatternIdentifier.h"
-#include "../ast/Pattern/PatternLiteral.h"
-#include "../ast/Pattern/PatternPath.h"
+//#include "../ast/Pattern/PatternLiteral.h"
+//#include "../ast/Pattern/PatternPath.h"
 #include "../ast/Pattern/PatternReference.h"
-#include "../ast/Pattern/PatternWildcard.h"
-#include "../ast/Statement/StmtEmpty.h"
-#include "../ast/Statement/StmtExpr.h"
+//#include "../ast/Pattern/PatternWildcard.h"
+//#include "../ast/Statement/StmtEmpty.h"
+//#include "../ast/Statement/StmtExpr.h"
 #include "../ast/Statement/StmtItem.h"
 #include "../ast/Statement/StmtLet.h"
 #include "../ast/Type/type.h"
@@ -55,6 +54,7 @@ namespace JaneZ {
 class IRGlobalBuilder {
 public:
     std::shared_ptr<IRScope> globalScope;
+    std::vector<std::shared_ptr<ItemImplDecl>> implList;
 
     IRGlobalBuilder() = default;
 
@@ -71,7 +71,15 @@ public:
         //Wait to add more functions like print, println, etc.
 
         for(auto& item : node.child){
+            if(auto *p = dynamic_cast<ItemImplDecl *>(& *item)){
+                implList.push_back(std::shared_ptr<ItemImplDecl>(p));
+                continue;
+            }
             visit(*item);
+        }
+
+        for(auto& implItem : implList){
+            visit(*implItem);
         }
     }
 
@@ -125,17 +133,71 @@ public:
                 if(param.type){
                     currentVar->type = resolveType(*param.type);
                 }
+                paramList->paramList.push_back(currentVar);
             }
         }
         globalScope->addFunctionSymbol(node.identifier,std::make_shared<IRFunction>(retType,funcName,paramList));
     }
 
     void visit(ItemImplDecl &node){
-        //idk what to do here
+        if(auto *p = dynamic_cast<Path *>(& *node.targetType)){
+            if(p->pathSegments.type == IDENTIFIER){
+                std::string typeName = p->pathSegments.identifier;
+                auto tp = globalScope->lookupTypeSymbol(typeName);
+                if(tp){
+                    if(auto structType = std::dynamic_pointer_cast<IRStructType>(tp)){
+                        for(auto &itemConst  : node.item_trait_const){
+                            std::string constName = itemConst->identifier;
+                            auto constValue = itemConst->value;
+                            structType->memberConstants.push_back({constName, constValue});
+                        }
+                        for(auto & itemFn: node.item_trait_fn){
+                            std::shared_ptr<IRType> retType;
+                            if(itemFn->returnType){
+                                retType = resolveType(*itemFn->returnType);
+                            }
+                            std::string funcName = itemFn->identifier;
+                            std::shared_ptr<IRParam> paramList =  std::make_shared<IRParam>();
+                            if(itemFn->fnParameters.SelfParam.isShortSelf){
+                                auto selfParam = std::make_shared<IRSelf>();
+                                paramList->paramList.push_back(selfParam);
+                            } 
+                            if(itemFn->fnParameters.FunctionParam.size() > 0){
+                                for(auto& param : itemFn->fnParameters.FunctionParam){
+                                    auto currentVar = std::make_shared<IRVar>();
+                                    //left with ref and mut to do
+                                    if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
+                                        currentVar->varName = p->identifier;
+                                    }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
+                                        if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
+                                            currentVar->varName = q->identifier;
+                                        }
+                                    }
+                                    currentVar->reName = currentVar->varName;
+                                    if(param.type){
+                                        currentVar->type = resolveType(*param.type);
+                                    }
+                                    paramList->paramList.push_back(currentVar);
+                                }
+                            }
+                            structType->memberFunctions.push_back(std::make_shared<IRFunction>(retType,funcName,paramList));
+                        }
+                    }
+                    
+                }
+            }
+        }
     }
 
     void visit(ItemStructDecl &node){
-        std::vector<std::shared_ptr<IRType>> fieldTypes;
+        std::vector<std::pair<std::string,std::shared_ptr<IRType>>> fieldTypes;
+        std::string structName = node.identifier;
+        for(auto & field : node.item_struct){
+            if(field.structElem){
+                fieldTypes.push_back({field.identifier, resolveType(*field.structElem)});
+            }
+        }
+        globalScope->addTypeSymbol(structName, std::make_shared<IRStructType>(structName, fieldTypes));
     }
 
     void visit(ItemTraitDecl &node){
