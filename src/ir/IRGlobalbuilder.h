@@ -3,25 +3,8 @@
 #include "../ast/astvisitor.h"
 #include "../ast/root.h"
 #include "../ast/Expression/ExprStruct.h"
-//#include "../ast/Expression/expression.h"
-//#include "../ast/Expression/ExprArray.h"
-//#include "../ast/Expression/ExprBlock.h"
-//#include "../ast/Expression/ExprBreak.h"
-//#include "../ast/Expression/ExprCall.h"
-//#include "../ast/Expression/ExprContinue.h"
-//#include "../ast/Expression/ExprField.h"
-//#include "../ast/Expression/ExprGroup.h"
-//#include "../ast/Expression/ExprIf.h"
-//#include "../ast/Expression/ExprIndex.h"
-//#include "../ast/Expression/ExprLiteral.h"
-//#include "../ast/Expression/ExprLoop.h"
-//#include "../ast/Expression/ExprMatch.h"
 #include "../ast/Expression/ExprMethodcall.h"
-//#include "../ast/Expression/ExprOpbinary.h"
-//#include "../ast/Expression/ExprOpunary.h"
 #include "../ast/Expression/ExprPath.h"
-//#include "../ast/Expression/ExprReturn.h"
-//#include "../ast/Expression/ExprUnderscore.h"
 #include "../ast/Item/ItemConst.h"
 #include "../ast/Item/ItemEnum.h"
 #include "../ast/Item/ItemFn.h"
@@ -29,12 +12,7 @@
 #include "../ast/Item/ItemStruct.h"
 #include "../ast/Item/ItemTrait.h"
 #include "../ast/Pattern/PatternIdentifier.h"
-//#include "../ast/Pattern/PatternLiteral.h"
-//#include "../ast/Pattern/PatternPath.h"
 #include "../ast/Pattern/PatternReference.h"
-//#include "../ast/Pattern/PatternWildcard.h"
-//#include "../ast/Statement/StmtEmpty.h"
-//#include "../ast/Statement/StmtExpr.h"
 #include "../ast/Statement/StmtItem.h"
 #include "../ast/Statement/StmtLet.h"
 #include "../ast/Type/type.h"
@@ -180,6 +158,8 @@ public:
                                     paramList->paramList.push_back(currentVar);
                                 }
                             }
+                            //processing the function body is needed.
+                            //TODO 
                             structType->memberFunctions.push_back(std::make_shared<IRFunction>(retType,funcName,paramList));
                         }
                     }

@@ -49,6 +49,7 @@
 #include "IRType.h"
 #include "IRSelf.h"
 #include "IRScope.h"
+#include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
 #include <vector>
@@ -60,11 +61,15 @@ class IRBuilder {
 public:
     std::map<std::string, int> vars_cnt;
     std::map<std::string, int> types_cnt;
+    std::map<std::string, int> funcs_cnt;
+    std::map<std::string, int> constant_cnt;
     int label_cnt = 0;
     
     std::shared_ptr<IRScope> currentScope;
 
     std::shared_ptr<IRRoot> irRoot;
+
+    IRGlobalBuilder globalBuilder;
 
     IRBuilder() = default;
 
@@ -80,6 +85,9 @@ public:
     }
 
     std::shared_ptr<IRRoot> visit(ASTRootNode &node){
+        for(auto &typeElem: globalBuilder.globalScope->type_table){
+            //todo
+        }
         irRoot = std::make_shared<IRRoot>();
         for(auto & item : node.child){
             irRoot->children.push_back(visit(*item));
@@ -180,31 +188,41 @@ public:
             throw std::runtime_error("IRBuilder visit Item error");
         }
     }
+
     std::shared_ptr<IRNode> visit(ItemConstDecl &node);
+
     std::shared_ptr<IRNode> visit(ItemEnumDecl &node);
-    std::shared_ptr<IRFunction> visit(ItemFnDecl &node,bool isImplFn=false,std::string implForType=""){
-        std::shared_ptr<IRType> retType;
-        if(node.returnType){
-            retType = resolveType(*node.returnType);
-        }
-        std::shared_ptr<IRParam> param;
-        bool isIMPL = isImplFn;
-        std::shared_ptr<IRStructType> implType;
-        if(node.fnParameters.SelfParam.isShortSelf && !isImplFn){
-            if(currentScope->lookupTypeSymbol(implForType)){
-                implType = std::dynamic_pointer_cast<IRStructType>(currentScope->lookupTypeSymbol(implForType));
-            }else{
-                throw std::runtime_error("IRBuilder visit ItemFnDecl error: unknown impl type " + implForType);
+
+    std::shared_ptr<IRFunction> visit(ItemFnDecl &node){
+        auto currentIRFunc = currentScope->lookupFunctionSymbol(node.identifier);
+        auto funcScope = std::make_shared<IRScope>();
+        funcScope->parent = currentScope;
+        currentScope->children.push_back(funcScope);
+        currentScope = funcScope;
+        if(node.fnBody){
+            for(auto & stmt : node.fnBody->statements){
+                if(auto *itemStmt = dynamic_cast<StmtItem *>(& *stmt)){
+                    if(auto *p = dynamic_cast<ItemConstDecl *>(& *itemStmt)){
+                        currentScope->addConstantSymbol(p->identifier, p->value);
+                    }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& *itemStmt)){
+                        //todo idk just wait and see
+                    }else if(auto *p = dynamic_cast<ItemFnDecl *>(& *itemStmt)){
+                        //todo
+                        std::shared_ptr<IRType> returnType;
+                        if(p->returnType){
+                            returnType = resolveType(*p->returnType);
+                        }
+                        std::string funcName = p->identifier;
+                    }else if(auto *p = dynamic_cast<ItemImplDecl *>(& *itemStmt)){
+                        //todo
+                    }else if(auto *p = dynamic_cast<ItemStructDecl *>(& *itemStmt)){
+                        //todo
+                    }else if(auto *p = dynamic_cast<ItemTraitDecl *>(& *itemStmt)){
+                        //todo
+                    }
+                }
             }
-            param->paramList.push_back(std::make_shared<IRSelf>());
         }
-        if(!node.fnParameters.FunctionParam.empty()){
-            for(auto &param: node.fnParameters.FunctionParam){
-                auto paramType = resolveType(*param.type);
-                //TODO
-            }
-        }
-        
     }
     std::shared_ptr<IRNode> visit(ItemImplDecl &node){
         

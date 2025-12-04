@@ -19,9 +19,6 @@ public:
     std::shared_ptr<IRParam> paramList;
     std::shared_ptr<IRBlock> body;
 
-    bool isImplFn = false;
-    std::shared_ptr<IRStructType> structType;
-
     IRFunction(std::shared_ptr<IRType> retType, std::string name,
                std::shared_ptr<IRParam> paramList,
                std::shared_ptr<IRBlock> body = nullptr)

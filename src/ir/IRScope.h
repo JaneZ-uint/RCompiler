@@ -11,6 +11,7 @@ namespace JaneZ {
 class IRScope {
 public:
     std::shared_ptr<IRScope> parent = nullptr;
+    std::vector<std::shared_ptr<IRScope>> children;
 
     std::unordered_map<std::string, std::shared_ptr<IRType>> type_table;
     std::unordered_map<std::string, std::shared_ptr<IRVar>> value_table;
