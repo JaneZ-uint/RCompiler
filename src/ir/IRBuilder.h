@@ -63,6 +63,7 @@ public:
     std::map<std::string, int> types_cnt;
     std::map<std::string, int> funcs_cnt;
     std::map<std::string, int> constant_cnt;
+
     int label_cnt = 0;
     
     std::shared_ptr<IRScope> currentScope;
@@ -85,9 +86,19 @@ public:
     }
 
     std::shared_ptr<IRRoot> visit(ASTRootNode &node){
-        for(auto &typeElem: globalBuilder.globalScope->type_table){
-            //todo
+        for(auto &varElem: globalBuilder.globalScope->value_table){
+            vars_cnt[varElem.first] = 1;
         }
+        for(auto &typeElem: globalBuilder.globalScope->type_table){
+            types_cnt[typeElem.first] = 1;
+        }
+        for(auto &funcElem: globalBuilder.globalScope->function_table){
+            funcs_cnt[funcElem.first] = 1;
+        }
+        for(auto &constElem: globalBuilder.globalScope->constant_table){
+            constant_cnt[constElem.first] = 1;
+        }
+        currentScope = globalBuilder.globalScope;
         irRoot = std::make_shared<IRRoot>();
         for(auto & item : node.child){
             irRoot->children.push_back(visit(*item));
@@ -207,23 +218,62 @@ public:
                     }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& *itemStmt)){
                         //todo idk just wait and see
                     }else if(auto *p = dynamic_cast<ItemFnDecl *>(& *itemStmt)){
-                        //todo
                         std::shared_ptr<IRType> returnType;
                         if(p->returnType){
                             returnType = resolveType(*p->returnType);
                         }
                         std::string funcName = p->identifier;
+                        std::shared_ptr<IRParam> irParam;
+                        if(node.fnParameters.SelfParam.isShortSelf){
+                            auto selfType = std::make_shared<IRSelf>();
+                            irParam->paramList.push_back(selfType);
+                        }
+                        if(!p->fnParameters.FunctionParam.empty()){
+                            for(auto & param : p->fnParameters.FunctionParam){
+                                auto currentVar = std::make_shared<IRVar>();
+                                if(auto *q = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
+                                    currentVar->varName = q->identifier;
+                                }else if(auto *q = dynamic_cast<PatternReference *>(& *param.pattern)){
+                                    if(auto *r = dynamic_cast<PatternIdentifier *>(& *q->patternWithoutRange)){
+                                        currentVar->varName = r->identifier;
+                                    }
+                                }
+                                if(vars_cnt.find(currentVar->varName) != vars_cnt.end()){
+                                    vars_cnt[currentVar->varName] += 1;
+                                    currentVar->reName = currentVar->varName + "_" + std::to_string(vars_cnt[currentVar->varName]);
+                                }else{
+                                    vars_cnt[currentVar->varName] = 1;
+                                    currentVar->reName = currentVar->varName;
+                                }
+                                if(param.type){
+                                    currentVar->type = resolveType(*param.type);
+                                }
+                                irParam->paramList.push_back(currentVar);
+                            }
+                        }
+                        currentScope->addFunctionSymbol(funcName, std::make_shared<IRFunction>(returnType, irParam, funcName));
                     }else if(auto *p = dynamic_cast<ItemImplDecl *>(& *itemStmt)){
-                        //todo
+                        //no need to do anything
                     }else if(auto *p = dynamic_cast<ItemStructDecl *>(& *itemStmt)){
                         //todo
+                        std::vector<std::pair<std::string,std::shared_ptr<IRType>>> fieldTypes;
+                        std::string structName = p->identifier;
+                        for(auto & field : p->item_struct){
+                            if(field.structElem){
+                                fieldTypes.push_back({field.identifier, resolveType(*field.structElem)});
+                            }
+                        }
+                        currentScope->addTypeSymbol(structName, std::make_shared<IRStructType>(structName, fieldTypes));
                     }else if(auto *p = dynamic_cast<ItemTraitDecl *>(& *itemStmt)){
-                        //todo
+                        //no need to do anything
                     }
                 }
             }
         }
+        //todo processing the function body
     }
+
+
     std::shared_ptr<IRNode> visit(ItemImplDecl &node){
         
     }
