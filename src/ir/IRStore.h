@@ -1,9 +1,9 @@
 # pragma once
 #include "IRLiteral.h"
-# include "IRNode.h"
+#include "IRNode.h"
 #include "IRType.h"
 #include "IRVar.h"
-# include "IRVisitor.h"
+#include "IRVisitor.h"
 #include <memory>
 
 namespace JaneZ {

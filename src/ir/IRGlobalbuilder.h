@@ -44,6 +44,7 @@ public:
         globalScope->addTypeSymbol("isize", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("bool", std::make_shared<IRIntType>(8));
+        globalScope->addTypeSymbol("BOOL", std::make_shared<IRIntType>(1));
         globalScope->addTypeSymbol("void", std::make_shared<IRVoidType>());
 
         //Wait to add more functions like print, println, etc.

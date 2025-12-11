@@ -14,6 +14,7 @@ public:
     std::shared_ptr<IRBr> brInstr;
     int label;
 
+    IRBlock() = default;
     IRBlock(std::vector<std::shared_ptr<IRNode>> instrList,
             std::shared_ptr<IRReturn> retInstr,
             std::shared_ptr<IRBr> brInstr,

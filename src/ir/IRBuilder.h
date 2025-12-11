@@ -53,7 +53,10 @@
 #include "IRScope.h"
 #include "IRLoad.h"
 #include "IRCall.h"
+#include "IRBinaryop.h"
+#include "IRTrunc.h"
 #include "IRBlock.h"
+#include "IRBr.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -221,7 +224,7 @@ public:
         instrs.push_back(currentCallInstr);
         return instrs;
     }
-    
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprConstBlock &node){
         return {};
     }
@@ -233,7 +236,74 @@ public:
     std::vector<std::shared_ptr<IRNode>> visit(ExprGroup &node){
         return {};
     }
-    std::vector<std::shared_ptr<IRNode>> visit(ExprIf &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprIf &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        //todo condition
+        auto condVar = std::make_shared<IRVar>();
+        if(node.condition){
+            if(auto *p = dynamic_cast<ExprOpbinary *>(& *node.condition)){
+                auto condInstrs = visit(*p);
+                for(auto & instr : condInstrs){
+                    instrs.push_back(instr);
+                }
+                auto lastInstr = condInstrs[condInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                    condVar = q->result;
+                }
+            }else if(auto *p = dynamic_cast<ExprPath *>(& *node.condition)){
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string varName = p->pathFirst->pathSegments.identifier;
+                    auto currentVar = currentScope->lookupValueSymbol(varName);
+                    //todo trunc
+                    auto tmp = std::make_shared<IRVar>();
+                    instrs.push_back(std::make_shared<IRLoad>(tmp, currentVar, currentVar->type));
+                    instrs.push_back(std::make_shared<IRTrunc>(currentVar->type, tmp, currentScope->lookupTypeSymbol("BOOL"), condVar));
+                }
+            }else if(auto *p = dynamic_cast<ExprCall *>(& *node.condition)){
+                auto condInstrs = visit(*p);
+                for(auto & instr : condInstrs){
+                    instrs.push_back(instr);
+                }
+                auto lastInstr = condInstrs[condInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRCall *>(& *lastInstr)){
+                    condVar = q->retVar;
+                }
+            }
+        }
+        //todo br 
+        auto trueBlock = std::make_shared<IRBlock>();
+        auto falseBlock = std::make_shared<IRBlock>();
+        instrs.push_back(std::make_shared<IRBr>(condVar, trueBlock, falseBlock));
+        //todo true block
+        auto ifScope = std::make_shared<IRScope>();
+        ifScope->parent = currentScope;
+        currentScope->children.push_back(ifScope);
+        currentScope = ifScope;
+        //todo
+        if(node.thenBlock){
+            for(auto & stmt : node.thenBlock->statements){
+                auto blockInstrs = visit(*stmt);
+                for(auto & instr : blockInstrs){
+                    trueBlock->instrList.push_back(instr);
+                }
+            }
+            if(!trueBlock->instrList.empty()){
+                auto lastInstr = trueBlock->instrList[trueBlock->instrList.size() - 1];
+                //return 
+            }
+            if(node.thenBlock->ExpressionWithoutBlock){
+                //todo about br instruction
+            }
+        }
+        currentScope = currentScope->parent;
+        //todo false block
+        if(node.elseBlock){
+
+        }else{
+
+        }
+    }
     std::vector<std::shared_ptr<IRNode>> visit(ExprIndex &node);
     std::vector<std::shared_ptr<IRNode>> visit(ExprLiteral &node);
     std::vector<std::shared_ptr<IRNode>> visit(ExprLoop &node);
@@ -346,6 +416,8 @@ public:
                 //todo about br instruction
             }
         }
+
+        currentScope = currentScope->parent;
     }
 
 
