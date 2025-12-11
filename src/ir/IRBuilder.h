@@ -42,13 +42,17 @@
 #include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
 #include "../ast/Type/TypeUnit.h"
+#include "IRAlloca.h"
 #include "IRFunction.h"
+#include "IRLiteral.h"
 #include "IRNode.h"
 #include "IRParam.h"
 #include "IRRoot.h"
 #include "IRType.h"
 #include "IRSelf.h"
 #include "IRScope.h"
+#include "IRLoad.h"
+#include "IRCall.h"
 #include "IRBlock.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
@@ -101,6 +105,7 @@ public:
         }
         currentScope = globalBuilder.globalScope;
         irRoot = std::make_shared<IRRoot>();
+        //may left with some special functions like print exit...
         for(auto & item : node.child){
             irRoot->children.push_back(visit(*item));
         }
@@ -108,7 +113,7 @@ public:
     }
 
     //Expression
-    std::shared_ptr<IRNode> visit(Expression &node){
+    std::vector<std::shared_ptr<IRNode>> visit(Expression &node){
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
             return visit(*p);
         }else if(auto *p = dynamic_cast<ExprBlock *>(& node)) {
@@ -153,7 +158,7 @@ public:
             throw std::runtime_error("IRBuilder visit Expression error");
         }
     }
-    std::shared_ptr<IRNode> visit(ExprArray &node){
+    std::vector<std::shared_ptr<IRNode>> visit(ExprArray &node){
         if(!node.arrayExpr.empty()){
             //TODO: have no idea yet
         }else{
@@ -163,24 +168,82 @@ public:
             
         }
     }
-    std::shared_ptr<IRNode> visit(ExprBlock &node);
-    std::shared_ptr<IRNode> visit(ExprBreak &node);
-    std::shared_ptr<IRNode> visit(ExprCall &node);
-    std::shared_ptr<IRNode> visit(ExprConstBlock &node);
-    std::shared_ptr<IRNode> visit(ExprContinue &node);
-    std::shared_ptr<IRNode> visit(ExprField &node);
-    std::shared_ptr<IRNode> visit(ExprGroup &node);
-    std::shared_ptr<IRNode> visit(ExprIf &node);
-    std::shared_ptr<IRNode> visit(ExprIndex &node);
-    std::shared_ptr<IRNode> visit(ExprLiteral &node);
-    std::shared_ptr<IRNode> visit(ExprLoop &node);
-    std::shared_ptr<IRNode> visit(ExprMethodcall &node);
-    std::shared_ptr<IRNode> visit(ExprOpbinary &node);
-    std::shared_ptr<IRNode> visit(ExprOpunary &node);
-    std::shared_ptr<IRNode> visit(ExprPath &node);
-    std::shared_ptr<IRNode> visit(ExprReturn &node);
-    std::shared_ptr<IRNode> visit(ExprStruct &node);
-    std::shared_ptr<IRNode> visit(ExprUnderscore &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprBlock &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprBreak &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprCall &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        std::string funcName = "";
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                funcName = p->pathFirst->pathSegments.identifier;
+            }
+        }
+        auto currentIRFunc = currentScope->lookupFunctionSymbol(funcName);
+        auto currentCallInstr = std::make_shared<IRCall>();
+        currentCallInstr->function = currentIRFunc;
+        auto callRet = std::make_shared<IRVar>();
+        currentCallInstr->retVar = callRet;
+        for(auto & arg : node.callParams){
+            //TODO process arguments
+            if(auto *p = dynamic_cast<ExprPath *>(& *arg)){
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string varName = p->pathFirst->pathSegments.identifier;
+                    auto varSymbol = currentScope->lookupValueSymbol(varName);
+                    //TODO load instruction
+                    if(varSymbol == nullptr){
+                        //constant
+                        long long int res = currentScope->lookupConstantSymbol(varName);
+                        currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, res));
+                        continue;
+                    }
+                    auto currentParamVar = std::make_shared<IRVar>();
+                    currentParamVar->varName = varSymbol->varName;
+                    if(vars_cnt.find(currentParamVar->varName) != vars_cnt.end()){
+                        vars_cnt[currentParamVar->varName] += 1;
+                        currentParamVar->reName = currentParamVar->varName + "_" + std::to_string(vars_cnt[currentParamVar->varName]);
+                    }else{
+                        vars_cnt[currentParamVar->varName] = 1;
+                        currentParamVar->reName = currentParamVar->varName;
+                    }
+                    currentParamVar->type = varSymbol->type;
+                    instrs.push_back(std::make_shared<IRLoad>(currentParamVar, varSymbol,varSymbol->type));
+                    currentCallInstr->pList->paramList.push_back(currentParamVar);
+                }
+            }else if(auto *p = dynamic_cast<ExprLiteral *>(& *arg)){
+                if(p->type == INTEGER_LITERAL){
+                    currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, p->constValue));
+                }
+            }
+        }
+        instrs.push_back(currentCallInstr);
+        return instrs;
+    }
+    
+    std::vector<std::shared_ptr<IRNode>> visit(ExprConstBlock &node){
+        return {};
+    }
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprContinue &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprField &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprGroup &node){
+        return {};
+    }
+    std::vector<std::shared_ptr<IRNode>> visit(ExprIf &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprIndex &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprLiteral &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprLoop &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprMethodcall &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprOpbinary &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprOpunary &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprPath &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprReturn &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprStruct &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprUnderscore &node);
     
     //Item 
     std::shared_ptr<IRNode> visit(Item &node){
@@ -274,7 +337,10 @@ public:
         //todo processing the function body
         if(node.fnBody){
             for(auto & stmt : node.fnBody->statements){
-                currentIRFunc->body->instrList.push_back(visit(*stmt));
+                std::vector<std::shared_ptr<IRNode>> instructions = visit(*stmt);
+                for(auto & instr : instructions){
+                    currentIRFunc->body->instrList.push_back(instr);
+                }
             }
             if(node.fnBody->ExpressionWithoutBlock){
                 //todo about br instruction
@@ -322,7 +388,7 @@ public:
     void visit(PatternWildCard &node);
 
     //Statement
-    std::shared_ptr<IRNode> visit(Statement &node){
+    std::vector<std::shared_ptr<IRNode>> visit(Statement &node){
         if(auto *p = dynamic_cast<StmtEmpty *>(& node)) {
             return visit(*p);
         }else if(auto *p = dynamic_cast<StmtExpr *>(& node)) {
@@ -336,19 +402,22 @@ public:
         }
     }
 
-    std::shared_ptr<IRNode> visit(StmtEmpty &node){
-        return nullptr;
+    std::vector<std::shared_ptr<IRNode>> visit(StmtEmpty &node){
+        return {};
     }
 
-    std::shared_ptr<IRNode> visit(StmtExpr &node){
-
+    std::vector<std::shared_ptr<IRNode>> visit(StmtExpr &node){
+        //TODO
     }
 
-    std::shared_ptr<IRNode> visit(StmtItem &node){
-        return visit(*node.stmt_item);
+    std::vector<std::shared_ptr<IRNode>> visit(StmtItem &node){
+        std::vector<std::shared_ptr<IRNode>> res;
+        res.push_back(visit(*node.stmt_item));
+        return res;
     }
 
-    std::shared_ptr<IRNode> visit(StmtLet &node){
+    std::vector<std::shared_ptr<IRNode>> visit(StmtLet &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
         //todo
         std::string varName;
         std::string reName;
@@ -370,7 +439,9 @@ public:
         std::shared_ptr<IRType> varType = resolveType(*node.type);
         auto currentVar = std::make_shared<IRVar>(varName, reName, varType);
         currentScope->addValueSymbol(varName, currentVar);
+        instrs.push_back(std::make_shared<IRAlloca>(varType,currentVar));
         //todo init expr
+
     }
 
     //Type

@@ -8,14 +8,14 @@
 namespace JaneZ {
 class IRLoad : public IRNode {
 public:
-    std::shared_ptr<IRVar> loadedVar;
+    std::shared_ptr<IRVar> tmp;
     std::shared_ptr<IRVar> addressVar;
     std::shared_ptr<IRType> type;
 
     IRLoad(std::shared_ptr<IRVar> lV,
            std::shared_ptr<IRVar> aV,
            std::shared_ptr<IRType> t)
-        : IRNode(), loadedVar(std::move(lV)), addressVar(std::move(aV)), type(std::move(t)) {}
+        : IRNode(), tmp(std::move(lV)), addressVar(std::move(aV)), type(std::move(t)) {}
     ~IRLoad() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   

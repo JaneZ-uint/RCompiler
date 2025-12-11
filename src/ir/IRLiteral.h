@@ -3,7 +3,7 @@
 # include "IRVisitor.h"
 
 namespace JaneZ {
-enum LiteralType {
+enum IRLiteralType {
     INT_LITERAL,
     BOOL_LITERAL,
     NULL_LITERAL,
@@ -11,11 +11,11 @@ enum LiteralType {
 
 class IRLiteral : public IRNode {
 public:
-    LiteralType literalType;
+    IRLiteralType literalType;
     long long intValue;
     bool boolValue;
 
-    IRLiteral(LiteralType lt, long long iv = 0, bool bv = false)
+    IRLiteral(IRLiteralType lt, long long iv = 0, bool bv = false)
         : IRNode(), literalType(lt), intValue(iv), boolValue(bv) {}
     virtual ~IRLiteral() = default;
     void accept(IRVisitor &visitor) override {
