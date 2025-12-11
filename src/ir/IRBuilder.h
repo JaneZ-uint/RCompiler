@@ -49,6 +49,7 @@
 #include "IRType.h"
 #include "IRSelf.h"
 #include "IRScope.h"
+#include "IRBlock.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -107,52 +108,52 @@ public:
     }
 
     //Expression
-    void visit(Expression &node){
+    std::shared_ptr<IRNode> visit(Expression &node){
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprBlock *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprBreak *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprCall *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprConstBlock *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprContinue *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprField *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprGroup *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprIf *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprIndex *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprLiteral *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprLoop *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprMatch *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprMethodcall *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprOpbinary *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprOpunary *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprPath *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprReturn *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprStruct *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ExprUnderscore *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else{
             throw std::runtime_error("IRBuilder visit Expression error");
         }
     }
-    void visit(ExprArray &node){
+    std::shared_ptr<IRNode> visit(ExprArray &node){
         if(!node.arrayExpr.empty()){
             //TODO: have no idea yet
         }else{
@@ -162,24 +163,24 @@ public:
             
         }
     }
-    void visit(ExprBlock &node);
-    void visit(ExprBreak &node);
-    void visit(ExprCall &node);
-    void visit(ExprConstBlock &node);
-    void visit(ExprContinue &node);
-    void visit(ExprField &node);
-    void visit(ExprGroup &node);
-    void visit(ExprIf &node);
-    void visit(ExprIndex &node);
-    void visit(ExprLiteral &node);
-    void visit(ExprLoop &node);
-    void visit(ExprMethodcall &node);
-    void visit(ExprOpbinary &node);
-    void visit(ExprOpunary &node);
-    void visit(ExprPath &node);
-    void visit(ExprReturn &node);
-    void visit(ExprStruct &node);
-    void visit(ExprUnderscore &node);
+    std::shared_ptr<IRNode> visit(ExprBlock &node);
+    std::shared_ptr<IRNode> visit(ExprBreak &node);
+    std::shared_ptr<IRNode> visit(ExprCall &node);
+    std::shared_ptr<IRNode> visit(ExprConstBlock &node);
+    std::shared_ptr<IRNode> visit(ExprContinue &node);
+    std::shared_ptr<IRNode> visit(ExprField &node);
+    std::shared_ptr<IRNode> visit(ExprGroup &node);
+    std::shared_ptr<IRNode> visit(ExprIf &node);
+    std::shared_ptr<IRNode> visit(ExprIndex &node);
+    std::shared_ptr<IRNode> visit(ExprLiteral &node);
+    std::shared_ptr<IRNode> visit(ExprLoop &node);
+    std::shared_ptr<IRNode> visit(ExprMethodcall &node);
+    std::shared_ptr<IRNode> visit(ExprOpbinary &node);
+    std::shared_ptr<IRNode> visit(ExprOpunary &node);
+    std::shared_ptr<IRNode> visit(ExprPath &node);
+    std::shared_ptr<IRNode> visit(ExprReturn &node);
+    std::shared_ptr<IRNode> visit(ExprStruct &node);
+    std::shared_ptr<IRNode> visit(ExprUnderscore &node);
     
     //Item 
     std::shared_ptr<IRNode> visit(Item &node){
@@ -271,14 +272,32 @@ public:
             }
         }
         //todo processing the function body
+        if(node.fnBody){
+            for(auto & stmt : node.fnBody->statements){
+                currentIRFunc->body->instrList.push_back(visit(*stmt));
+            }
+            if(node.fnBody->ExpressionWithoutBlock){
+                //todo about br instruction
+            }
+        }
     }
 
 
     std::shared_ptr<IRNode> visit(ItemImplDecl &node){
-        
+        // no need to do anything
+        // I plan to do the IRFunction build in IRGlobalBuilder
+        return nullptr;
     }
-    std::shared_ptr<IRNode> visit(ItemStructDecl &node);
-    std::shared_ptr<IRNode> visit(ItemTraitDecl &node);
+
+    std::shared_ptr<IRNode> visit(ItemStructDecl &node){
+        auto currentStruct = currentScope->lookupTypeSymbol(node.identifier);
+        return currentStruct;
+    }
+
+    std::shared_ptr<IRNode> visit(ItemTraitDecl &node){
+        // no need to do anything
+        return nullptr;
+    }
 
     //Pattern
     void visit(Pattern &node){
@@ -303,23 +322,56 @@ public:
     void visit(PatternWildCard &node);
 
     //Statement
-    void visit(Statement &node){
+    std::shared_ptr<IRNode> visit(Statement &node){
         if(auto *p = dynamic_cast<StmtEmpty *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<StmtExpr *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<StmtItem *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<StmtLet *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else{
             throw std::runtime_error("IRBuilder visit Statement error");
         }
     }
-    void visit(StmtEmpty &node);
-    void visit(StmtExpr &node);
-    void visit(StmtItem &node);
-    void visit(StmtLet &node);
+
+    std::shared_ptr<IRNode> visit(StmtEmpty &node){
+        return nullptr;
+    }
+
+    std::shared_ptr<IRNode> visit(StmtExpr &node){
+
+    }
+
+    std::shared_ptr<IRNode> visit(StmtItem &node){
+        return visit(*node.stmt_item);
+    }
+
+    std::shared_ptr<IRNode> visit(StmtLet &node){
+        //todo
+        std::string varName;
+        std::string reName;
+        if(auto *p = dynamic_cast<PatternIdentifier *>(& *node.PatternNoTopAlt)){
+            varName = p->identifier;
+        }else if(auto *p = dynamic_cast<PatternReference *>(& *node.PatternNoTopAlt)){
+            if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
+                varName = q->identifier;
+            }
+        }
+        if(vars_cnt.find(varName) != vars_cnt.end()){
+            vars_cnt[varName] += 1;
+            reName = varName + "_" + std::to_string(vars_cnt[varName]);
+        }else{
+            vars_cnt[varName] = 1;
+            reName = varName;
+        }
+        //todo
+        std::shared_ptr<IRType> varType = resolveType(*node.type);
+        auto currentVar = std::make_shared<IRVar>(varName, reName, varType);
+        currentScope->addValueSymbol(varName, currentVar);
+        //todo init expr
+    }
 
     //Type
     std::shared_ptr<IRType> resolveType(ASTNode &node){

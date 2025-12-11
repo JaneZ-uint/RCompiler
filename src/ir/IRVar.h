@@ -14,7 +14,7 @@ public:
 
     IRVar(std::shared_ptr<IRType> tp, const std::string &vn, const std::string &irn)
         : type(std::move(tp)), varName(vn), reName(irn) {}
-    ~IRVar() = default;
+    ~IRVar() = default; 
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);
     }
