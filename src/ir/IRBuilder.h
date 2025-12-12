@@ -48,6 +48,7 @@
 #include "IRNode.h"
 #include "IRParam.h"
 #include "IRRoot.h"
+#include "IRStore.h"
 #include "IRType.h"
 #include "IRSelf.h"
 #include "IRScope.h"
@@ -57,6 +58,7 @@
 #include "IRTrunc.h"
 #include "IRBlock.h"
 #include "IRBr.h"
+#include "IRReturn.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -116,6 +118,7 @@ public:
     }
 
     //Expression
+    //现在考虑在visit expr结点时在函数参数列表里添加一个当前函数/当前函数返回值的指针
     std::vector<std::shared_ptr<IRNode>> visit(Expression &node){
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
             return visit(*p);
@@ -219,6 +222,8 @@ public:
                 if(p->type == INTEGER_LITERAL){
                     currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, p->constValue));
                 }
+            }else if(auto *p = dynamic_cast<ExprOpbinary *>(& *arg)){
+                //todo
             }
         }
         instrs.push_back(currentCallInstr);
@@ -282,15 +287,21 @@ public:
         currentScope = ifScope;
         //todo
         if(node.thenBlock){
+            bool hasReturn = false;
             for(auto & stmt : node.thenBlock->statements){
+                if(auto *m = dynamic_cast<StmtExpr *>(& *stmt)){
+                    if(auto *retCheck = dynamic_cast<ExprReturn *>(& *m->stmtExpr)){
+                        hasReturn = true;
+                        break;
+                    }
+                }
                 auto blockInstrs = visit(*stmt);
                 for(auto & instr : blockInstrs){
                     trueBlock->instrList.push_back(instr);
                 }
             }
-            if(!trueBlock->instrList.empty()){
-                auto lastInstr = trueBlock->instrList[trueBlock->instrList.size() - 1];
-                //return 
+            if(hasReturn){
+
             }
             if(node.thenBlock->ExpressionWithoutBlock){
                 //todo about br instruction
@@ -305,14 +316,264 @@ public:
         }
     }
     std::vector<std::shared_ptr<IRNode>> visit(ExprIndex &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprLiteral &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprLoop &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprMethodcall &node);
-    std::vector<std::shared_ptr<IRNode>> visit(ExprOpbinary &node);
+
+    IROp turnBinaryOp(binaryOp op){
+        if(op == PLUS){
+            return ADD;
+        }else if(op == MINUS){
+            return SUB;
+        }else if(op == MULTIPLY){
+            return MUL;
+        }else if(op == DIVIDE){
+            return DIV;
+        }else if(op == MODULO){
+            return MOD;
+        }else if(op == PLUS_EQUAL){
+            return ADD_EQ;
+        }else if(op == MINUS_EQUAL){
+            return SUB_EQ;
+        }else if(op == MULTIPLY_EQUAL){
+            return MUL_EQ;
+        }else if(op == DIVIDE_EQUAL){
+            return DIV_EQ;
+        }else if(op == MODULO_EQUAL){
+            return MOD_EQ;
+        }else if(op == EQUAL){
+            return EQ;
+        }else if(op == NOT_EQUAL){
+            return NEQ;
+        }else if(op == LESS_THAN){
+            return LT;
+        }else if(op == LESS_THAN_OR_EQUAL){
+            return LEQ;
+        }else if(op == GREATER_THAN){
+            return GT;
+        }else if(op == GREATER_THAN_OR_EQUAL){
+            return GEQ;
+        }else if(op == LOGICAL_AND){
+            return LOGICALAND;
+        }else if(op == LOGICAL_OR){
+            return LOGICALOR;
+        }
+        throw std::runtime_error("IRBuilder turnBinaryOp error: unknown binary op");
+    }
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprOpbinary &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        if(auto *leftPath = dynamic_cast<ExprPath *>(& *node.left)){
+            if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
+                if(leftPath->pathFirst->pathSegments.type == IDENTIFIER && rightPath->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string leftVarName = leftPath->pathFirst->pathSegments.identifier;
+                    std::string rightVarName = rightPath->pathFirst->pathSegments.identifier;
+                    auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
+                    auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
+                    if(leftVarSymbol && rightVarSymbol){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        auto rightLoadedVar = std::make_shared<IRVar>();
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                        instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        //todo get binary op
+                        IROp irOp = turnBinaryOp(node.op);
+                        if(irOp == ADD){
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == SUB){
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));   
+                        }else if(irOp == MUL){
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == DIV){
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));   
+                        }else if(irOp == MOD){
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == EQ){
+                            instrs.push_back(std::make_shared<IREq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == NEQ){
+                            instrs.push_back(std::make_shared<IRNeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == LT){
+                            instrs.push_back(std::make_shared<IRLt>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == LEQ){  
+                            instrs.push_back(std::make_shared<IRLeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == GT){
+                            instrs.push_back(std::make_shared<IRGt>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == GEQ){
+                            instrs.push_back(std::make_shared<IRGeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == LOGICALAND){
+                            instrs.push_back(std::make_shared<IRLogicalAnd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
+                        }else if(irOp == LOGICALOR){
+                            instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == ADD_EQ){
+                            instrs.push_back(std::make_shared<IRAddEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == SUB_EQ){
+                            instrs.push_back(std::make_shared<IRSubEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == MUL_EQ){
+                            instrs.push_back(std::make_shared<IRMulEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == DIV_EQ){
+                            instrs.push_back(std::make_shared<IRDivEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == MOD_EQ){
+                            instrs.push_back(std::make_shared<IRModEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else {
+                            throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
+                        }
+                    }else if(leftVarSymbol && !rightVarSymbol){
+                        //right is constant
+                        long long int res = currentScope->lookupConstantSymbol(rightVarName);
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        IROp irOp = turnBinaryOp(node.op);
+                        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res);
+                        if(irOp == ADD){
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == SUB){
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));   
+                        }else if(irOp == MUL){
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == DIV){
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,rightLiteral, resultVar));
+                        }else if(irOp == MOD){
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));  
+                        }else if(irOp == EQ){
+                            instrs.push_back(std::make_shared<IREq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));    
+                        }else if(irOp == NEQ){
+                            instrs.push_back(std::make_shared<IRNeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));    
+                        }else if(irOp == LT){
+                            instrs.push_back(std::make_shared<IRLt>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LEQ){  
+                            instrs.push_back(std::make_shared<IRLeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == GT){
+                            instrs.push_back(std::make_shared<IRGt>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == GEQ){
+                            instrs.push_back(std::make_shared<IRGeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LOGICALAND){
+                            instrs.push_back(std::make_shared<IRLogicalAnd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LOGICALOR){
+                            instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                        }else if(irOp == ADD_EQ){
+                            instrs.push_back(std::make_shared<IRAddEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == SUB_EQ){
+                            instrs.push_back(std::make_shared<IRSubEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == MUL_EQ){
+                            instrs.push_back(std::make_shared<IRMulEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == DIV_EQ){
+                            instrs.push_back(std::make_shared<IRDivEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else if(irOp == MOD_EQ){
+                            instrs.push_back(std::make_shared<IRModEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+                        }else {
+                            throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
+                        }
+                    }else if(!leftVarSymbol && rightVarSymbol){
+                        //left is constant
+                        long long int res = currentScope->lookupConstantSymbol(leftVarName);
+                        auto rightLoadedVar = std::make_shared<IRVar>();
+                        instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        IROp irOp = turnBinaryOp(node.op);
+                        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res);
+                        if(irOp == ADD){
+                            instrs.push_back(std::make_shared<IRAdd>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == SUB){
+                            instrs.push_back(std::make_shared<IRSub>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == MUL){
+                            instrs.push_back(std::make_shared<IRMul>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == DIV){
+                            instrs.push_back(std::make_shared<IRDiv>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == MOD){
+                            instrs.push_back(std::make_shared<IRMod>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == EQ){
+                            instrs.push_back(std::make_shared<IREq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == NEQ){
+                            instrs.push_back(std::make_shared<IRNeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == LT){
+                            instrs.push_back(std::make_shared<IRLt>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == LEQ){
+                            instrs.push_back(std::make_shared<IRLeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == GT){
+                            instrs.push_back(std::make_shared<IRGt>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == GEQ){
+                            instrs.push_back(std::make_shared<IRGeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == LOGICALAND){
+                            instrs.push_back(std::make_shared<IRLogicalAnd>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else if(irOp == LOGICALOR){
+                            instrs.push_back(std::make_shared<IRLogicalOr>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
+                        }else {
+                            throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
+                        }
+                    }else if(!leftVarSymbol && !rightVarSymbol){
+                        //both are constant
+                        long long int leftRes = currentScope->lookupConstantSymbol(leftVarName);
+                        long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                        auto resultVar = std::make_shared<IRVar>();
+                        IROp irOp = turnBinaryOp(node.op);
+                        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, leftRes);
+                        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, rightRes);
+                        if(irOp == ADD){
+                            instrs.push_back(std::make_shared<IRAdd>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == SUB){
+                            instrs.push_back(std::make_shared<IRSub>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == MUL){
+                            instrs.push_back(std::make_shared<IRMul>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == DIV){
+                            instrs.push_back(std::make_shared<IRDiv>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == MOD){
+                            instrs.push_back(std::make_shared<IRMod>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == EQ){
+                            instrs.push_back(std::make_shared<IREq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == NEQ){
+                            instrs.push_back(std::make_shared<IRNeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LT){
+                            instrs.push_back(std::make_shared<IRLt>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LEQ){
+                            instrs.push_back(std::make_shared<IRLeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == GT){
+                            instrs.push_back(std::make_shared<IRGt>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == GEQ){
+                            instrs.push_back(std::make_shared<IRGeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LOGICALAND){
+                            instrs.push_back(std::make_shared<IRLogicalAnd>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else if(irOp == LOGICALOR){
+                            instrs.push_back(std::make_shared<IRLogicalOr>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
+                        }else {
+                            throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
+                        }
+                    }
+
+                    //return instrs;
+                }
+            }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
+                //todo
+            }
+        }
+        auto leftInstrs = visit(*node.left);
+        auto rightInstrs = visit(*node.right);
+        //todo process left
+        
+        return instrs;
+    }
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprOpunary &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprPath &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprReturn &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprStruct &node);
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprUnderscore &node);
     
     //Item 
@@ -404,6 +665,13 @@ public:
                 }
             }
         }
+        // auto funcRetVar = std::make_shared<IRVar>();
+        // if(currentIRFunc->retType != currentScope->lookupTypeSymbol("void")){
+        //     currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(currentIRFunc->retType, funcRetVar));
+        //     auto tmpRet = std::make_shared<IRVar>();
+        //     currentIRFunc->retBlock->instrList.push_back(std::make_shared<IRLoad>(tmpRet, funcRetVar, currentIRFunc->retType));
+        //     currentIRFunc->retBlock->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, tmpRet));
+        // }
         //todo processing the function body
         if(node.fnBody){
             for(auto & stmt : node.fnBody->statements){
@@ -416,6 +684,7 @@ public:
                 //todo about br instruction
             }
         }
+        //deal with return
 
         currentScope = currentScope->parent;
     }

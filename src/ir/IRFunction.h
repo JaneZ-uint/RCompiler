@@ -18,6 +18,7 @@ public:
     std::string name;
     std::shared_ptr<IRParam> paramList;
     std::shared_ptr<IRBlock> body;
+    std::shared_ptr<IRBlock> retBlock;
 
     IRFunction(std::shared_ptr<IRType> retType, std::string name,
                std::shared_ptr<IRParam> paramList,
