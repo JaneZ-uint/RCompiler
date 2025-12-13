@@ -661,6 +661,36 @@ public:
                 }
             }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
                 //todo
+            }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
+                //todo nested binary op
+                if(leftPath->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string leftVarName = leftPath->pathFirst->pathSegments.identifier;
+                    auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
+                    if(leftVarSymbol){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                        std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                        for(auto & instr : rightInstrs){
+                            instrs.push_back(instr);
+                        }
+                        auto lastInstr = rightInstrs[rightInstrs.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                            auto rightResultVar = q->result;
+                            bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
+                        }
+                    }else{
+                        long long int res = currentScope->lookupConstantSymbol(leftVarName);
+                        std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                        for(auto & instr : rightInstrs){
+                            instrs.push_back(instr);
+                        }
+                        auto lastInstr = rightInstrs[rightInstrs.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                            auto rightResultVar = q->result;
+                            leftLiteralRightLoad(instrs, nullptr, rightResultVar, node.op, res,true);
+                        }
+                    }
+                }
             }
         }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *node.left)){
             if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
@@ -692,6 +722,18 @@ public:
                 }
             }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
                 //todo
+            }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
+                //todo nested binary op
+                long long int leftRes = leftLiteral->constValue;
+                std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                for(auto & instr : rightInstrs){
+                    instrs.push_back(instr);
+                }
+                auto lastInstr = rightInstrs[rightInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                    auto rightResultVar = q->result;
+                    leftLiteralRightLoad(instrs, nullptr, rightResultVar, node.op, leftRes,true);
+                }
             }
         }else if(auto *leftCall = dynamic_cast<ExprCall *>(& *node.left)){
             if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
@@ -745,6 +787,23 @@ public:
                 }
             }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
                 //todo
+            }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
+                //todo nested binary op on right
+                auto leftCallInstrs = visit(*leftCall);
+                std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                if(auto *leftCallLastInstr = dynamic_cast<IRCall *>(& *leftCallInstrs[leftCallInstrs.size() - 1])){
+                    auto leftCallRetVar = leftCallLastInstr->retVar;
+                    for(auto & instr : leftCallInstrs){
+                        instrs.push_back(instr);
+                    }
+                    for(auto & instr : rightInstrs){
+                        instrs.push_back(instr);
+                    }
+                    if(auto *rightLastInster = dynamic_cast<IRBinaryop *>(& *rightInstrs[rightInstrs.size() -1]) ){
+                        auto rightRetVar = rightLastInster->result;
+                        bothLoadForCall(instrs, leftCallRetVar,leftCallRetVar, rightRetVar, node.op);
+                    }
+                }
             }
         }else if(auto *leftMethodCall = dynamic_cast<ExprMethodcall *>(& *node.left)){
             //todo
@@ -785,14 +844,17 @@ public:
                     //todo
                 }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
                     //todo nested binary op on right
+                    std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                    for(auto & instr : rightInstrs){
+                        instrs.push_back(instr);
+                    }
+                    if(auto *rightLastInster = dynamic_cast<IRBinaryop *>(& *rightInstrs[rightInstrs.size() -1]) ){
+                        auto rightRetVar = rightLastInster->result;
+                        bothLoadForCall(instrs, leftRetVar,leftRetVar, rightRetVar, node.op);
+                    }
                 }
             }
-
         }
-        auto leftInstrs = visit(*node.left);
-        auto rightInstrs = visit(*node.right);
-        //todo process left
-        
         return instrs;
     }
 
