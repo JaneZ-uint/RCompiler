@@ -27,6 +27,7 @@ enum IROp{
     GEQ,
     LOGICALAND,
     LOGICALOR,
+    ASSIGNEQ,
 };
 
 class IRBinaryop : public IRNode {
@@ -69,9 +70,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;  
 
-    IRSub(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRSub(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -92,9 +91,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRMul(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRMul(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -115,9 +112,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRDiv(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRDiv(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -138,9 +133,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRMod(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRMod(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -154,116 +147,6 @@ public:
     }
 };
 
-class IRAddEq : public IRBinaryop {
-public:
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;
-    std::shared_ptr<IRStore> storeInstr;
-
-    IRAddEq(std::shared_ptr<IRLoad> ll,
-            std::shared_ptr<IRLoad> rl,
-            std::shared_ptr<IRVar> l,
-            std::shared_ptr<IRVar> r,
-            std::shared_ptr<IRLiteral> rlit,
-            std::shared_ptr<IRVar> res,std::shared_ptr<IRStore> store)
-        : IRBinaryop(ADD_EQ,std::move(res)),
-          left(std::move(l)),
-          right(std::move(r)), rightLiteral(std::move(rlit)), storeInstr(std::move(store)) {}
-    ~IRAddEq() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
-    }
-};
-
-class IRSubEq : public IRBinaryop {
-public:
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;
-    std::shared_ptr<IRStore> storeInstr;
-
-    IRSubEq(std::shared_ptr<IRLoad> ll,
-            std::shared_ptr<IRLoad> rl,
-            std::shared_ptr<IRVar> l,
-            std::shared_ptr<IRVar> r,
-            std::shared_ptr<IRLiteral> rlit,
-            std::shared_ptr<IRVar> res,std::shared_ptr<IRStore> store)
-        : IRBinaryop(SUB_EQ,std::move(res)),
-          left(std::move(l)),
-          right(std::move(r)), rightLiteral(std::move(rlit)), storeInstr(std::move(store)) {}
-    ~IRSubEq() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
-    }
-};
-
-class IRMulEq : public IRBinaryop {
-public:
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;  
-    std::shared_ptr<IRStore> storeInstr;
-
-    IRMulEq(std::shared_ptr<IRLoad> ll,
-            std::shared_ptr<IRLoad> rl,
-            std::shared_ptr<IRVar> l,
-            std::shared_ptr<IRVar> r,
-            std::shared_ptr<IRLiteral> rlit,
-            std::shared_ptr<IRVar> res,std::shared_ptr<IRStore> store)
-        : IRBinaryop(MUL_EQ,std::move(res)),
-          left(std::move(l)),
-          right(std::move(r)), rightLiteral(std::move(rlit)), storeInstr(std::move(store)) {}
-    ~IRMulEq() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
-    }
-};
-
-class IRDivEq : public IRBinaryop {
-public:
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;
-    std::shared_ptr<IRStore> storeInstr;
-
-    IRDivEq(std::shared_ptr<IRLoad> ll,
-            std::shared_ptr<IRLoad> rl,
-            std::shared_ptr<IRVar> l,
-            std::shared_ptr<IRVar> r,
-            std::shared_ptr<IRLiteral> rlit,
-            std::shared_ptr<IRVar> res,std::shared_ptr<IRStore> store)
-        : IRBinaryop(DIV_EQ,std::move(res)),
-          left(std::move(l)),
-          right(std::move(r)), rightLiteral(std::move(rlit)), storeInstr(std::move(store)) {}
-    ~IRDivEq() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
-    }
-};
-
-class IRModEq : public IRBinaryop {
-public:
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;
-    std::shared_ptr<IRStore> storeInstr;
-
-    IRModEq(std::shared_ptr<IRLoad> ll,
-            std::shared_ptr<IRLoad> rl,
-            std::shared_ptr<IRVar> l,
-            std::shared_ptr<IRVar> r,
-            std::shared_ptr<IRLiteral> rlit,
-            std::shared_ptr<IRVar> res,std::shared_ptr<IRStore> store)
-        : IRBinaryop(MOD_EQ,std::move(res)),
-          left(std::move(l)),
-          right(std::move(r)), rightLiteral(std::move(rlit)), storeInstr(std::move(store)) {}
-    ~IRModEq() = default;
-    void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);
-    }
-};
-
 class IREq : public IRBinaryop {
 public:
     std::shared_ptr<IRVar> left;
@@ -271,9 +154,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IREq(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IREq( std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -296,9 +177,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRNeq(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRNeq(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -319,9 +198,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRLt(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRLt( std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -342,9 +219,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;          
 
-    IRGt(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRGt( std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -365,9 +240,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRLeq(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRLeq(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -388,9 +261,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRGeq(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRGeq(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -411,9 +282,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
-    IRLogicalAnd(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRLogicalAnd(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,
@@ -434,9 +303,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;  
 
-    IRLogicalOr(std::shared_ptr<IRLoad> ll,
-          std::shared_ptr<IRLoad> rl,
-          std::shared_ptr<IRVar> l,
+    IRLogicalOr(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
           std::shared_ptr<IRLiteral> rlit,

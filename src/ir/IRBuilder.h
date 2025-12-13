@@ -360,6 +360,8 @@ public:
             return LOGICALAND;
         }else if(op == LOGICAL_OR){
             return LOGICALOR;
+        }else if(op == ASSIGN){
+            return ASSIGNEQ;
         }
         throw std::runtime_error("IRBuilder turnBinaryOp error: unknown binary op");
     }
@@ -399,20 +401,22 @@ public:
         }else if(irOp == LOGICALOR){
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == ADD_EQ){
-            instrs.push_back(std::make_shared<IRAddEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == SUB_EQ){
-            instrs.push_back(std::make_shared<IRSubEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MUL_EQ){
-            instrs.push_back(std::make_shared<IRMulEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == DIV_EQ){
-            instrs.push_back(std::make_shared<IRDivEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MOD_EQ){
-            instrs.push_back(std::make_shared<IRModEq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+        }else if(irOp == ASSIGNEQ){
+            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,rightLoadedVar,nullptr,leftVarSymbol));
         }else {
             throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
         }
@@ -448,20 +452,22 @@ public:
         }else if(irOp == LOGICALOR){
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == ADD_EQ){
-            instrs.push_back(std::make_shared<IRAddEq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == SUB_EQ){
-            instrs.push_back(std::make_shared<IRSubEq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MUL_EQ){
-            instrs.push_back(std::make_shared<IRMulEq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == DIV_EQ){
-            instrs.push_back(std::make_shared<IRDivEq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MOD_EQ){
-            instrs.push_back(std::make_shared<IRModEq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
+            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+        }else if(irOp == ASSIGNEQ){
+            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,rightCallRetVar,nullptr,leftVarSymbol));
         }else {
             throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
         }
@@ -504,20 +510,22 @@ public:
         }else if(irOp == LOGICALOR){
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == ADD_EQ){
-            instrs.push_back(std::make_shared<IRAddEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == SUB_EQ){
-            instrs.push_back(std::make_shared<IRSubEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MUL_EQ){
-            instrs.push_back(std::make_shared<IRMulEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == DIV_EQ){
-            instrs.push_back(std::make_shared<IRDivEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
         }else if(irOp == MOD_EQ){
-            instrs.push_back(std::make_shared<IRModEq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
+            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
             instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,resultVar,nullptr,leftVarSymbol));
+        }else if(irOp == ASSIGNEQ){
+            instrs.push_back(std::make_shared<IRStore>(leftVarSymbol->type,rightLiteral,nullptr,leftVarSymbol));
         }else {
             throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
         }
