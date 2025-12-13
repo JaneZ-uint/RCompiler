@@ -467,9 +467,13 @@ public:
         }
     }
 
-    void leftLoadRightLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, long long int res){
+    void leftLoadRightLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, long long int res,bool isleftCall ){
         auto leftLoadedVar = std::make_shared<IRVar>();
-        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+        if(isleftCall){
+            leftLoadedVar = leftVarSymbol;
+        }else{
+            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+        }
         auto resultVar = std::make_shared<IRVar>();
         IROp irOp = turnBinaryOp(op);
         auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res);
@@ -606,31 +610,26 @@ public:
                     auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
                     auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
                     if(leftVarSymbol && rightVarSymbol){
-                        //both are variable
                         bothLoad(instrs, leftVarSymbol, rightVarSymbol, node.op);
                     }else if(leftVarSymbol && !rightVarSymbol){
-                        //right is constant
                         long long int res = currentScope->lookupConstantSymbol(rightVarName);
-                        leftLoadRightLiteral(instrs, leftVarSymbol, rightVarSymbol, node.op, res);
+                        leftLoadRightLiteral(instrs, leftVarSymbol, rightVarSymbol, node.op, res,false);
                     }else if(!leftVarSymbol && rightVarSymbol){
-                        //left is constant
                         long long int res = currentScope->lookupConstantSymbol(leftVarName);
                         leftLiteralRightLoad(instrs, leftVarSymbol, rightVarSymbol, node.op, res,false);
                     }else if(!leftVarSymbol && !rightVarSymbol){
-                        //both are constant
                         long long int leftRes = currentScope->lookupConstantSymbol(leftVarName);
                         long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
                         bothLiteral(instrs, leftRes, rightRes, node.op);
                     }
                 }
             }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
-                //todo left is path right is literal
                 if(leftPath->pathFirst->pathSegments.type == IDENTIFIER){
                     std::string leftVarName = leftPath->pathFirst->pathSegments.identifier;
                     auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
                     if(leftVarSymbol){
                         long long int res = rightLiteral->constValue;
-                        leftLoadRightLiteral(instrs, leftVarSymbol, nullptr, node.op, res);
+                        leftLoadRightLiteral(instrs, leftVarSymbol, nullptr, node.op, res,false);
                     }else{
                         long long int leftRes = currentScope->lookupConstantSymbol(leftVarName);
                         long long int rightRes = rightLiteral->constValue;
@@ -638,10 +637,8 @@ public:
                     }
                 }
             }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
-                //todo
                 auto callInstrs = visit(*rightCall);
-                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() -1])){
-                    //todo 
+                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
                     auto rightCallRetVar = callLastInstr->retVar;
                     if(leftPath->pathFirst->pathSegments.type == IDENTIFIER){
                         std::string leftVarName = leftPath->pathFirst->pathSegments.identifier;
@@ -662,7 +659,135 @@ public:
                         }
                     }
                 }
+            }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
+                //todo
             }
+        }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *node.left)){
+            if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
+                if(rightPath->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string rightVarName = rightPath->pathFirst->pathSegments.identifier;
+                    auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
+                    if(rightVarSymbol){
+                        long long int res = leftLiteral->constValue;
+                        leftLiteralRightLoad(instrs, nullptr, rightVarSymbol, node.op, res,false);
+                    }else{
+                        long long int leftRes = leftLiteral->constValue;
+                        long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                        bothLiteral(instrs, leftRes, rightRes, node.op);
+                    }
+                }
+            }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
+                long long int leftRes = leftLiteral->constValue;
+                long long int rightRes = rightLiteral->constValue;
+                bothLiteral(instrs, leftRes, rightRes, node.op);
+            }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
+                auto callInstrs = visit(*rightCall);
+                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
+                    auto rightCallRetVar = callLastInstr->retVar;
+                    long long int res = leftLiteral->constValue;
+                    for(auto & instr : callInstrs){
+                        instrs.push_back(instr);
+                    }
+                    leftLiteralRightLoad(instrs, nullptr, rightCallRetVar, node.op, res,true);
+                }
+            }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
+                //todo
+            }
+        }else if(auto *leftCall = dynamic_cast<ExprCall *>(& *node.left)){
+            if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
+                auto callInstrs = visit(*leftCall);
+                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
+                    auto leftCallRetVar = callLastInstr->retVar;
+                    if(rightPath->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string rightVarName = rightPath->pathFirst->pathSegments.identifier;
+                        auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
+                        if(rightVarSymbol){
+                            for(auto & instr : callInstrs){
+                                instrs.push_back(instr);
+                            }
+                            auto rightLoadedVar = std::make_shared<IRVar>();
+                            instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
+                            bothLoadForCall(instrs, rightVarSymbol,leftCallRetVar, rightLoadedVar, node.op);
+                        }else{
+                            long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                            for(auto & instr : callInstrs){
+                                instrs.push_back(instr);
+                            }
+                            leftLoadRightLiteral(instrs, leftCallRetVar, nullptr, node.op, rightRes,true);
+                        }
+                    }
+                }
+            }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
+                auto callInstrs = visit(*leftCall);
+                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
+                    auto leftCallRetVar = callLastInstr->retVar;
+                    long long int res = rightLiteral->constValue;
+                    for(auto & instr : callInstrs){
+                        instrs.push_back(instr);
+                    }
+                    leftLoadRightLiteral(instrs, leftCallRetVar, nullptr, node.op, res,true);
+                }
+            }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
+                auto leftCallInstrs = visit(*leftCall);
+                auto rightCallInstrs = visit(*rightCall);
+                if(auto *leftCallLastInstr = dynamic_cast<IRCall *>(& *leftCallInstrs[leftCallInstrs.size() - 1])){
+                    if(auto *rightCallLastInstr = dynamic_cast<IRCall *>(& *rightCallInstrs[rightCallInstrs.size() - 1])){
+                        auto leftCallRetVar = leftCallLastInstr->retVar;
+                        auto rightCallRetVar = rightCallLastInstr->retVar;
+                        for(auto & instr : leftCallInstrs){
+                            instrs.push_back(instr);
+                        }
+                        for(auto & instr : rightCallInstrs){
+                            instrs.push_back(instr);
+                        }
+                        bothLoadForCall(instrs, leftCallRetVar,leftCallRetVar, rightCallRetVar, node.op);
+                    }
+                }
+            }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
+                //todo
+            }
+        }else if(auto *leftMethodCall = dynamic_cast<ExprMethodcall *>(& *node.left)){
+            //todo
+        }else if(auto *leftOpBinary = dynamic_cast<ExprOpbinary *>(& *node.left)){
+            //todo nested binary op
+            std::vector<std::shared_ptr<IRNode>> leftInstrs = visit(*leftOpBinary);
+            for(auto & instr : leftInstrs){
+                instrs.push_back(instr);
+            }
+            if(auto *leftLastInster = dynamic_cast<IRBinaryop *>(& *leftInstrs[leftInstrs.size() -1]) ){
+                auto leftRetVar = leftLastInster->result;
+                if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
+                    if(rightPath->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string rightVarName = rightPath->pathFirst->pathSegments.identifier;
+                        auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
+                        if(rightVarSymbol){
+                            auto rightLoadedVar = std::make_shared<IRVar>();
+                            instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
+                            bothLoadForCall(instrs, rightVarSymbol,leftRetVar, rightLoadedVar, node.op);
+                        }else{
+                            long long int res = currentScope->lookupConstantSymbol(rightVarName);
+                            leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
+                        }
+                    }
+                }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
+                    long long int res = rightLiteral->constValue;
+                    leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
+                }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
+                    auto rightCallInstrs = visit(*rightCall);
+                    if(auto *rightCallLastInstr = dynamic_cast<IRCall *>(& *rightCallInstrs[rightCallInstrs.size() - 1])){
+                        auto rightCallRetVar = rightCallLastInstr->retVar;
+                        for(auto & instr : rightCallInstrs){
+                            instrs.push_back(instr);
+                        }
+                        bothLoadForCall(instrs, leftRetVar,leftRetVar, rightCallRetVar, node.op);
+                    }
+                }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
+                    //todo
+                }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
+                    //todo nested binary op on right
+                }
+            }
+
         }
         auto leftInstrs = visit(*node.left);
         auto rightInstrs = visit(*node.right);
