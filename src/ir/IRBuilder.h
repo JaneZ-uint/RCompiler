@@ -444,6 +444,7 @@ public:
                         }
                     }
                 }
+                // todo exoression without block required here
                 blocks.push_back(elseBlock);
                 for(auto &blk: elseBlock->blockList){
                     blocks.push_back(blk);
@@ -473,7 +474,120 @@ public:
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprLiteral &node);
 
-    std::shared_ptr<IRBlock> visit(ExprLoop &node);
+    std::shared_ptr<IRBlock> visit(ExprLoop &node){
+        auto loopBlock = std::make_shared<IRBlock>();
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        std::vector<std::shared_ptr<IRBlock>> blocks;
+        auto condBlock = std::make_shared<IRBlock>();
+        instrs.push_back(std::make_shared<IRBr>(condBlock));
+        bool isTrue = false;
+        auto condVar = std::make_shared<IRVar>();
+        if(auto *p = dynamic_cast<ExprOpbinary *>(& *node.condition)){
+            auto condInstrs = visit(*p);
+            for(auto & instr : condInstrs){
+                condBlock->instrList.push_back(instr);
+            }
+            auto lastInstr = condInstrs[condInstrs.size() - 1];
+            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                condVar = q->result;
+            }
+        }else if(auto *p = dynamic_cast<ExprPath *>(& *node.condition)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                std::string varName = p->pathFirst->pathSegments.identifier;
+                auto currentVar = currentScope->lookupValueSymbol(varName);
+                //todo trunc
+                if(varName == "true"){
+                    isTrue = true;
+                }else{
+                    auto tmp = std::make_shared<IRVar>();
+                    condBlock->instrList.push_back(std::make_shared<IRLoad>(tmp, currentVar, currentVar->type));
+                    condBlock->instrList.push_back(std::make_shared<IRTrunc>(currentVar->type, tmp, currentScope->lookupTypeSymbol("BOOL"), condVar));
+                }
+            }
+        }
+        // br required here
+        //special judge for while(true)
+        auto loopScope = std::make_shared<IRScope>();
+        loopScope->parent = currentScope;
+        currentScope->children.push_back(loopScope);
+        currentScope = loopScope;
+        if(node.PredicateLoopExpression){
+            auto bodyBlock = std::make_shared<IRBlock>();
+            //先不管isTrue
+            for(auto &stmt: node.PredicateLoopExpression->statements){
+                if(auto *exprStmt = dynamic_cast<StmtExpr *>(& *stmt)){
+                    if(auto *ifExpr = dynamic_cast<ExprIf *>(& *exprStmt->stmtExpr)){
+                        if(bodyBlock->blockList.empty()){
+                            auto nestedIfBlock = visit(*ifExpr);
+                            for(auto & instr : nestedIfBlock->instrList){
+                                bodyBlock->instrList.push_back(instr);
+                            }
+                            for(auto & block : nestedIfBlock->blockList){
+                                bodyBlock->blockList.push_back(block);
+                            }
+                        }else{
+                            auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
+                            auto nestedIfBlock = visit(*ifExpr);
+                            for(auto & instr : nestedIfBlock->instrList){
+                                lastBlock->instrList.push_back(instr);
+                            }
+                            for(auto & block : nestedIfBlock->blockList){
+                                bodyBlock->blockList.push_back(block);
+                            }
+                        }
+                    }else if(auto *loopExpr = dynamic_cast<ExprLoop *>(& *exprStmt->stmtExpr)){
+                        if(bodyBlock->blockList.empty()){
+                            auto nestedLoopBlock = visit(*loopExpr);
+                            for(auto & instr : nestedLoopBlock->instrList){
+                                bodyBlock->instrList.push_back(instr);
+                            }
+                            for(auto & block : nestedLoopBlock->blockList){
+                                bodyBlock->blockList.push_back(block);
+                            }
+                        }else{
+                            auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
+                            auto nestedLoopBlock = visit(*loopExpr);
+                            for(auto & instr : nestedLoopBlock->instrList){
+                                lastBlock->instrList.push_back(instr);
+                            }
+                            for(auto & block : nestedLoopBlock->blockList){
+                                bodyBlock->blockList.push_back(block);
+                            }
+                        }
+                    }else {
+                        auto stmtInstrs = visit(*exprStmt->stmtExpr);
+                        if(bodyBlock->blockList.empty()){
+                            for(auto & instr : stmtInstrs){
+                                bodyBlock->instrList.push_back(instr);
+                            }
+                        }else{
+                            auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
+                            for(auto & instr : stmtInstrs){
+                                lastBlock->instrList.push_back(instr);
+                            }
+                        }
+                    }
+                }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
+                    auto stmtInstrs = visit(*letStmt);
+                    if(bodyBlock->blockList.empty()){
+                        for(auto & instr : stmtInstrs){
+                            bodyBlock->instrList.push_back(instr);
+                        }
+                    }else{
+                        auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
+                        for(auto & instr : stmtInstrs){
+                            lastBlock->instrList.push_back(instr);
+                        }
+                    }
+                }
+            }
+            // todo exoression without block required here
+            blocks.push_back(bodyBlock);
+            for(auto &blk: bodyBlock->blockList){
+                blocks.push_back(blk);
+            }
+        }
+    }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprMethodcall &node);
 

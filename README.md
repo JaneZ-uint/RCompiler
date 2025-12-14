@@ -19,7 +19,6 @@ A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 - IRTree build
 - LLVM-IR Generation
 
-- [ ] As_cast Expr
 - [ ] Array & Index Expr
 - [ ] Struct
 - [ ] Self Type
