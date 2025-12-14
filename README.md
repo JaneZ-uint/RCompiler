@@ -16,8 +16,15 @@ A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
 - Type checking
 - Borrow checking
 ### IR Generation
-- IRNode build
+- IRTree build
 - LLVM-IR Generation
+
+- [ ] As_cast Expr
+- [ ] Array & Index Expr
+- [ ] Struct
+- [ ] Self Type
+- [ ] Pointer Type
+- [ ] Loop Block
 
 ## Base
 The project is based on [RLanguage Reference](https://github.com/peterzheng98/RCompiler-Spec/).

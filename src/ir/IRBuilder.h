@@ -191,6 +191,7 @@ public:
         auto currentCallInstr = std::make_shared<IRCall>();
         currentCallInstr->function = currentIRFunc;
         auto callRet = std::make_shared<IRVar>();
+        callRet->type = currentIRFunc->retType;
         currentCallInstr->retVar = callRet;
         for(auto & arg : node.callParams){
             //TODO process arguments
@@ -201,8 +202,8 @@ public:
                     //TODO load instruction
                     if(varSymbol == nullptr){
                         //constant
-                        long long int res = currentScope->lookupConstantSymbol(varName);
-                        currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, res));
+                        constInfo res = currentScope->lookupConstantSymbol(varName);
+                        currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, res.value));
                         continue;
                     }
                     auto currentParamVar = std::make_shared<IRVar>();
@@ -236,7 +237,9 @@ public:
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprContinue &node);
 
-    std::vector<std::shared_ptr<IRNode>> visit(ExprField &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprField &node){
+
+    }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprGroup &node){
         return {};
@@ -315,7 +318,10 @@ public:
 
         }
     }
-    std::vector<std::shared_ptr<IRNode>> visit(ExprIndex &node);
+
+    std::vector<std::shared_ptr<IRNode>> visit(ExprIndex &node){
+
+    }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprLiteral &node);
 
@@ -362,6 +368,8 @@ public:
             return LOGICALOR;
         }else if(op == ASSIGN){
             return ASSIGNEQ;
+        }else if(op == AS_CAST){
+            return ASCAST;
         }
         throw std::runtime_error("IRBuilder turnBinaryOp error: unknown binary op");
     }
@@ -369,36 +377,51 @@ public:
     void bothLoad(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op){
         auto leftLoadedVar = std::make_shared<IRVar>();
         auto rightLoadedVar = std::make_shared<IRVar>();
+        leftLoadedVar->type = leftVarSymbol->type;
+        rightLoadedVar->type = rightVarSymbol->type;
         instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
         instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
         auto resultVar = std::make_shared<IRVar>();
         //todo get binary op
         IROp irOp = turnBinaryOp(op);
         if(irOp == ADD){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == SUB){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));   
         }else if(irOp == MUL){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == DIV){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));   
         }else if(irOp == MOD){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == EQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IREq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == NEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRNeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == LT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLt>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == LEQ){  
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == GT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGt>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == GEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGeq>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == LOGICALAND){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalAnd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));    
         }else if(irOp == LOGICALOR){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == ADD_EQ){
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightLoadedVar, nullptr, resultVar));
@@ -426,30 +449,43 @@ public:
         auto resultVar = std::make_shared<IRVar>();
         IROp irOp = turnBinaryOp(op);
         if(irOp == ADD){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == SUB){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));   
         }else if(irOp == MUL){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == DIV){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));   
         }else if(irOp == MOD){
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == EQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IREq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));    
         }else if(irOp == NEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRNeq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));    
         }else if(irOp == LT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLt>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));    
         }else if(irOp == LEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLeq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == GT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGt>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == GEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGeq>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == LOGICALAND){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalAnd>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == LOGICALOR){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
         }else if(irOp == ADD_EQ){
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr, rightCallRetVar, nullptr, resultVar));
@@ -473,7 +509,7 @@ public:
         }
     }
 
-    void leftLoadRightLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, long long int res,bool isleftCall ){
+    void leftLoadRightLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, constInfo res,bool isleftCall ){
         auto leftLoadedVar = std::make_shared<IRVar>();
         if(isleftCall){
             leftLoadedVar = leftVarSymbol;
@@ -482,32 +518,50 @@ public:
         }
         auto resultVar = std::make_shared<IRVar>();
         IROp irOp = turnBinaryOp(op);
-        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res);
+        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res.value);
         if(irOp == ADD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == SUB){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));   
         }else if(irOp == MUL){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == DIV){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,rightLiteral, resultVar));
         }else if(irOp == MOD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));  
         }else if(irOp == EQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IREq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));    
         }else if(irOp == NEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRNeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));    
         }else if(irOp == LT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLt>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == LEQ){  
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == GT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGt>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == GEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGeq>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == LOGICALAND){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalAnd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == LOGICALOR){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalOr>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
         }else if(irOp == ADD_EQ){
             instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr, rightLiteral, resultVar));
@@ -531,7 +585,7 @@ public:
         }
     }
 
-    void leftLiteralRightLoad(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, long long int res,bool isRightCall ){
+    void leftLiteralRightLoad(std::vector<std::shared_ptr<IRNode>> &instrs,std::shared_ptr<IRVar> leftVarSymbol, std::shared_ptr<IRVar> rightVarSymbol,binaryOp op, constInfo res,bool isRightCall ){
         auto rightLoadedVar = std::make_shared<IRVar>();
         if(isRightCall){
             rightLoadedVar = rightVarSymbol;
@@ -540,68 +594,114 @@ public:
         }
         auto resultVar = std::make_shared<IRVar>();
         IROp irOp = turnBinaryOp(op);
-        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res);
+        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, res.value);
         if(irOp == ADD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = rightVarSymbol->type; 
             instrs.push_back(std::make_shared<IRAdd>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == SUB){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = rightVarSymbol->type;
             instrs.push_back(std::make_shared<IRSub>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == MUL){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = rightVarSymbol->type;
             instrs.push_back(std::make_shared<IRMul>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == DIV){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = rightVarSymbol->type;
             instrs.push_back(std::make_shared<IRDiv>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == MOD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = rightVarSymbol->type;
             instrs.push_back(std::make_shared<IRMod>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == EQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IREq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == NEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRNeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == LT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLt>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == LEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == GT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGt>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == GEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGeq>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == LOGICALAND){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalAnd>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else if(irOp == LOGICALOR){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalOr>(nullptr,leftLiteral, rightLoadedVar, nullptr, resultVar));
         }else {
             throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
         }
     }
 
-    void bothLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,long long int leftRes, long long int rightRes,binaryOp op){
+    void bothLiteral(std::vector<std::shared_ptr<IRNode>> &instrs,constInfo leftRes, constInfo rightRes,binaryOp op){
         auto resultVar = std::make_shared<IRVar>();
         IROp irOp = turnBinaryOp(op);
-        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, leftRes);
-        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, rightRes);
+        auto leftLiteral = std::make_shared<IRLiteral>(INT_LITERAL, leftRes.value);
+        auto rightLiteral = std::make_shared<IRLiteral>(INT_LITERAL, rightRes.value);
+        std::string typeName;
+        if(leftRes.type == "null" && rightRes.type == "null"){
+            typeName = "i32";
+        }else if(leftRes.type == "null"){
+            typeName = rightRes.type;
+        }else if(rightRes.type == "null"){
+            typeName = leftRes.type;
+        }else {
+            typeName = leftRes.type;
+        }
         if(irOp == ADD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = currentScope->lookupTypeSymbol(typeName);
             instrs.push_back(std::make_shared<IRAdd>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == SUB){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = currentScope->lookupTypeSymbol(typeName);
             instrs.push_back(std::make_shared<IRSub>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == MUL){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = currentScope->lookupTypeSymbol(typeName);
             instrs.push_back(std::make_shared<IRMul>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == DIV){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = currentScope->lookupTypeSymbol(typeName);
             instrs.push_back(std::make_shared<IRDiv>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == MOD){
+            //resultVar->type = currentScope->lookupTypeSymbol("usize");
+            resultVar->type = currentScope->lookupTypeSymbol(typeName);
             instrs.push_back(std::make_shared<IRMod>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == EQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IREq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == NEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRNeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == LT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLt>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == LEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == GT){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGt>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == GEQ){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRGeq>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == LOGICALAND){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalAnd>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else if(irOp == LOGICALOR){
+            resultVar->type = currentScope->lookupTypeSymbol("BOOL");
             instrs.push_back(std::make_shared<IRLogicalOr>(nullptr,leftLiteral, nullptr, rightLiteral, resultVar));
         }else {
             throw std::runtime_error("IRBuilder visit ExprOpbinary error: unknown binary op");
@@ -620,14 +720,30 @@ public:
                     if(leftVarSymbol && rightVarSymbol){
                         bothLoad(instrs, leftVarSymbol, rightVarSymbol, node.op);
                     }else if(leftVarSymbol && !rightVarSymbol){
-                        long long int res = currentScope->lookupConstantSymbol(rightVarName);
-                        leftLoadRightLiteral(instrs, leftVarSymbol, rightVarSymbol, node.op, res,false);
+                        if(rightVarName == "usize" || rightVarName == "isize" ){
+                            if(node.op == AS_CAST){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                //todo cast instr
+                            }
+                        }else if(rightVarName == "u32" || rightVarName == "i32" ){
+                            if(node.op == AS_CAST){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                //
+                            }
+                        }else{
+                            constInfo res = currentScope->lookupConstantSymbol(rightVarName);
+                            leftLoadRightLiteral(instrs, leftVarSymbol, rightVarSymbol, node.op, res,false);
+                        }
                     }else if(!leftVarSymbol && rightVarSymbol){
-                        long long int res = currentScope->lookupConstantSymbol(leftVarName);
+                        constInfo res = currentScope->lookupConstantSymbol(leftVarName);
                         leftLiteralRightLoad(instrs, leftVarSymbol, rightVarSymbol, node.op, res,false);
                     }else if(!leftVarSymbol && !rightVarSymbol){
-                        long long int leftRes = currentScope->lookupConstantSymbol(leftVarName);
-                        long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                        constInfo leftRes = currentScope->lookupConstantSymbol(leftVarName);
+                        constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
                         bothLiteral(instrs, leftRes, rightRes, node.op);
                     }
                 }
@@ -637,10 +753,13 @@ public:
                     auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
                     if(leftVarSymbol){
                         long long int res = rightLiteral->constValue;
-                        leftLoadRightLiteral(instrs, leftVarSymbol, nullptr, node.op, res,false);
+                        constInfo rightRes;
+                        rightRes.value = res;
+                        rightRes.type = "i32";
+                        leftLoadRightLiteral(instrs, leftVarSymbol, nullptr, node.op, rightRes,false);
                     }else{
-                        long long int leftRes = currentScope->lookupConstantSymbol(leftVarName);
-                        long long int rightRes = rightLiteral->constValue;
+                        constInfo leftRes = currentScope->lookupConstantSymbol(leftVarName);
+                        constInfo rightRes = {rightLiteral->constValue, "null"};
                         bothLiteral(instrs, leftRes, rightRes, node.op);
                     }
                 }
@@ -653,13 +772,14 @@ public:
                         auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
                         if(leftVarSymbol){
                             auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftVarSymbol->type;
                             instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                             for(auto & instr : callInstrs){
                                 instrs.push_back(instr);
                             }
                             bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightCallRetVar, node.op);
                         }else{
-                            long long int res = currentScope->lookupConstantSymbol(leftVarName);
+                            constInfo res = currentScope->lookupConstantSymbol(leftVarName);
                             for(auto & instr : callInstrs){
                                 instrs.push_back(instr);
                             }
@@ -687,7 +807,7 @@ public:
                             bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
                         }
                     }else{
-                        long long int res = currentScope->lookupConstantSymbol(leftVarName);
+                        constInfo res = currentScope->lookupConstantSymbol(leftVarName);
                         std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
                         for(auto & instr : rightInstrs){
                             instrs.push_back(instr);
@@ -706,23 +826,23 @@ public:
                     std::string rightVarName = rightPath->pathFirst->pathSegments.identifier;
                     auto rightVarSymbol = currentScope->lookupValueSymbol(rightVarName);
                     if(rightVarSymbol){
-                        long long int res = leftLiteral->constValue;
+                        constInfo res = {leftLiteral->constValue,"null"};
                         leftLiteralRightLoad(instrs, nullptr, rightVarSymbol, node.op, res,false);
                     }else{
-                        long long int leftRes = leftLiteral->constValue;
-                        long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                        constInfo leftRes = {leftLiteral->constValue,"null"};
+                        constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
                         bothLiteral(instrs, leftRes, rightRes, node.op);
                     }
                 }
             }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
-                long long int leftRes = leftLiteral->constValue;
-                long long int rightRes = rightLiteral->constValue;
+                constInfo leftRes = {leftLiteral->constValue,"null"};
+                constInfo rightRes = {rightLiteral->constValue,"null"};
                 bothLiteral(instrs, leftRes, rightRes, node.op);
             }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
                 auto callInstrs = visit(*rightCall);
                 if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
                     auto rightCallRetVar = callLastInstr->retVar;
-                    long long int res = leftLiteral->constValue;
+                    constInfo res = {leftLiteral->constValue, "null"};
                     for(auto & instr : callInstrs){
                         instrs.push_back(instr);
                     }
@@ -732,7 +852,7 @@ public:
                 //todo
             }else if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *node.right)){
                 //todo nested binary op
-                long long int leftRes = leftLiteral->constValue;
+                constInfo leftRes = {leftLiteral->constValue, "null"};
                 std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
                 for(auto & instr : rightInstrs){
                     instrs.push_back(instr);
@@ -759,7 +879,7 @@ public:
                             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
                             bothLoadForCall(instrs, rightVarSymbol,leftCallRetVar, rightLoadedVar, node.op);
                         }else{
-                            long long int rightRes = currentScope->lookupConstantSymbol(rightVarName);
+                            constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
                             for(auto & instr : callInstrs){
                                 instrs.push_back(instr);
                             }
@@ -771,7 +891,7 @@ public:
                 auto callInstrs = visit(*leftCall);
                 if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
                     auto leftCallRetVar = callLastInstr->retVar;
-                    long long int res = rightLiteral->constValue;
+                    constInfo res = {rightLiteral->constValue, "null"};
                     for(auto & instr : callInstrs){
                         instrs.push_back(instr);
                     }
@@ -832,12 +952,12 @@ public:
                             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
                             bothLoadForCall(instrs, rightVarSymbol,leftRetVar, rightLoadedVar, node.op);
                         }else{
-                            long long int res = currentScope->lookupConstantSymbol(rightVarName);
+                            constInfo res = currentScope->lookupConstantSymbol(rightVarName);
                             leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
                         }
                     }
                 }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
-                    long long int res = rightLiteral->constValue;
+                    constInfo res = {rightLiteral->constValue, "null"};
                     leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
                 }else if(auto *rightCall = dynamic_cast<ExprCall *>(& *node.right)){
                     auto rightCallInstrs = visit(*rightCall);
@@ -846,7 +966,7 @@ public:
                         for(auto & instr : rightCallInstrs){
                             instrs.push_back(instr);
                         }
-                        bothLoadForCall(instrs, leftRetVar,leftRetVar, rightCallRetVar, node.op);
+                        bothLoadForCall(instrs, rightCallRetVar,leftRetVar, rightCallRetVar, node.op);
                     }
                 }else if(auto *rightMethodCall = dynamic_cast<ExprMethodcall *>(& *node.right)){
                     //todo
@@ -899,17 +1019,38 @@ public:
 
     std::shared_ptr<IRNode> visit(ItemEnumDecl &node);
 
+    // function param not adding to func irscope here
     std::shared_ptr<IRFunction> visit(ItemFnDecl &node){
         auto currentIRFunc = currentScope->lookupFunctionSymbol(node.identifier);
         auto funcScope = std::make_shared<IRScope>();
         funcScope->parent = currentScope;
         currentScope->children.push_back(funcScope);
         currentScope = funcScope;
+        //add parameters to func scope
+        for(auto &param: currentIRFunc->paramList->paramList){
+            //todo
+            if(auto p = std::dynamic_pointer_cast<IRVar>(param)){
+                currentScope->addValueSymbol(p->varName, p);
+            }
+        }
         if(node.fnBody){
             for(auto & stmt : node.fnBody->statements){
                 if(auto *itemStmt = dynamic_cast<StmtItem *>(& *stmt)){
                     if(auto *p = dynamic_cast<ItemConstDecl *>(& *itemStmt)){
-                        currentScope->addConstantSymbol(p->identifier, p->value);
+                        constInfo info;
+                        if(auto *tp = dynamic_cast<Type *>(& *p->type)){
+                            if(tp->type == U32){
+                                info.type = "u32";
+                            }else if(tp->type == I32){
+                                info.type = "i32";
+                            }else if(tp->type == USIZE){
+                                info.type = "usize";
+                            }else if(tp->type == ISIZE){
+                                info.type = "isize";
+                            }
+                        }
+                        info.value = p->value;
+                        currentScope->addConstantSymbol(p->identifier, info);
                     }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& *itemStmt)){
                         //todo idk just wait and see
                     }else if(auto *p = dynamic_cast<ItemFnDecl *>(& *itemStmt)){

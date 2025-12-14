@@ -349,3 +349,17 @@ int main() {
 
     return failed == 0 ? 0 : 1;
 }
+
+/*int main(){
+    JaneZ::Simplifier simplifier("../tmp.cpp");
+    std::string source_code = simplifier.work();
+
+    JaneZ::Lexer lexer(source_code);
+    auto tokens = lexer.work();
+
+    JaneZ::Parser parser(tokens);
+    auto root = parser.parse();
+    
+    JaneZ::PrintVisitor print_visitor;
+    print_visitor.visit(*root);
+}*/

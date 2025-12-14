@@ -8,6 +8,11 @@
 # include <stdexcept>
 
 namespace JaneZ {
+struct constInfo{
+    long long int value;
+    std::string type;
+};
+
 class IRScope {
 public:
     std::shared_ptr<IRScope> parent = nullptr;
@@ -16,7 +21,7 @@ public:
     std::unordered_map<std::string, std::shared_ptr<IRType>> type_table;
     std::unordered_map<std::string, std::shared_ptr<IRVar>> value_table;
     std::unordered_map<std::string, std::shared_ptr<IRFunction>> function_table;
-    std::unordered_map<std::string ,long long int> constant_table;
+    std::unordered_map<std::string ,constInfo> constant_table;
 
     IRScope() = default;
 
@@ -41,7 +46,7 @@ public:
         function_table[name] = func;
     }
 
-    void addConstantSymbol(const std::string &name, long long int value) {
+    void addConstantSymbol(const std::string &name, constInfo value) {
         if(constant_table.find(name) != constant_table.end()) {
             throw std::runtime_error("Constant " + name + " already defined in this scope.");
         }
@@ -78,7 +83,7 @@ public:
         }
     }
 
-    long long int lookupConstantSymbol(const std::string &name) {
+    constInfo lookupConstantSymbol(const std::string &name) {
         if(constant_table.find(name) != constant_table.end()) {
             return constant_table[name];
         } else if(parent != nullptr) {

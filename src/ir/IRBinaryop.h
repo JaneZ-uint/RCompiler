@@ -28,6 +28,7 @@ enum IROp{
     LOGICALAND,
     LOGICALOR,
     ASSIGNEQ,
+    ASCAST,
 };
 
 class IRBinaryop : public IRNode {

@@ -79,7 +79,20 @@ public:
     }
 
     void visit(ItemConstDecl &node){
-        globalScope->addConstantSymbol(node.identifier, node.value);
+        constInfo info;
+        if(auto *p = dynamic_cast<Type *>(& *node.type)){
+            //only primitive const for now
+            if(p->type == I32){
+                info.type = "i32";
+            }else if(p->type == U32){
+                info.type = "u32";
+            }else if(p->type == ISIZE){
+                info.type = "isize";
+            }else if(p->type == USIZE){
+                info.type = "usize";
+            }
+        }
+        globalScope->addConstantSymbol(node.identifier, info);
     }
 
     void visit(ItemEnumDecl &node){
@@ -161,6 +174,22 @@ public:
                             }
                             //processing the function body is needed.
                             //TODO 
+                            auto fnScope = std::make_shared<IRScope>();
+                            fnScope->parent = globalScope;
+                            globalScope->children.push_back(fnScope);
+                            if(itemFn->fnParameters.SelfParam.isShortSelf){
+                                //todo deal with self
+                                auto currentSelf = std::make_shared<IRVar>();
+                                currentSelf->varName = "self";
+                                currentSelf->reName = "self";
+                                currentSelf->type = structType;
+                                fnScope->addValueSymbol("self", currentSelf);
+                            }
+                            for(auto& param : paramList->paramList){
+                                if(auto varParam = std::dynamic_pointer_cast<IRVar>(param)){
+                                    fnScope->addValueSymbol(varParam->varName, varParam);
+                                }
+                            }
                             structType->memberFunctions.push_back(std::make_shared<IRFunction>(retType,funcName,paramList));
                         }
                     }
