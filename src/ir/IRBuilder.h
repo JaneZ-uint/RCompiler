@@ -58,6 +58,8 @@
 #include "IRTrunc.h"
 #include "IRBlock.h"
 #include "IRBr.h"
+#include "IRSext.h"
+#include "IRZext.h"
 #include "IRReturn.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
@@ -726,13 +728,27 @@ public:
                                 instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                                 auto resultVar = std::make_shared<IRVar>();
                                 //todo cast instr
+                                if(leftVarSymbol->type == currentScope->lookupTypeSymbol("i32")){
+                                    instrs.push_back(std::make_shared<IRSext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
+                                    resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                }else if(leftVarSymbol->type == currentScope->lookupTypeSymbol("u32")){
+                                    instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
+                                    resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                }
                             }
                         }else if(rightVarName == "u32" || rightVarName == "i32" ){
                             if(node.op == AS_CAST){
                                 auto leftLoadedVar = std::make_shared<IRVar>();
                                 instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                                 auto resultVar = std::make_shared<IRVar>();
-                                //
+                                //todo cast instr
+                                if(leftVarSymbol->type == currentScope->lookupTypeSymbol("isize")){
+                                    instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("i32"), resultVar));
+                                    resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                }else if(leftVarSymbol->type == currentScope->lookupTypeSymbol("usize")){
+                                    instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("u32"), resultVar));
+                                    resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                }
                             }
                         }else{
                             constInfo res = currentScope->lookupConstantSymbol(rightVarName);
@@ -952,8 +968,38 @@ public:
                             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
                             bothLoadForCall(instrs, rightVarSymbol,leftRetVar, rightLoadedVar, node.op);
                         }else{
-                            constInfo res = currentScope->lookupConstantSymbol(rightVarName);
-                            leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
+                            if(rightVarName == "usize" || rightVarName == "isize" ){
+                                if(node.op == AS_CAST){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftRetVar, leftRetVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    //todo cast instr
+                                    if(leftRetVar->type == currentScope->lookupTypeSymbol("i32")){
+                                        instrs.push_back(std::make_shared<IRSext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
+                                        resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                    }else if(leftRetVar->type == currentScope->lookupTypeSymbol("u32")){
+                                        instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
+                                        resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                    }
+                                }
+                            }else if(rightVarName == "u32" || rightVarName == "i32" ){
+                                if(node.op == AS_CAST){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftRetVar, leftRetVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    //todo cast instr
+                                    if(leftRetVar->type == currentScope->lookupTypeSymbol("isize")){
+                                        instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("i32"), resultVar));
+                                        resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                    }else if(leftRetVar->type == currentScope->lookupTypeSymbol("usize")){  
+                                        instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("u32"), resultVar));
+                                        resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                    }
+                                }
+                            }else{
+                                constInfo res = currentScope->lookupConstantSymbol(rightVarName);
+                                leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, res,true);
+                            }
                         }
                     }
                 }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
