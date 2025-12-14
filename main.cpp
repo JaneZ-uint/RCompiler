@@ -283,6 +283,8 @@ void compare_results(const std::map<std::string, std::string> &expected,
 // ============================================================
 // 主函数（顺序测试 comprehensive1–50）
 // ============================================================
+int ir_cnt = 0;
+
 int main() {
     std::string base_dir = "../RCompiler-Testcases/semantic-2";
     int passed = 0, failed = 0, total = 0;

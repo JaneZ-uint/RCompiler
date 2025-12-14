@@ -17,6 +17,7 @@ public:
          std::shared_ptr<IRBlock> tLabel,
          std::shared_ptr<IRBlock> fLabel)
         : condition(std::move(cond)), trueLabel(std::move(tLabel)), falseLabel(std::move(fLabel)) {}
+    IRBr(std::shared_ptr<IRBlock> tLabel) : condition(nullptr), trueLabel(std::move(tLabel)), falseLabel(nullptr) {}
     ~IRBr() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);

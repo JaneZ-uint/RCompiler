@@ -4,25 +4,24 @@
 # include <vector>
 #include <memory>
 
+extern int ir_cnt;
+
 namespace JaneZ {
 class IRReturn;
 class IRBr;
 class IRBlock : public IRNode {
 public:
     std::vector<std::shared_ptr<IRNode>> instrList;
-    std::shared_ptr<IRReturn> retInstr;
-    std::shared_ptr<IRBr> brInstr;
+    std::vector<std::shared_ptr<IRBlock>> blockList;
     int label;
 
-    IRBlock() = default;
-    IRBlock(std::vector<std::shared_ptr<IRNode>> instrList,
-            std::shared_ptr<IRReturn> retInstr,
-            std::shared_ptr<IRBr> brInstr,
-            int label)
-        : instrList(std::move(instrList)),
-          retInstr(std::move(retInstr)),
-          brInstr(std::move(brInstr)),
-          label(label) {}
+    IRBlock() {
+        label = ir_cnt++;
+    }
+    IRBlock(std::vector<std::shared_ptr<IRNode>> instrList)
+        : instrList(std::move(instrList)){
+            label = ir_cnt++;
+    }
     ~IRBlock() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);
