@@ -3,6 +3,7 @@
 #include "../ast/astvisitor.h"
 #include "../ast/root.h"
 #include "../ast/Expression/ExprStruct.h"
+#include "../ast/Expression/ExprLiteral.h"
 #include "../ast/Expression/ExprMethodcall.h"
 #include "../ast/Expression/ExprPath.h"
 #include "../ast/Item/ItemConst.h"
@@ -251,7 +252,11 @@ public:
             currentType = resolveType(*node.type);
         }
         if(node.expr){
-            size = node.expr->constValue;
+            if(auto *p = dynamic_cast<ExprLiteral *>(& *node.expr)){
+                size = p->integer;
+            }else{
+                size = node.expr->constValue;
+            }
         }
         return std::make_shared<IRArrayType>(currentType, size);
     }

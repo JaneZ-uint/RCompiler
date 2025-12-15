@@ -285,7 +285,7 @@ void compare_results(const std::map<std::string, std::string> &expected,
 // ============================================================
 int ir_cnt = 0;
 
-int main() {
+/*int main() {
     std::string base_dir = "../RCompiler-Testcases/semantic-2";
     int passed = 0, failed = 0, total = 0;
 
@@ -350,9 +350,9 @@ int main() {
     compare_results(expected, actual_result);
 
     return failed == 0 ? 0 : 1;
-}
+}*/
 
-/*int main(){
+int main(){
     JaneZ::Simplifier simplifier("../tmp.cpp");
     std::string source_code = simplifier.work();
 
@@ -364,4 +364,4 @@ int main() {
     
     JaneZ::PrintVisitor print_visitor;
     print_visitor.visit(*root);
-}*/
+}
