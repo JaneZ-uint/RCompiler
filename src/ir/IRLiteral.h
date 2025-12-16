@@ -17,7 +17,7 @@ public:
 
     IRLiteral(IRLiteralType lt, long long iv = 0, bool bv = false)
         : IRNode(), literalType(lt), intValue(iv), boolValue(bv) {}
-    virtual ~IRLiteral() = default;
+    ~IRLiteral() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);
     }

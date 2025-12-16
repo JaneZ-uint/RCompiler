@@ -44,6 +44,7 @@
 #include "../ast/Type/TypeUnit.h"
 #include "IRAlloca.h"
 #include "IRFunction.h"
+#include "IRImpl.h"
 #include "IRLiteral.h"
 #include "IRNode.h"
 #include "IRParam.h"
@@ -115,6 +116,7 @@ public:
         irRoot = std::make_shared<IRRoot>();
         //may left with some special functions like print exit...
         for(auto & item : node.child){
+            //auto 
             irRoot->children.push_back(visit(*item));
         }
         return irRoot;
@@ -1884,7 +1886,8 @@ public:
     }
 
 
-    std::shared_ptr<IRNode> visit(ItemImplDecl &node){
+    std::shared_ptr<IRImpl> visit(ItemImplDecl &node){
+        std::shared_ptr<IRImpl> implNode = std::make_shared<IRImpl>();
         if(auto *p = dynamic_cast<ExprPath *>(& *node.targetType)){
             if(p->pathFirst->pathSegments.type == IDENTIFIER){
                 std::string structName = p->pathFirst->pathSegments.identifier;
@@ -1893,10 +1896,12 @@ public:
                     //todo add methods to structType
                     int j = 0;
                     if(auto *structType = dynamic_cast<IRStructType *>(& *Type)){
+                        implNode->mainStructType = Type;
                         for(int i = 0;i < structType->memberFunctions.size();i ++){
                             //todo finish method adding
                             if(node.item_trait_fn[j]->identifier == structType->memberFunctions[i]->name){
                                 structType->memberFunctions[i] = visit(*node.item_trait_fn[j]);
+                                implNode->functions.push_back(structType->memberFunctions[i]);
                                 j ++;
                             }
                         }
@@ -1904,7 +1909,7 @@ public:
                 }
             }
         }
-        return nullptr;
+        return implNode;
     }
 
     std::shared_ptr<IRNode> visit(ItemStructDecl &node){
