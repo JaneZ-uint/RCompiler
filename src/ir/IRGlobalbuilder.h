@@ -175,7 +175,7 @@ public:
                             }
                             //processing the function body is needed.
                             //TODO 
-                            auto fnScope = std::make_shared<IRScope>();
+                            /*auto fnScope = std::make_shared<IRScope>();
                             fnScope->parent = globalScope;
                             globalScope->children.push_back(fnScope);
                             if(itemFn->fnParameters.SelfParam.isShortSelf){
@@ -190,7 +190,7 @@ public:
                                 if(auto varParam = std::dynamic_pointer_cast<IRVar>(param)){
                                     fnScope->addValueSymbol(varParam->varName, varParam);
                                 }
-                            }
+                            }*/
                             structType->memberFunctions.push_back(std::make_shared<IRFunction>(retType,funcName,paramList));
                         }
                     }

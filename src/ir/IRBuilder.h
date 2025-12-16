@@ -1652,17 +1652,17 @@ public:
     //Item 
     std::shared_ptr<IRNode> visit(Item &node){
         if(auto *p = dynamic_cast<ItemConstDecl *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ItemEnumDecl *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ItemFnDecl *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ItemImplDecl *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ItemStructDecl *>(& node)) {    
-            visit(*p);
+            return visit(*p);
         }else if(auto *p = dynamic_cast<ItemTraitDecl *>(& node)) {
-            visit(*p);
+            return visit(*p);
         }else{
             throw std::runtime_error("IRBuilder visit Item error");
         }
@@ -1773,21 +1773,91 @@ public:
                 //todo todo todo !!!
                 if(auto *p = dynamic_cast<StmtExpr *>(& *stmt)){
                     //todo
+                    if(auto *q = dynamic_cast<ExprIf *>(& *p->stmtExpr)){
+                        auto IfBlocks = visit(*q);
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            for(auto &instr: IfBlocks->instrList){
+                                currentIRFunc->body->instrList.push_back(instr);
+                            }
+                            for(auto & block : IfBlocks->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }else{
+                            currentIRFunc->body->blockList.push_back(IfBlocks);
+                            for(auto & block : IfBlocks->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }
+                    }else if(auto *q = dynamic_cast<ExprLoop *>(& *p->stmtExpr)){
+                        auto LoopBlocks = visit(*q);
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            for(auto &instr: LoopBlocks->instrList){
+                                currentIRFunc->body->instrList.push_back(instr);
+                            }
+                            for(auto & block : LoopBlocks->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }else{
+                            currentIRFunc->body->blockList.push_back(LoopBlocks);
+                            for(auto & block : LoopBlocks->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }
+                    }else{
+                        auto exprInstrs = visit(*p->stmtExpr);
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            for(auto & instr : exprInstrs){
+                                currentIRFunc->body->instrList.push_back(instr);
+                            }
+                        }else{
+                            for(auto & instr : exprInstrs){
+                                currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                            }
+                        }
+                    }
+                }else if(auto *p = dynamic_cast<StmtLet *>(& *stmt)){
+                    auto letInstrs = visit(*p);
+                    if(currentIRFunc->body->blockList.size() == 0){
+                        for(auto & instr : letInstrs){
+                            currentIRFunc->body->instrList.push_back(instr);
+                        }
+                    }else{
+                        for(auto & instr : letInstrs){
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                        }
+                    }
                 }
             }
             if(node.fnBody->ExpressionWithoutBlock){
                 //todo about br instruction
             }
         }
-        //deal with return
-
+        //deal with return todo!
         currentScope = currentScope->parent;
+        return currentIRFunc;
     }
 
 
     std::shared_ptr<IRNode> visit(ItemImplDecl &node){
-        // no need to do anything
-        // I plan to do the IRFunction build in IRGlobalBuilder
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.targetType)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                std::string structName = p->pathFirst->pathSegments.identifier;
+                auto Type = currentScope->lookupTypeSymbol(structName);
+                if(Type){
+                    //todo add methods to structType
+                    int j = 0;
+                    if(auto *structType = dynamic_cast<IRStructType *>(& *Type)){
+                        for(int i = 0;i < structType->memberFunctions.size();i ++){
+                            //todo finish method adding
+                            if(node.item_trait_fn[j]->identifier == structType->memberFunctions[i]->name){
+                                structType->memberFunctions[i] = visit(*node.item_trait_fn[j]);
+                                j ++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         return nullptr;
     }
 
@@ -1842,9 +1912,7 @@ public:
         return {};
     }
 
-    std::vector<std::shared_ptr<IRNode>> visit(StmtExpr &node){
-        //TODO
-    }
+    std::vector<std::shared_ptr<IRNode>> visit(StmtExpr &node);
 
     std::vector<std::shared_ptr<IRNode>> visit(StmtItem &node){
         std::vector<std::shared_ptr<IRNode>> res;
@@ -1877,7 +1945,65 @@ public:
         currentScope->addValueSymbol(varName, currentVar);
         instrs.push_back(std::make_shared<IRAlloca>(varType,currentVar));
         //todo init expr
-
+        if(node.expression){
+            if(auto *exprPath = dynamic_cast<ExprPath *>(& *node.expression)){
+                if(exprPath->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string initVarName = exprPath->pathFirst->pathSegments.identifier;
+                    auto initVarSymbol = currentScope->lookupValueSymbol(initVarName);
+                    if(initVarSymbol){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, initVarSymbol, initVarSymbol->type));
+                        instrs.push_back(std::make_shared<IRStore>(currentVar, loadedVar, varType));
+                    }else{
+                        constInfo res = currentScope->lookupConstantSymbol(initVarName);
+                        auto literalVar = std::make_shared<IRLiteral>();
+                        literalVar->literalType = INT_LITERAL;
+                        literalVar->intValue = res.value;
+                        instrs.push_back(std::make_shared<IRStore>(currentVar,nullptr, literalVar, varType));
+                    }
+                }
+            }else if(auto *exprLiteral = dynamic_cast<ExprLiteral *>(& *node.expression)){
+                auto literalVar = std::make_shared<IRLiteral>();
+                literalVar->literalType = INT_LITERAL;
+                literalVar->intValue = exprLiteral->integer;
+                instrs.push_back(std::make_shared<IRStore>(currentVar,nullptr, literalVar, varType));
+            }else if(auto *exprCall = dynamic_cast<ExprCall *>(& *node.expression)){
+                auto callInstrs = visit(*exprCall);
+                if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
+                    auto callRetVar = callLastInstr->retVar;
+                    for(auto & instr : callInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto loadedVar = std::make_shared<IRVar>();
+                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, callRetVar, callRetVar->type));
+                    instrs.push_back(std::make_shared<IRStore>(currentVar, loadedVar, varType));
+                }
+            }else if(auto *exprMethodCall = dynamic_cast<ExprMethodcall *>(& *node.expression)){
+                auto methodCallInstrs = visit(*exprMethodCall);
+                auto lastInstr = methodCallInstrs[methodCallInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRCall *>(& *lastInstr)){
+                    auto methodCallRetVar = q->retVar;
+                    for(auto & instr : methodCallInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto loadedVar = std::make_shared<IRVar>();
+                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, methodCallRetVar, methodCallRetVar->type));
+                    instrs.push_back(std::make_shared<IRStore>(currentVar, loadedVar, varType));
+                }
+            }else if(auto *exprOpbinary = dynamic_cast<ExprOpbinary *>(& *node.expression)){
+                auto exprInstrs = visit(*exprOpbinary);
+                if(auto *exprLastInstr = dynamic_cast<IRBinaryop *>(& *exprInstrs[exprInstrs.size() - 1])){
+                    auto exprRetVar = exprLastInstr->result;
+                    for(auto & instr : exprInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto loadedVar = std::make_shared<IRVar>();
+                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, exprRetVar, exprRetVar->type));
+                    instrs.push_back(std::make_shared<IRStore>(currentVar, loadedVar, varType));
+                }
+            }
+        }
+        return instrs;
     }
 
     //Type
@@ -1927,18 +2053,7 @@ public:
         return std::make_shared<IRArrayType>(currentType, size);
     }
 
-    std::shared_ptr<IRStructType> visit(Path &node){
-        if(node.pathSegments.type == IDENTIFIER){
-            auto typeName = node.pathSegments.identifier;
-            auto structType = currentScope->lookupTypeSymbol(typeName);
-            if(structType){
-                return std::dynamic_pointer_cast<IRStructType>(structType);
-            }else{
-                throw std::runtime_error("IRBuilder visit Path error: unknown type " + typeName);
-            }
-        }
-        //TODO self
-    }
+    std::shared_ptr<IRStructType> visit(Path &node);
 
     std::shared_ptr<IRPtrType> visit(TypeReference &node){
         auto refType = std::make_shared<IRPtrType>();
