@@ -1643,7 +1643,53 @@ public:
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprPath &node);
 
-    std::vector<std::shared_ptr<IRNode>> visit(ExprReturn &node);
+    std::vector<std::shared_ptr<IRNode>> visit(ExprReturn &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        if(auto *retExpr = dynamic_cast<ExprLiteral *>(& *node.expr)){
+            instrs.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol("i32"), retExpr->integer));
+        }else if(auto *retPath = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(retPath->pathFirst->pathSegments.type == IDENTIFIER){
+                std::string retVarName = retPath->pathFirst->pathSegments.identifier;
+                auto retVarSymbol = currentScope->lookupValueSymbol(retVarName);
+                if(retVarSymbol){
+                    auto retLoadedVar = std::make_shared<IRVar>();
+                    instrs.push_back(std::make_shared<IRLoad>(retLoadedVar, retVarSymbol, retVarSymbol->type));
+                    instrs.push_back(std::make_shared<IRReturn>(retVarSymbol->type, retLoadedVar));
+                }else {
+                    constInfo res = currentScope->lookupConstantSymbol(retVarName);
+                    instrs.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol(res.type), res.value));
+                }
+            }
+        }else if(auto *retCall = dynamic_cast<ExprCall *>(& *node.expr)){
+            auto callInstrs = visit(*retCall);
+            for(auto & instr : callInstrs){
+                instrs.push_back(instr);
+            }
+            if(auto *callLastInstr = dynamic_cast<IRCall *>(& *callInstrs[callInstrs.size() - 1])){
+                auto retVar = callLastInstr->retVar;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }
+        }else if(auto *retMethodCall = dynamic_cast<ExprMethodcall *>(& *node.expr)){
+            auto methodCallInstrs = visit(*retMethodCall);
+            for(auto & instr : methodCallInstrs){
+                instrs.push_back(instr);
+            }
+            if(auto *methodCallLastInstr = dynamic_cast<IRCall *>(& *methodCallInstrs[methodCallInstrs.size() - 1])){
+                auto retVar = methodCallLastInstr->retVar;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }
+        }else if(auto *retOpBinary = dynamic_cast<ExprOpbinary *>(& *node.expr)){
+            auto opBinaryInstrs = visit(*retOpBinary);
+            for(auto & instr : opBinaryInstrs){
+                instrs.push_back(instr);
+            }
+            if(auto *opBinaryLastInstr = dynamic_cast<IRBinaryop *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
+                auto retVar = opBinaryLastInstr->result;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }
+        }
+        return instrs;
+    }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprStruct &node);
 
