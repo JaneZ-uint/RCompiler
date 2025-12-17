@@ -1,4 +1,5 @@
 #include "src/ast/root.h"
+#include "src/ir/CodeGenerator.h"
 #include "src/lexer/lexer.h"
 #include "src/parser/parser.h"
 #include "src/simplifier/simplifier.h"
@@ -362,6 +363,18 @@ int main(){
     JaneZ::Parser parser(tokens);
     auto root = parser.parse();
     
-    JaneZ::PrintVisitor print_visitor;
-    print_visitor.visit(*root);
+    // JaneZ::PrintVisitor print_visitor;
+    // print_visitor.visit(*root);
+
+    JaneZ::GlobalScopeBuilder global_scope_builder;
+    JaneZ::NameResolver name_resolver;
+    JaneZ::Checker checker;
+    
+    checker.semantic_check(global_scope_builder, name_resolver, *root);
+    
+    JaneZ::ConstEvaluator const_evaluator;
+    const_evaluator.visit(*root);
+
+    JaneZ::CodeGenerator code_generator;
+    code_generator.generateCode(*root);
 }

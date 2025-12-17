@@ -12,6 +12,7 @@ public:
     std::vector<std::shared_ptr<IRFunction>> functions;
     std::shared_ptr<IRType> mainStructType;
 
+    IRImpl() = default;
     IRImpl(std::vector<std::shared_ptr<IRFunction>> funcs, std::shared_ptr<IRType> mainStruct)
         : functions(std::move(funcs)), mainStructType(std::move(mainStruct)) {}
     ~IRImpl() = default;

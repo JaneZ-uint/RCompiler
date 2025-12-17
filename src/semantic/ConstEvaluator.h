@@ -1,8 +1,7 @@
-# pragma once                                                                                                                                                                                                                                        #include "scope.h"
+# pragma once                                                                                                                                                                                                                                       
 #include <memory>
-# pragma once
-# include "scope.h"
-# include "../ast/astvisitor.h"
+#include "scope.h"
+#include "../ast/astvisitor.h"
 #include "../ast/root.h"
 #include "../ast/Expression/ExprConstBlock.h"
 #include "../ast/Expression/ExprStruct.h"
@@ -51,6 +50,10 @@ public:
     std::shared_ptr<ScopeNode> ConstRoot;
     std::shared_ptr<ScopeNode> current_scope;
     std::shared_ptr<ASTRootNode> root;
+
+    ConstEvaluator() = default;
+
+    ~ConstEvaluator() = default;
 
     void visit(ASTNode &node) override{
         if(auto *p = dynamic_cast<ASTRootNode *>(& node)){
@@ -113,7 +116,7 @@ public:
         }
     }
 
-    void visit(ExprArray &node) override;
+    void visit(ExprArray &node) override{}
 
     void visit(ExprBlock &node) override{
         auto block_scope = std::make_shared<ScopeNode>();
@@ -126,17 +129,17 @@ public:
         current_scope = current_scope->parent;
     }
 
-    void visit(ExprBreak &node) override;
+    void visit(ExprBreak &node) override{}
 
-    void visit(ExprCall &node) override;
+    void visit(ExprCall &node) override{}
 
-    void visit(ExprConstBlock &node) override;
+    void visit(ExprConstBlock &node) override{}
 
-    void visit(ExprContinue &node) override;
+    void visit(ExprContinue &node) override{}
 
-    void visit(ExprField &node) override;
+    void visit(ExprField &node) override{}
 
-    void visit(ExprGroup &node) override;
+    void visit(ExprGroup &node) override{}
 
     void visit(ExprIf &node) override{
         auto if_scope = std::make_shared<ScopeNode>();
@@ -165,9 +168,9 @@ public:
         }
     }
 
-    void visit(ExprIndex &node) override;
+    void visit(ExprIndex &node) override{}
 
-    void visit(ExprLiteral &node) override;
+    void visit(ExprLiteral &node) override{}
 
     void visit(ExprLoop &node) override{
         if(node.infinitieLoop){
@@ -191,19 +194,19 @@ public:
         }
     }
 
-    void visit(ExprMethodcall &node) override;
+    void visit(ExprMethodcall &node) override{}
 
-    void visit(ExprOpbinary &node) override;
+    void visit(ExprOpbinary &node) override{}
 
-    void visit(ExprOpunary &node) override;
+    void visit(ExprOpunary &node) override{}
 
-    void visit(ExprPath &node) override;
+    void visit(ExprPath &node) override{}
 
-    void visit(ExprReturn &node) override;
+    void visit(ExprReturn &node) override{}
 
-    void visit(ExprStruct &node) override;
+    void visit(ExprStruct &node) override{}
 
-    void visit(ExprUnderscore &node) override;
+    void visit(ExprUnderscore &node) override{}
     
     //Item 
     void visit(Item &node) override{
@@ -431,7 +434,7 @@ public:
             }
         }
     }
-    void visit(ItemEnumDecl &node) override;
+    void visit(ItemEnumDecl &node) override{}
     void visit(ItemFnDecl &node) override{
         auto fn_scope = std::make_shared<ScopeNode>();
         current_scope->children.push_back(fn_scope);
@@ -457,15 +460,15 @@ public:
             visit(*structVar.structElem);
         }
     }
-    void visit(ItemTraitDecl &node) override;
+    void visit(ItemTraitDecl &node) override{}
 
     //Pattern
-    void visit(Pattern &node) override;
-    void visit(PatternIdentifier &node) override;
-    void visit(PatternLiteral &node) override;
-    void visit(PatternPath &node) override;
-    void visit(PatternReference &node) override;
-    void visit(PatternWildCard &node) override;
+    void visit(Pattern &node) override{}
+    void visit(PatternIdentifier &node) override{}
+    void visit(PatternLiteral &node) override{}
+    void visit(PatternPath &node) override{}
+    void visit(PatternReference &node) override{}
+    void visit(PatternWildCard &node) override{}
 
     //Statement
     void visit(Statement &node) override{
@@ -482,7 +485,7 @@ public:
         }
     }
 
-    void visit(StmtEmpty &node) override;
+    void visit(StmtEmpty &node) override{}
 
     void visit(StmtExpr &node) override{
         visit(*node.stmtExpr);
@@ -502,7 +505,7 @@ public:
     }
 
     //Type
-    void visit(Type &node) override;
+    void visit(Type &node) override{}
 
     void visit(TypeArray &node) override{
         if(node.type){
@@ -513,13 +516,13 @@ public:
         }
     }
 
-    void visit(TypePath &node) override;
+    void visit(TypePath &node) override{}
 
-    void visit(TypeReference &node) override;
+    void visit(TypeReference &node) override{}
 
-    void visit(TypeUnit &node) override;
+    void visit(TypeUnit &node) override{}
 
     //Path
-    void visit(Path &node) override;
+    void visit(Path &node) override{}
 };
 }

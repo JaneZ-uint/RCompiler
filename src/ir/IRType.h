@@ -19,6 +19,7 @@ class IRType : public IRNode {
 public:
     BaseType type;
 
+    IRType() = default;
     IRType(BaseType t) : type(t) {}
     virtual ~IRType() = default;
     void accept(IRVisitor &visitor) override {
@@ -50,6 +51,7 @@ class IRPtrType : public IRType {
 public:
     std::shared_ptr<IRType> baseType;
 
+    IRPtrType(): IRType(BaseType::PTR), baseType(nullptr) {}
     IRPtrType(std::shared_ptr<IRType> bt) : IRType(BaseType::PTR), baseType(std::move(bt)) {}
     ~IRPtrType() = default;
     void accept(IRVisitor &visitor) override {
@@ -62,6 +64,7 @@ public:
     std::shared_ptr<IRType> elementType;
     int size;
 
+    IRArrayType(): IRType(BaseType::ARRAY), elementType(nullptr), size(0) {}
     IRArrayType(std::shared_ptr<IRType> et, int sz) : IRType(BaseType::ARRAY), elementType(std::move(et)), size(sz) {}
     ~IRArrayType() = default;
     void accept(IRVisitor &visitor) override {
@@ -78,6 +81,7 @@ public:
     std::vector<std::shared_ptr<IRFunction>> memberFunctions;
     std::vector<std::pair<std::string, long long int>> memberConstants;
     
+    IRStructType() : IRType(BaseType::STRUCT), name(""), true_name(""), memberTypes({}), memberFunctions({}), memberConstants({}) {}
     IRStructType(std::string n, std::string tn, std::vector<std::pair<std::string,std::shared_ptr<IRType>>> mts,
         std::vector<std::shared_ptr<IRFunction>> mfs,std::vector<std::pair<std::string, long long int>> mcs) 
         : IRType(BaseType::STRUCT), name(n), true_name(tn), memberTypes(std::move(mts)), 

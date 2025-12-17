@@ -36,6 +36,7 @@ public:
     IROp op;
     std::shared_ptr<IRVar> result;
 
+    IRBinaryop() = default;
     IRBinaryop(IROp operation,std::shared_ptr<IRVar> res) : IRNode(), op(operation), result(std::move(res)) {}
     virtual ~IRBinaryop() = default;
     void accept(IRVisitor &visitor) override {

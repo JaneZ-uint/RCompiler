@@ -12,7 +12,8 @@ public:
     std::shared_ptr<IRVar> value;
     std::shared_ptr<IRType> targetType;
     std::shared_ptr<IRVar> result;
-
+    
+    IRTrunc() = default;
     IRTrunc(std::shared_ptr<IRType> oT,
             std::shared_ptr<IRVar> val,
             std::shared_ptr<IRType> tT, std::shared_ptr<IRVar> res)

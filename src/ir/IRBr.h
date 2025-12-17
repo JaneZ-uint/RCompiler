@@ -13,6 +13,7 @@ public:
     std::shared_ptr<IRBlock> trueLabel;
     std::shared_ptr<IRBlock> falseLabel;
 
+    IRBr() = default;
     IRBr(std::shared_ptr<IRVar> cond,
          std::shared_ptr<IRBlock> tLabel,
          std::shared_ptr<IRBlock> fLabel)

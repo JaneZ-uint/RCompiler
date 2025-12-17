@@ -11,6 +11,7 @@ public:
     std::shared_ptr<IRType> allocatedType;
     std::shared_ptr<IRVar> var;
 
+    IRAlloca() = default;
     IRAlloca(std::shared_ptr<IRType> at, std::shared_ptr<IRVar> v)
         : allocatedType(std::move(at)), var(std::move(v)) {}
     ~IRAlloca() = default;

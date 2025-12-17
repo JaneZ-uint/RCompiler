@@ -12,6 +12,7 @@ public:
     std::shared_ptr<IRVar> addressVar;
     std::shared_ptr<IRType> type;
 
+    IRLoad() = default;
     IRLoad(std::shared_ptr<IRVar> lV,
            std::shared_ptr<IRVar> aV,
            std::shared_ptr<IRType> t)

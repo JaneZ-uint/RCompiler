@@ -29,14 +29,53 @@ public:
 
     void generateCode(ASTRootNode &root) {
         irRoot = irBuilder.visit(root);
-        for(auto &func : root.child) {
-            
+        for(auto &func : irRoot->children) {
+            codeGen(*func);
         }
     }
 
     void codeGen(IRNode &node){
         if(auto *p = dynamic_cast<IRFunction *>(& node)){
             //print functions info here
+            std::cout << "define ";;
+            if(p->retType->type == BaseType::INT){
+                if(auto *q = dynamic_cast<IRIntType *>(p->retType.get())){
+                    if(q->bitWidth == 32){
+                        std::cout << "i32 ";
+                    }else if(q->bitWidth == 8){
+                        std::cout << "i8 ";
+                    }
+                }
+            }else if(p->retType->type == BaseType::ARRAY  ){
+                //
+            }else if(p->retType->type == BaseType::STRUCT){
+                if(auto *q = dynamic_cast<IRStructType *>(p->retType.get())){   
+                    std::cout << "%struct." << q->name << " ";
+                }
+            }
+            std::cout << "@" << p->name << "(";
+            for(size_t i = 0; i < p->paramList->paramList.size(); ++i){
+                auto &param = p->paramList->paramList[i];
+                if(auto *var = dynamic_cast<IRVar *>(& *param)){
+                    if(var->type->type == BaseType::INT){
+                        if(auto *q = dynamic_cast<IRIntType *>(var->type.get())){
+                            if(q->bitWidth == 32){
+                                std::cout << "i32 ";
+                            }else if(q->bitWidth == 8){
+                                std::cout << "i8 ";
+                            }
+                        }
+                    }else if(var->type->type == BaseType::ARRAY  ){
+                        //
+                    }else if(var->type->type == BaseType::STRUCT){
+                        if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
+                            std::cout << "%struct." << q->name << " ";
+                        }
+                    }
+                    std::cout << "%" << var->serial;
+                }
+            }
+            std::cout << ") {\n";
             if(p->body){
                 for(auto &instr: p->body->instrList){
                     if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
@@ -65,10 +104,55 @@ public:
                     }
                 }
             }
+            std::cout << "}\n";
         }else if(auto *p = dynamic_cast<IRImpl *>(& node)){
             auto type = p->mainStructType;
             for(auto &func: p->functions){
                 //print functions info here
+                std::cout << "define ";
+                if(func->retType->type == BaseType::INT){
+                    if(auto *q = dynamic_cast<IRIntType *>(func->retType.get())){
+                        if(q->bitWidth == 32){
+                            std::cout << "i32 ";
+                        }else if(q->bitWidth == 8){
+                            std::cout << "i8 ";
+                        }
+                    }
+                }else if(func->retType->type == BaseType::ARRAY  ){ 
+                    //
+                }else if(func->retType->type == BaseType::STRUCT){
+                    if(auto *q = dynamic_cast<IRStructType *>(func->retType.get())){
+                        std::cout << "%struct." << q->name << " ";
+                    }
+                }
+                if(auto *r = dynamic_cast<IRStructType *>(type.get())){
+                    std::cout << "@" << r->name << "::" << func->name << "(";
+                }
+                for(size_t i = 0; i < func->paramList->paramList.size(); ++i){
+                    auto &param = func->paramList->paramList[i];
+                    if(auto *var = dynamic_cast<IRVar *>(& *param)){
+                        if(var->type->type == BaseType::INT){
+                            if(auto *q = dynamic_cast<IRIntType *>(var->type.get())){
+                                if(q->bitWidth == 32){
+                                    std::cout << "i32 ";
+                                }else if(q->bitWidth == 8){
+                                    std::cout << "i8 ";
+                                }
+                            }
+                        }else if(var->type->type == BaseType::ARRAY  ){
+                            //
+                        }else if(var->type->type == BaseType::STRUCT){
+                            if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
+                                std::cout << "%struct." << q->name << " ";
+                            }
+                        }
+                        std::cout << "%" << var->serial;
+                    }
+                    if(i != func->paramList->paramList.size() -1){
+                        std::cout << ", ";
+                    }
+                }
+                std::cout << ") {\n";
                 if(func->body){
                     for(auto &instr: func->body->instrList){
                         if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
@@ -97,6 +181,7 @@ public:
                         }
                     }
                 }
+                std::cout << "}\n";
             }
         }else if(auto *p = dynamic_cast<IRType *>(& node)){
             std::cout << "%struct.";
@@ -190,6 +275,12 @@ public:
             std::cout << "ptr %" << p->address->serial << ", align 4\n";
         }else if(auto *p = dynamic_cast<IRReturn *>(& node)){
             std::cout << "ret ";
+            if(!p->returnValue){
+                if(p->returnLiteral){
+                    std::cout << "i32 " << p->returnLiteral->intValue << "\n";
+                    return;
+                }
+            }
             if(p->returnType->type == BaseType::INT){
                 if(auto *q = dynamic_cast<IRIntType *>(p->returnType.get())){
                     if(q->bitWidth == 32){
@@ -850,7 +941,11 @@ public:
                     std::cout << "%struct." << q->name << "* ";
                 }
             }
-            std::cout << "%" << p->base->serial << ", i32 0, i32 " << p->offset << "\n";
+            if(p->offset != -1){
+                std::cout << "%" << p->base->serial << ", i32 0, i32 " << p->offset << "\n";
+            }else{
+                std::cout << "%" << p->base->serial << ", i32 0, i32 %" << p->index->serial << "\n";    
+            }
         }
     }
 };

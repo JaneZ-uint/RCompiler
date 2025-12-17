@@ -11,13 +11,12 @@ public:
     std::shared_ptr<IRType> type;
     std::shared_ptr<IRVar> base;
     std::shared_ptr<IRVar> res;
-    int offset = -1;
+    long long int offset = -1;
     std::shared_ptr<IRVar> index; // for array getptr
 
-    IRGetptr(std::shared_ptr<IRType> type, std::shared_ptr<IRVar> base, std::shared_ptr<IRVar> res,int offset):
-        type(std::move(type)), base(std::move(base)), res(std::move(res)),offset(offset){}
-    IRGetptr(std::shared_ptr<IRType> type, std::shared_ptr<IRVar> base, std::shared_ptr<IRVar> res,std::shared_ptr<IRVar> index):
-        type(std::move(type)), base(std::move(base)), res(std::move(res)),index(std::move(index)){}
+    IRGetptr() = default;
+    IRGetptr(std::shared_ptr<IRType> type, std::shared_ptr<IRVar> base, std::shared_ptr<IRVar> res,long long int offset = -1,std::shared_ptr<IRVar> index = nullptr):
+        type(std::move(type)), base(std::move(base)), res(std::move(res)),offset(offset),index(std::move(index)){}
     ~IRGetptr() override = default;
     void accept(IRVisitor &visitor) override{
         visitor.visit(*this);

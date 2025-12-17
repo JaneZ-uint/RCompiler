@@ -1,10 +1,8 @@
 # pragma once
 # include "IRNode.h"
-#include "IRType.h"
 #include "IRVar.h"
 # include "IRVisitor.h"
 #include <memory>
-#include <vector>
 
 namespace JaneZ {
 class IRParam;
@@ -19,6 +17,7 @@ public:
     //std::shared_ptr<IRType> retType;
     std::shared_ptr<IRFunction> function;
 
+    IRCall() = default;
     IRCall(std::shared_ptr<IRParam> pl,
            std::shared_ptr<IRVar> rv,
            std::shared_ptr<IRFunction> func)

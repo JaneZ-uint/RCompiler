@@ -15,6 +15,7 @@ public:
     long long intValue;
     bool boolValue;
 
+    IRLiteral() = default;
     IRLiteral(IRLiteralType lt, long long iv = 0, bool bv = false)
         : IRNode(), literalType(lt), intValue(iv), boolValue(bv) {}
     ~IRLiteral() = default;

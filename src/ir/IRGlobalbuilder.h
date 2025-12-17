@@ -208,7 +208,11 @@ public:
                 fieldTypes.push_back({field.identifier, resolveType(*field.structElem)});
             }
         }
-        globalScope->addTypeSymbol(structName, std::make_shared<IRStructType>(structName, fieldTypes));
+        auto currentStructType = std::make_shared<IRStructType>();
+        currentStructType->name = structName;
+        currentStructType->true_name = structName;
+        currentStructType->memberTypes = fieldTypes;
+        globalScope->addTypeSymbol(structName, currentStructType);
     }
 
     void visit(ItemTraitDecl &node){
@@ -262,16 +266,9 @@ public:
     }
 
     std::shared_ptr<IRStructType> visit(Path &node){
-        if(node.pathSegments.type == IDENTIFIER){
-            auto typeName = node.pathSegments.identifier;
-            auto structType = globalScope->lookupTypeSymbol(typeName);
-            if(structType){
-                return std::dynamic_pointer_cast<IRStructType>(structType);
-            }else{
-                throw std::runtime_error("IRBuilder visit Path error: unknown type " + typeName);
-            }
-        }
-        //TODO self
+        auto typeName = node.pathSegments.identifier;
+        auto structType = globalScope->lookupTypeSymbol(typeName);
+        return std::dynamic_pointer_cast<IRStructType>(structType);
     }
 
     std::shared_ptr<IRPtrType> visit(TypeReference &node){

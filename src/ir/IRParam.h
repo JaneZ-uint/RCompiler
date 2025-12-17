@@ -9,6 +9,7 @@ class IRParam : public IRNode {
 public:
     std::vector<std::shared_ptr<IRNode>> paramList; // IRVar or IRLiteral 
 
+    IRParam() = default;
     IRParam(std::vector<std::shared_ptr<IRNode>> param_list)
         : paramList(std::move(param_list)) {}
     ~IRParam() = default;

@@ -12,6 +12,7 @@ public:
     std::shared_ptr<IRType> targetType;
     std::shared_ptr<IRVar> result;
 
+    IRZext() = default;
     IRZext(std::shared_ptr<IRType> originalType,
             std::shared_ptr<IRVar> value,
             std::shared_ptr<IRType> targetType,

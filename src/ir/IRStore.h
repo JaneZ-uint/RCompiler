@@ -13,7 +13,8 @@ public:
     std::shared_ptr<IRVar> storeValue;
     std::shared_ptr<IRLiteral> storeLiteral;
     std::shared_ptr<IRVar> address;
-
+    
+    IRStore() = default;
     IRStore(std::shared_ptr<IRType> vT,
             std::shared_ptr<IRVar> sV,
             std::shared_ptr<IRLiteral> sL,

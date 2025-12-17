@@ -4,7 +4,6 @@
 # include "IRVisitor.h"
 # include <memory>
 #include <utility>
-# include <vector>
 # include <string>
 
 namespace JaneZ {
@@ -19,6 +18,7 @@ public:
     std::shared_ptr<IRParam> paramList;
     std::shared_ptr<IRBlock> body;
 
+    IRFunction() = default;
     IRFunction(std::shared_ptr<IRType> retType, std::string name,
                std::shared_ptr<IRParam> paramList,
                std::shared_ptr<IRBlock> body)
