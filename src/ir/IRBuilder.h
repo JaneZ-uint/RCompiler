@@ -494,12 +494,19 @@ public:
         }
         auto returnBlock = std::make_shared<IRBlock>();
         blocks.push_back(returnBlock);
-        auto thenLastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
-        thenLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+        if(thenBlock->blockList.size() > 0){
+            auto thenLastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+            thenLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+        }else{
+            thenBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+        }
         if(node.elseBlock){
-            auto elseLastBlock = blocks[blocks.size() - 2]->blockList[blocks[blocks.size() - 2]->blockList.size() - 1];
-            elseLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
-            instrs.push_back(std::make_shared<IRBr>(condVar,thenBlock, blocks[thenBlock->blockList.size() + 1]));
+            if(blocks[blocks.size() - 2]->blockList.size() > 0){
+                auto elseLastBlock = blocks[blocks.size() - 2]->blockList[blocks[blocks.size() - 2]->blockList.size() - 1];
+                elseLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            }else{
+                blocks[blocks.size() - 2]->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            }
         }else{
             instrs.push_back(std::make_shared<IRBr>(condVar,thenBlock, returnBlock));
         }
@@ -1004,6 +1011,7 @@ public:
         if(isleftCall){
             leftLoadedVar = leftVarSymbol;
         }else{
+            leftLoadedVar->type = leftVarSymbol->type;
             instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
         }
         auto resultVar = std::make_shared<IRVar>();
@@ -1080,6 +1088,7 @@ public:
         if(isRightCall){
             rightLoadedVar = rightVarSymbol;
         }else{
+            rightLoadedVar->type = rightVarSymbol->type;
             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
         }
         auto resultVar = std::make_shared<IRVar>();
@@ -2069,9 +2078,9 @@ public:
                     for(auto & instr : callInstrs){
                         instrs.push_back(instr);
                     }
-                    auto loadedVar = std::make_shared<IRVar>();
-                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, callRetVar, callRetVar->type));
-                    instrs.push_back(std::make_shared<IRStore>(varType, loadedVar,nullptr ,currentVar));
+                    // auto loadedVar = std::make_shared<IRVar>();
+                    // instrs.push_back(std::make_shared<IRLoad>(loadedVar, callRetVar, callRetVar->type));
+                    instrs.push_back(std::make_shared<IRStore>(varType, callRetVar,nullptr ,currentVar));
                 }
             }else if(auto *exprMethodCall = dynamic_cast<ExprMethodcall *>(& *node.expression)){
                 auto methodCallInstrs = visit(*exprMethodCall);
@@ -2081,9 +2090,9 @@ public:
                     for(auto & instr : methodCallInstrs){
                         instrs.push_back(instr);
                     }
-                    auto loadedVar = std::make_shared<IRVar>();
-                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, methodCallRetVar, methodCallRetVar->type));
-                    instrs.push_back(std::make_shared<IRStore>(varType, loadedVar,nullptr, currentVar));
+                    // auto loadedVar = std::make_shared<IRVar>();
+                    // instrs.push_back(std::make_shared<IRLoad>(loadedVar, methodCallRetVar, methodCallRetVar->type));
+                    instrs.push_back(std::make_shared<IRStore>(varType, methodCallRetVar,nullptr, currentVar));
                 }
             }else if(auto *exprOpbinary = dynamic_cast<ExprOpbinary *>(& *node.expression)){
                 auto exprInstrs = visit(*exprOpbinary);
@@ -2092,9 +2101,7 @@ public:
                     for(auto & instr : exprInstrs){
                         instrs.push_back(instr);
                     }
-                    auto loadedVar = std::make_shared<IRVar>();
-                    instrs.push_back(std::make_shared<IRLoad>(loadedVar, exprRetVar, exprRetVar->type));
-                    instrs.push_back(std::make_shared<IRStore>(varType, loadedVar,nullptr, currentVar));
+                    instrs.push_back(std::make_shared<IRStore>(varType, exprRetVar,nullptr, currentVar));
                 }
             }
         }
@@ -2141,8 +2148,52 @@ public:
         if(node.expr){
             if(auto *literal = dynamic_cast<ExprLiteral *>(& *node.expr)){
                 size = literal->integer;
-            }else{
-                size = node.expr->constValue;
+            }else if(auto *path = dynamic_cast<ExprPath *>(& *node.expr)){
+                if(path->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string constName = path->pathFirst->pathSegments.identifier;
+                    constInfo res = currentScope->lookupConstantSymbol(constName);
+                    size = res.value;
+                }
+            }else if(auto *opbinary = dynamic_cast<ExprOpbinary *>(& *node.expr)){
+                if(opbinary->op == PLUS){
+                    if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
+                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = left->pathFirst->pathSegments.identifier;
+                            constInfo res = currentScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
+                        size += leftLiteral->integer;
+                    }
+                    if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
+                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = right->pathFirst->pathSegments.identifier;
+                            constInfo res = currentScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
+                        size += rightLiteral->integer;
+                    }
+                }else if(opbinary->op == MINUS){
+                    if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
+                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = left->pathFirst->pathSegments.identifier;
+                            constInfo res = currentScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
+                        size += leftLiteral->integer;
+                    }
+                    if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
+                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = right->pathFirst->pathSegments.identifier;
+                            constInfo res = currentScope->lookupConstantSymbol(constName);
+                            size -= res.value;
+                        }
+                    }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
+                        size -= rightLiteral->integer;
+                    }
+                }
             }
         }
         return std::make_shared<IRArrayType>(currentType, size);

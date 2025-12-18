@@ -48,7 +48,37 @@ public:
                     }
                 }
             }else if(p->retType->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->retType.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }else if(q->elementType->type == BaseType::ARRAY  ){
+                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                std::cout << "[" << r->size << " x ";
+                                if(r->elementType->type == BaseType::INT){
+                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                        if(s->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(s->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(q->elementType->type == BaseType::STRUCT){
+                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                std::cout << "%struct." << r->name;
+                            }
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->retType->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->retType.get())){   
                     std::cout << "%struct." << q->name << " ";
@@ -67,7 +97,37 @@ public:
                             }
                         }
                     }else if(var->type->type == BaseType::ARRAY  ){
-                        //
+                        if(auto *q = dynamic_cast<IRArrayType *>(var->type.get())){
+                            std::cout << "[" << q->size << " x ";
+                            if(q->elementType->type == BaseType::INT){
+                                if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                                    if(r->bitWidth == 32){
+                                        std::cout << "i32";
+                                    }else if(r->bitWidth == 8){
+                                        std::cout << "i8";
+                                    }
+                                }else if(q->elementType->type == BaseType::ARRAY  ){
+                                    if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                        std::cout << "[" << r->size << " x ";
+                                        if(r->elementType->type == BaseType::INT){
+                                            if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                                if(s->bitWidth == 32){
+                                                    std::cout << "i32";
+                                                }else if(s->bitWidth == 8){
+                                                    std::cout << "i8";
+                                                }
+                                            }
+                                        }
+                                        std::cout << "]";
+                                    }
+                                }else if(q->elementType->type == BaseType::STRUCT){
+                                    if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                        std::cout << "%struct." << r->name;
+                                    }
+                                }
+                            }
+                            std::cout << "] ";
+                        }
                     }else if(var->type->type == BaseType::STRUCT){
                         if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
                             std::cout << "%struct." << q->name << " ";
@@ -97,6 +157,7 @@ public:
                     code(*instr);
                 }
                 for(auto &block  :p->body->blockList){
+                    std::cout << block->label << ":\n";
                     for(auto &instr: block->instrList){
                         if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
                             continue;
@@ -120,7 +181,37 @@ public:
                         }
                     }
                 }else if(func->retType->type == BaseType::ARRAY  ){ 
-                    //
+                    if(auto *q = dynamic_cast<IRArrayType *>(func->retType.get())){
+                        std::cout << "[" << q->size << " x ";
+                        if(q->elementType->type == BaseType::INT){
+                            if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                                if(r->bitWidth == 32){
+                                    std::cout << "i32";
+                                }else if(r->bitWidth == 8){
+                                    std::cout << "i8";
+                                }
+                            }else if(q->elementType->type == BaseType::ARRAY  ){
+                                if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                    std::cout << "[" << r->size << " x ";
+                                    if(r->elementType->type == BaseType::INT){
+                                        if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                            if(s->bitWidth == 32){
+                                                std::cout << "i32";
+                                            }else if(s->bitWidth == 8){
+                                                std::cout << "i8";
+                                            }
+                                        }
+                                    }
+                                    std::cout << "]";
+                                }
+                            }else if(q->elementType->type == BaseType::STRUCT){
+                                if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                    std::cout << "%struct." << r->name;
+                                }
+                            }
+                        }
+                        std::cout << "] ";
+                    }
                 }else if(func->retType->type == BaseType::STRUCT){
                     if(auto *q = dynamic_cast<IRStructType *>(func->retType.get())){
                         std::cout << "%struct." << q->name << " ";
@@ -141,7 +232,37 @@ public:
                                 }
                             }
                         }else if(var->type->type == BaseType::ARRAY  ){
-                            //
+                            if(auto *q = dynamic_cast<IRArrayType *>(var->type.get())){
+                                std::cout << "[" << q->size << " x ";
+                                if(q->elementType->type == BaseType::INT){
+                                    if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                                        if(r->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(r->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }else if(q->elementType->type == BaseType::ARRAY  ){
+                                        if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                            std::cout << "[" << r->size << " x ";
+                                            if(r->elementType->type == BaseType::INT){
+                                                if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                                    if(s->bitWidth == 32){
+                                                        std::cout << "i32";
+                                                    }else if(s->bitWidth == 8){
+                                                        std::cout << "i8";
+                                                    }
+                                                }
+                                            }
+                                            std::cout << "]";
+                                        }
+                                    }else if(q->elementType->type == BaseType::STRUCT){
+                                        if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                            std::cout << "%struct." << r->name;
+                                        }
+                                    }
+                                }
+                                std::cout << "] ";
+                            }
                         }else if(var->type->type == BaseType::STRUCT){
                             if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
                                 std::cout << "%struct." << q->name << " ";
@@ -199,7 +320,37 @@ public:
                         }
                         std::cout << "i32";
                     }else if(q->memberTypes[i].second->type == BaseType::ARRAY  ){
-                        //
+                        if(auto *r = dynamic_cast<IRArrayType *>(q->memberTypes[i].second.get())){
+                            std::cout << "[" << r->size << " x ";
+                            if(r->elementType->type == BaseType::INT){
+                                if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                    if(s->bitWidth == 32){
+                                        std::cout << "i32";
+                                    }else if(s->bitWidth == 8){
+                                        std::cout << "i8";
+                                    }
+                                }
+                            }else if(r->elementType->type == BaseType::ARRAY  ){
+                                if(auto *s = dynamic_cast<IRArrayType *>(r->elementType.get())){
+                                    std::cout << "[" << s->size << " x ";
+                                    if(s->elementType->type == BaseType::INT){
+                                        if(auto *t = dynamic_cast<IRIntType *>(s->elementType.get())){
+                                            if(t->bitWidth == 32){
+                                                std::cout << "i32";
+                                            }else if(t->bitWidth == 8){
+                                                std::cout << "i8";
+                                            }
+                                        }
+                                    }
+                                    std::cout << "]";
+                                }
+                            }else if(r->elementType->type == BaseType::STRUCT){
+                                if(auto *s = dynamic_cast<IRStructType *>(r->elementType.get())){
+                                    std::cout << "%struct." << s->name;
+                                }
+                            }
+                            std::cout << "]"; 
+                        }
                     }else if(q->memberTypes[i].second->type == BaseType::STRUCT){
                         if(auto *r = dynamic_cast<IRStructType *>(q->memberTypes[i].second.get())){
                             std::cout << "%struct." << r->name;
@@ -226,7 +377,37 @@ public:
                     }
                 }
             }else if(p->var->type->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->var->type.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }else if(q->elementType->type == BaseType::ARRAY  ){
+                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                std::cout << "[" << r->size << " x ";
+                                if(r->elementType->type == BaseType::INT){
+                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                        if(s->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(s->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(q->elementType->type == BaseType::STRUCT){
+                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                std::cout << "%struct." << r->name;
+                            }
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->var->type->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->var->type.get())){
                     std::cout << "%struct." << q->name;
@@ -244,7 +425,37 @@ public:
                     }
                 }
             }else if(p->type->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }else if(q->elementType->type == BaseType::ARRAY  ){
+                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                std::cout << "[" << r->size << " x ";
+                                if(r->elementType->type == BaseType::INT){
+                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                        if(s->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(s->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(q->elementType->type == BaseType::STRUCT){
+                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                std::cout << "%struct." << r->name;
+                            }
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->type->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
                     std::cout << "%struct." << q->name;
@@ -262,7 +473,37 @@ public:
                     }
                 }
             }else if(p->valueType->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->valueType.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }else if(q->elementType->type == BaseType::ARRAY  ){
+                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                std::cout << "[" << r->size << " x ";
+                                if(r->elementType->type == BaseType::INT){
+                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                        if(s->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(s->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(q->elementType->type == BaseType::STRUCT){
+                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                std::cout << "%struct." << r->name;
+                            }
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->valueType->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->valueType.get())){
                     std::cout << "%struct." << q->name << " ";
@@ -291,7 +532,37 @@ public:
                     }
                 }
             }else if(p->returnType->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->returnType.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }else if(q->elementType->type == BaseType::ARRAY  ){
+                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                std::cout << "[" << r->size << " x ";
+                                if(r->elementType->type == BaseType::INT){
+                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                        if(s->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(s->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(q->elementType->type == BaseType::STRUCT){
+                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                std::cout << "%struct." << r->name;
+                            }
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->returnType->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->returnType.get())){
                     std::cout << "%struct." << q->name << " ";
@@ -895,7 +1166,37 @@ public:
                     }
                 }
             }else if(p->retVar->type->type == BaseType::ARRAY  ){
-                //
+                if(auto *q = dynamic_cast<IRArrayType *>(p->retVar->type.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }
+                    }else if(q->elementType->type == BaseType::ARRAY  ){
+                        if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                            std::cout << "[" << r->size << " x ";
+                            if(r->elementType->type == BaseType::INT){
+                                if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                    if(s->bitWidth == 32){
+                                        std::cout << "i32";
+                                    }else if(s->bitWidth == 8){
+                                        std::cout << "i8";
+                                    }
+                                }
+                            }
+                            std::cout << "]";
+                        }
+                    }else if(q->elementType->type == BaseType::STRUCT){
+                        if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                            std::cout << "%struct." << r->name;
+                        }
+                    }
+                    std::cout << "] ";
+                }
             }else if(p->retVar->type->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->retVar->type.get())){
                     std::cout << "%struct." << q->name << " ";
@@ -914,7 +1215,37 @@ public:
                             }
                         }
                     }else if(p->type->type == BaseType::ARRAY  ){
-                        //
+                        if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
+                            std::cout << "[" << q->size << " x ";
+                            if(q->elementType->type == BaseType::INT){
+                                if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                                    if(r->bitWidth == 32){
+                                        std::cout << "i32";
+                                    }else if(r->bitWidth == 8){
+                                        std::cout << "i8";
+                                    }
+                                }
+                            }else if(q->elementType->type == BaseType::ARRAY  ){
+                                if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                                    std::cout << "[" << r->size << " x ";
+                                    if(r->elementType->type == BaseType::INT){
+                                        if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                            if(s->bitWidth == 32){
+                                                std::cout << "i32";
+                                            }else if(s->bitWidth == 8){
+                                                std::cout << "i8";
+                                            }
+                                        }
+                                    }
+                                    std::cout << "]";
+                                }
+                            }else if(q->elementType->type == BaseType::STRUCT){
+                                if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                                    std::cout << "%struct." << r->name;
+                                }
+                            }
+                            std::cout << "] ";
+                        }
                     }else if(p->type->type == BaseType::STRUCT){
                         if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
                             std::cout << "%struct." << q->name << " ";
