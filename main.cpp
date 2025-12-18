@@ -198,7 +198,7 @@ int main() {
     compare_results(expected, actual_result);
 
     return failed == 0 ? 0 : 1;
-}*/
+}
 
 // ============================================================
 // 工具函数
@@ -284,9 +284,9 @@ void compare_results(const std::map<std::string, std::string> &expected,
 // ============================================================
 // 主函数（顺序测试 comprehensive1–50）
 // ============================================================
-int ir_cnt = 0;
 
-/*int main() {
+
+int main() {
     std::string base_dir = "../RCompiler-Testcases/semantic-2";
     int passed = 0, failed = 0, total = 0;
 
@@ -319,8 +319,8 @@ int ir_cnt = 0;
 
             checker.semantic_check(global_scope_builder, name_resolver, *root);
             
-            JaneZ::ConstEvaluator const_evaluator;
-            const_evaluator.visit(*root);
+            // JaneZ::ConstEvaluator const_evaluator;
+            // const_evaluator.visit(*root);
 
             auto scope_root = global_scope_builder.global_scope;
 
@@ -352,7 +352,7 @@ int ir_cnt = 0;
 
     return failed == 0 ? 0 : 1;
 }*/
-
+int ir_cnt = 0;
 int main(){
     JaneZ::Simplifier simplifier("../tmp.cpp");
     std::string source_code = simplifier.work();

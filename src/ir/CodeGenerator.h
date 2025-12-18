@@ -83,6 +83,8 @@ public:
                 if(auto *q = dynamic_cast<IRStructType *>(p->retType.get())){   
                     std::cout << "%struct." << q->name << " ";
                 }
+            }else if(p->retType->type == BaseType::PTR){
+                std::cout << "ptr ";
             }
             std::cout << "@" << p->name << "(";
             for(size_t i = 0; i < p->paramList->paramList.size(); ++i){
@@ -124,6 +126,8 @@ public:
                                     if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
                                         std::cout << "%struct." << r->name;
                                     }
+                                }else if(q->elementType->type == BaseType::PTR){
+                                    std::cout << "ptr";
                                 }
                             }
                             std::cout << "] ";
@@ -132,8 +136,13 @@ public:
                         if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
                             std::cout << "%struct." << q->name << " ";
                         }
+                    }else if(var->type->type == BaseType::PTR){
+                        std::cout << "ptr ";
                     }
-                    std::cout << "%" << var->serial;
+                    std::cout << "%" << var->serial ;
+                    if(i != p->paramList->paramList.size() -1){
+                        std::cout << ", ";
+                    }
                 }
             }
             std::cout << ") {\n";
@@ -216,6 +225,8 @@ public:
                     if(auto *q = dynamic_cast<IRStructType *>(func->retType.get())){
                         std::cout << "%struct." << q->name << " ";
                     }
+                }else if(func->retType->type == BaseType::PTR){
+                    std::cout << "ptr ";
                 }
                 if(auto *r = dynamic_cast<IRStructType *>(type.get())){
                     std::cout << "@" << r->name << "::" << func->name << "(";
@@ -267,6 +278,8 @@ public:
                             if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
                                 std::cout << "%struct." << q->name << " ";
                             }
+                        }else if(var->type->type == BaseType::PTR){
+                            std::cout << "ptr ";
                         }
                         std::cout << "%" << var->serial;
                     }
@@ -355,6 +368,8 @@ public:
                         if(auto *r = dynamic_cast<IRStructType *>(q->memberTypes[i].second.get())){
                             std::cout << "%struct." << r->name;
                         }
+                    }else if(q->memberTypes[i].second->type == BaseType::PTR){
+                        std::cout << "ptr";
                     }
                     if(i != q->memberTypes.size() -1){
                         std::cout << ", ";
@@ -412,6 +427,8 @@ public:
                 if(auto *q = dynamic_cast<IRStructType *>(p->var->type.get())){
                     std::cout << "%struct." << q->name;
                 }
+            }else if(p->var->type->type == BaseType::PTR){
+                std::cout << "ptr";
             }
             std::cout << ", align 4\n";
         }else if(auto *p = dynamic_cast<IRLoad *>(& node)){
@@ -460,6 +477,8 @@ public:
                 if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
                     std::cout << "%struct." << q->name;
                 }
+            }else if(p->type->type == BaseType::PTR){
+                std::cout << "ptr";
             }
             std::cout << ", ptr %" << p->addressVar->serial << ", align 4\n";
         }else if(auto *p = dynamic_cast<IRStore *>(& node)){
@@ -508,6 +527,8 @@ public:
                 if(auto *q = dynamic_cast<IRStructType *>(p->valueType.get())){
                     std::cout << "%struct." << q->name << " ";
                 }
+            }else if(p->valueType->type == BaseType::PTR){
+                std::cout << "ptr ";
             }
             if(p->storeValue){
                 std::cout << "%" << p->storeValue->serial << ", ";
@@ -567,6 +588,8 @@ public:
                 if(auto *q = dynamic_cast<IRStructType *>(p->returnType.get())){
                     std::cout << "%struct." << q->name << " ";
                 }
+            }else if(p->returnType->type == BaseType::PTR){
+                std::cout << "ptr ";
             }
             if(p->returnValue){
                 std::cout << "%" << p->returnValue->serial << "\n";

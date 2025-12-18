@@ -202,12 +202,18 @@ public:
             instrs.push_back(exitInstr);
             return instrs;
         }
+        if(funcName == "printlnInt"){
+            for(auto &arg :node.callParams){
+                //todo
+            }
+        }
         auto currentIRFunc = currentScope->lookupFunctionSymbol(funcName);
         auto currentCallInstr = std::make_shared<IRCall>();
         currentCallInstr->function = currentIRFunc;
         auto callRet = std::make_shared<IRVar>();
         callRet->type = currentIRFunc->retType;
         currentCallInstr->retVar = callRet;
+        currentCallInstr->pList =  std::make_shared<IRParam>();
         for(auto & arg : node.callParams){
             //TODO process arguments
             if(auto *p = dynamic_cast<ExprPath *>(& *arg)){
@@ -1669,12 +1675,46 @@ public:
                     }
                 }
             }
+        }else if(auto *leftUnary = dynamic_cast<ExprOpunary *>(& *node.left)){
+            //todo
+            if(leftUnary->op == DEREFERENCE){
+                if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *node.right)){
+                    auto leftUnaryInstrs = visit(*leftUnary);
+                    for(auto & instr : leftUnaryInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto lastInstr = leftUnaryInstrs[leftUnaryInstrs.size() - 1];
+                    if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                        auto derefVar = q->tmp;
+                        constInfo res = {rightLiteral->integer, "null"};
+                        leftLoadRightLiteral(instrs, derefVar, nullptr, node.op, res,true);
+                    }
+                }
+            }
         }
         return instrs;
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprOpunary &node){
-        return {};
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        if(node.op == DEREFERENCE){
+            if(auto *path = dynamic_cast<ExprPath *>(& *node.right)){
+                if(path->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string varName = path->pathFirst->pathSegments.identifier;
+                    auto varSymbol = currentScope->lookupValueSymbol(varName);
+                    if(varSymbol){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = varSymbol->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, varSymbol, loadedVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = varSymbol->type;
+                        instrs.push_back(std::make_shared<IRLoad>(resultVar, loadedVar, varSymbol->type));
+                        return instrs;
+                    }
+                }
+            }
+        }
+        return instrs;
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprPath &node){
@@ -1775,7 +1815,14 @@ public:
         for(auto &param: currentIRFunc->paramList->paramList){
             //todo
             if(auto p = std::dynamic_pointer_cast<IRVar>(param)){
-                currentScope->addValueSymbol(p->varName, p);
+                //currentScope->addValueSymbol(p->varName, p);
+                auto bodyVar = std::make_shared<IRVar>();
+                bodyVar->varName = p->varName;
+                bodyVar->reName = p->reName;
+                bodyVar->type = p->type;
+                currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
+                currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, bodyVar, nullptr, p));
+                currentScope->addValueSymbol(p->varName, bodyVar);
             }
         }
         if(node.fnBody){
@@ -1859,14 +1906,6 @@ public:
                 }
             }
         }
-        // auto funcRetVar = std::make_shared<IRVar>();
-        // if(currentIRFunc->retType != currentScope->lookupTypeSymbol("void")){
-        //     currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(currentIRFunc->retType, funcRetVar));
-        //     auto tmpRet = std::make_shared<IRVar>();
-        //     currentIRFunc->retBlock->instrList.push_back(std::make_shared<IRLoad>(tmpRet, funcRetVar, currentIRFunc->retType));
-        //     currentIRFunc->retBlock->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, tmpRet));
-        // }
-        //todo processing the function body
         if(node.fnBody){
             //std::vector<std::shared_ptr<IRBlock>> blocks;
             for(auto & stmt : node.fnBody->statements){
