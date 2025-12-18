@@ -500,6 +500,12 @@ public:
         }
         auto returnBlock = std::make_shared<IRBlock>();
         blocks.push_back(returnBlock);
+        //processing instrs br
+        if(node.elseBlock){
+            instrs.push_back(std::make_shared<IRBr>(condVar, thenBlock, blocks[thenBlock->blockList.size() + 1]));
+        }else{
+            instrs.push_back(std::make_shared<IRBr>(condVar, thenBlock, returnBlock));
+        }
         if(thenBlock->blockList.size() > 0){
             auto thenLastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
             thenLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
@@ -761,6 +767,7 @@ public:
             for(auto &blk: bodyBlock->blockList){
                 blocks.push_back(blk);
             }
+            blocks.push_back(returnBlock);
             if(bodyBlock->blockList.size() > 0){
                 auto bodyLastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
                 bodyLastBlock->instrList.push_back(std::make_shared<IRBr>(condBlock));
@@ -1770,7 +1777,19 @@ public:
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprStruct &node){
-        return {};
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.pathInExpr)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                std::string structName = p->pathFirst->pathSegments.identifier;
+                auto structTypeSymbol = currentScope->lookupTypeSymbol(structName);
+                if(auto *structType = dynamic_cast<IRStructType *>(& *structTypeSymbol)){
+                    auto structVar =  std::make_shared<IRVar>();
+                    structVar->type = structTypeSymbol;
+                    instrs.push_back(std::make_shared<IRAlloca>(structTypeSymbol, structVar));
+                    
+                }
+            }
+        }
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprUnderscore &node){
