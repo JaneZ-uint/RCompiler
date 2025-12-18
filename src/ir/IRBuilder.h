@@ -63,6 +63,7 @@
 #include "IRZext.h"
 #include "IRGetptr.h"
 #include "IRReturn.h"
+#include "IRExit.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -120,7 +121,7 @@ public:
             //auto 
             auto irItem = visit(*item);
             if(irItem){
-                irRoot->children.push_back(visit(*item));
+                irRoot->children.push_back(irItem);
             }
         }
         return irRoot;
@@ -194,6 +195,12 @@ public:
             if(p->pathFirst->pathSegments.type == IDENTIFIER){
                 funcName = p->pathFirst->pathSegments.identifier;
             }
+        }
+        if(funcName == "exit"){
+            //todo exit special handling
+            auto exitInstr = std::make_shared<IRExit>();
+            instrs.push_back(exitInstr);
+            return instrs;
         }
         auto currentIRFunc = currentScope->lookupFunctionSymbol(funcName);
         auto currentCallInstr = std::make_shared<IRCall>();
@@ -1852,7 +1859,7 @@ public:
         // }
         //todo processing the function body
         if(node.fnBody){
-            std::vector<std::shared_ptr<IRBlock>> blocks;
+            //std::vector<std::shared_ptr<IRBlock>> blocks;
             for(auto & stmt : node.fnBody->statements){
                 //todo todo todo !!!
                 if(auto *p = dynamic_cast<StmtExpr *>(& *stmt)){
@@ -1902,7 +1909,7 @@ public:
                 }else if(auto *p = dynamic_cast<StmtLet *>(& *stmt)){
                     auto letInstrs = visit(*p);
                     if(currentIRFunc->body->blockList.size() == 0){
-                        for(auto & instr : letInstrs){
+                         for(auto & instr : letInstrs){
                             currentIRFunc->body->instrList.push_back(instr);
                         }
                     }else{
@@ -1918,6 +1925,7 @@ public:
         }
         //deal with return todo!
         currentScope = currentScope->parent;
+        
         return currentIRFunc;
     }
 

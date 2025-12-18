@@ -3,6 +3,7 @@
 #include "IRBinaryop.h"
 #include "IRBr.h"
 # include "IRBuilder.h"
+#include "IRExit.h"
 #include "IRFunction.h"
 #include "IRGetptr.h"
 #include "IRImpl.h"
@@ -946,6 +947,8 @@ public:
             }else{
                 std::cout << "%" << p->base->serial << ", i32 0, i32 %" << p->index->serial << "\n";    
             }
+        }else if(auto *p = dynamic_cast<IRExit *>(& node)){
+            std::cout << "call void @exit(i32 0)\n";
         }
     }
 };

@@ -21,6 +21,8 @@
 #include "../ast/Type/TypePath.h"
 #include "../ast/Type/TypeReference.h"
 #include "../ast/Type/TypeUnit.h"
+#include "IRBlock.h"
+#include "IRFunction.h"
 #include "IRParam.h"
 #include "IRScope.h"
 #include "IRType.h"
@@ -40,6 +42,7 @@ public:
     ~IRGlobalBuilder() = default;
 
     void visit(ASTRootNode &node){
+        globalScope = std::make_shared<IRScope>();
         globalScope->addTypeSymbol("i32", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("u32", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("isize", std::make_shared<IRIntType>(32));
@@ -129,7 +132,12 @@ public:
                 paramList->paramList.push_back(currentVar);
             }
         }
-        globalScope->addFunctionSymbol(node.identifier,std::make_shared<IRFunction>(retType,funcName,paramList));
+        if(!retType){
+            retType = std::make_shared<IRVoidType>();
+        }
+        auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
+        currentFunction->body = std::make_shared<IRBlock>();
+        globalScope->addFunctionSymbol(node.identifier,currentFunction);
     }
 
     void visit(ItemImplDecl &node){
@@ -173,25 +181,12 @@ public:
                                     paramList->paramList.push_back(currentVar);
                                 }
                             }
-                            //processing the function body is needed.
-                            //TODO 
-                            /*auto fnScope = std::make_shared<IRScope>();
-                            fnScope->parent = globalScope;
-                            globalScope->children.push_back(fnScope);
-                            if(itemFn->fnParameters.SelfParam.isShortSelf){
-                                //todo deal with self
-                                auto currentSelf = std::make_shared<IRVar>();
-                                currentSelf->varName = "self";
-                                currentSelf->reName = "self";
-                                currentSelf->type = structType;
-                                fnScope->addValueSymbol("self", currentSelf);
+                            if(!retType){
+                                retType = std::make_shared<IRVoidType>();
                             }
-                            for(auto& param : paramList->paramList){
-                                if(auto varParam = std::dynamic_pointer_cast<IRVar>(param)){
-                                    fnScope->addValueSymbol(varParam->varName, varParam);
-                                }
-                            }*/
-                            structType->memberFunctions.push_back(std::make_shared<IRFunction>(retType,funcName,paramList));
+                            auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
+                            currentFunction->body = std::make_shared<IRBlock>();
+                            structType->memberFunctions.push_back(currentFunction);
                         }
                     }
                     

@@ -57,7 +57,25 @@ public:
 
     void visit(ASTNode &node) override{
         if(auto *p = dynamic_cast<ASTRootNode *>(& node)){
-            visit(*p);
+            p->accept(*this);
+        }else if(auto *p = dynamic_cast<Expression *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<Item *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<Pattern *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<Statement *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<Type *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<TypeArray *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<TypePath *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<TypeReference *>(& node)) {
+            node.accept(*this);
+        }else if(auto *p = dynamic_cast<TypeUnit *>(& node)) {
+            node.accept(*this);
         }else{
             throw std::runtime_error("ConstEvaluator: Unhandled ASTNode type in visit(ASTNode&)");
         }
