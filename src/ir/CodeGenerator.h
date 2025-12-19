@@ -169,6 +169,9 @@ public:
                     code(*instr);
                 }
                 for(auto &block  :p->body->blockList){
+                    if(block->instrList.empty()){
+                        continue;
+                    }
                     std::cout << block->label << ":\n";
                     for(auto &instr: block->instrList){
                         if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
@@ -311,6 +314,9 @@ public:
                         code(*instr);
                     }
                     for(auto &block  :func->body->blockList){
+                        if(block->instrList.empty()){
+                            continue;
+                        }
                         for(auto &instr: block->instrList){
                             if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
                                 continue;

@@ -64,6 +64,7 @@
 #include "IRGetptr.h"
 #include "IRReturn.h"
 #include "IRExit.h"
+#include "IRBreak.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -185,7 +186,9 @@ public:
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprBreak &node){
-        return {};
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        instrs.push_back(std::make_shared<IRBreak>());
+        return instrs;
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprCall &node){
@@ -352,6 +355,7 @@ public:
         currentScope->children.push_back(ifScope);
         currentScope = ifScope;
         auto thenBlock = std::make_shared<IRBlock>();
+        bool isThenReturn = false;
         if(node.thenBlock){
             for(auto &stmt: node.thenBlock->statements){
                 if(auto *exprStmt = dynamic_cast<StmtExpr *>(& *stmt)){
@@ -405,6 +409,9 @@ public:
                                 lastBlock->instrList.push_back(instr);
                             }
                         }
+                        if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
+                            isThenReturn = true;
+                        }
                     }
                 }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
                     auto stmtInstrs = visit(*letStmt);
@@ -419,6 +426,56 @@ public:
                         }
                     }
                 }
+            }
+            if(node.thenBlock->ExpressionWithoutBlock){
+                isThenReturn = true;
+                if(auto *returnExpr = dynamic_cast<ExprPath *>(& *node.thenBlock->ExpressionWithoutBlock)){
+                    if(returnExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string varName = returnExpr->pathFirst->pathSegments.identifier;
+                        auto currentVar = currentScope->lookupValueSymbol(varName);
+                        auto retVar = std::make_shared<IRVar>();
+                        retVar->type = currentVar->type;
+                        if(thenBlock->blockList.empty()){
+                            thenBlock->instrList.push_back(std::make_shared<IRLoad>(retVar, currentVar, currentVar->type));
+                            thenBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,retVar));
+                        }else{
+                            auto lastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+                            lastBlock->instrList.push_back(std::make_shared<IRLoad>(retVar, currentVar, currentVar->type));
+                            lastBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,retVar));
+                        }
+                    }
+                }else if(auto *returnExpr = dynamic_cast<ExprLiteral *>(& *node.thenBlock->ExpressionWithoutBlock)){
+                    if(returnExpr->type == INTEGER_LITERAL){
+                        auto retVar = std::make_shared<IRVar>();
+                        retVar->type = currentScope->lookupTypeSymbol("i32");
+                        if(thenBlock->blockList.empty()){
+                            thenBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,std::make_shared<IRLiteral>(INT_LITERAL, returnExpr->integer)));
+                        }else{
+                            auto lastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+                            lastBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,std::make_shared<IRLiteral>(INT_LITERAL, returnExpr->integer)));
+                        }
+                    }
+                }else if(auto *returnExpr = dynamic_cast<ExprOpbinary *>(& *node.thenBlock->ExpressionWithoutBlock)){
+                    auto stmtInstrs = visit(*returnExpr);
+                    if(thenBlock->blockList.empty()){
+                        for(auto & instr : stmtInstrs){
+                            thenBlock->instrList.push_back(instr);
+                        }
+                        auto lastInstr = stmtInstrs[stmtInstrs.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                            thenBlock->instrList.push_back(std::make_shared<IRReturn>(q->result->type,q->result));
+                        }
+                    }else{
+                        auto lastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+                        for(auto & instr : stmtInstrs){
+                            lastBlock->instrList.push_back(instr);
+                        }
+                        auto lastInstr = stmtInstrs[stmtInstrs.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                            lastBlock->instrList.push_back(std::make_shared<IRReturn>(q->result->type,q->result));
+                        }
+                    }
+                }
             }           
         }
         blocks.push_back(thenBlock);
@@ -426,6 +483,7 @@ public:
             blocks.push_back(blk);
         }
         currentScope = currentScope->parent;
+        bool isElseBlock = false;
         if(node.elseBlock){
             auto elseScope = std::make_shared<IRScope>();
             elseScope->parent = currentScope;
@@ -491,6 +549,9 @@ public:
                                     lastBlock->instrList.push_back(instr);
                                 }
                             }
+                            if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
+                                isElseBlock = true;
+                            }
                         }
                     }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
                         auto stmtInstrs = visit(*letStmt);
@@ -507,6 +568,56 @@ public:
                     }
                 }
                 // todo exoression without block required here
+                if(blockExpr->ExpressionWithoutBlock){
+                    isElseBlock = true;
+                    if(auto *returnExpr = dynamic_cast<ExprPath *>(& *blockExpr->ExpressionWithoutBlock)){
+                        if(returnExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string varName = returnExpr->pathFirst->pathSegments.identifier;
+                            auto currentVar = currentScope->lookupValueSymbol(varName);
+                            auto retVar = std::make_shared<IRVar>();
+                            retVar->type = currentVar->type;
+                            if(elseBlock->blockList.empty()){
+                                elseBlock->instrList.push_back(std::make_shared<IRLoad>(retVar, currentVar, currentVar->type));
+                                elseBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,retVar));
+                            }else{
+                                auto lastBlock = elseBlock->blockList[elseBlock->blockList.size() - 1];
+                                lastBlock->instrList.push_back(std::make_shared<IRLoad>(retVar, currentVar, currentVar->type));
+                                lastBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,retVar));
+                            }
+                        }
+                    }else if(auto *returnExpr = dynamic_cast<ExprLiteral *>(& *blockExpr->ExpressionWithoutBlock)){
+                        if(returnExpr->type == INTEGER_LITERAL){
+                            auto retVar = std::make_shared<IRVar>();
+                            retVar->type = currentScope->lookupTypeSymbol("i32");
+                            if(elseBlock->blockList.empty()){
+                                elseBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,std::make_shared<IRLiteral>(INT_LITERAL, returnExpr->integer)));
+                            }else{
+                                auto lastBlock = elseBlock->blockList[elseBlock->blockList.size() - 1];
+                                lastBlock->instrList.push_back(std::make_shared<IRReturn>(retVar->type,std::make_shared<IRLiteral>(INT_LITERAL, returnExpr->integer)));
+                            }
+                        }
+                    }else if(auto *returnExpr = dynamic_cast<ExprOpbinary *>(& *blockExpr->ExpressionWithoutBlock)){
+                        auto stmtInstrs = visit(*returnExpr);
+                        if(elseBlock->blockList.empty()){
+                            for(auto & instr : stmtInstrs){
+                                elseBlock->instrList.push_back(instr);
+                            }
+                            auto lastInstr = stmtInstrs[stmtInstrs.size() - 1];
+                            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                                elseBlock->instrList.push_back(std::make_shared<IRReturn>(q->result->type,q->result));
+                            }
+                        }else{
+                            auto lastBlock = elseBlock->blockList[elseBlock->blockList.size() - 1];
+                            for(auto & instr : stmtInstrs){
+                                lastBlock->instrList.push_back(instr);
+                            }
+                            auto lastInstr = stmtInstrs[stmtInstrs.size() - 1];
+                            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                                lastBlock->instrList.push_back(std::make_shared<IRReturn>(q->result->type,q->result));
+                            }
+                        }
+                    }
+                }
                 blocks.push_back(elseBlock);
                 for(auto &blk: elseBlock->blockList){
                     blocks.push_back(blk);
@@ -523,20 +634,26 @@ public:
             instrs.push_back(std::make_shared<IRBr>(condVar, thenBlock, returnBlock));
         }
         if(thenBlock->blockList.size() > 0){
-            auto thenLastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
-            thenLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            if(isThenReturn == false){
+                auto thenLastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+                thenLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            }
         }else{
-            thenBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            if(isThenReturn == false){
+                thenBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+            }
         }
         if(node.elseBlock){
             if(blocks[blocks.size() - 2]->blockList.size() > 0){
-                auto elseLastBlock = blocks[blocks.size() - 2]->blockList[blocks[blocks.size() - 2]->blockList.size() - 1];
-                elseLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+                if(isElseBlock == false){
+                    auto elseLastBlock = blocks[blocks.size() - 2]->blockList[blocks[blocks.size() - 2]->blockList.size() - 1];
+                    elseLastBlock->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+                }
             }else{
-                blocks[blocks.size() - 2]->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+                if(isElseBlock == false){
+                    blocks[blocks.size() - 2]->instrList.push_back(std::make_shared<IRBr>(returnBlock));
+                }
             }
-        }else{
-            instrs.push_back(std::make_shared<IRBr>(condVar,thenBlock, returnBlock));
         }
         ifBlock->instrList = instrs;
         ifBlock->blockList = blocks;
@@ -703,7 +820,6 @@ public:
         currentScope = loopScope;
         if(node.PredicateLoopExpression){
             auto bodyBlock = std::make_shared<IRBlock>();
-            //先不管isTrue
             for(auto &stmt: node.PredicateLoopExpression->statements){
                 if(auto *exprStmt = dynamic_cast<StmtExpr *>(& *stmt)){
                     if(auto *ifExpr = dynamic_cast<ExprIf *>(& *exprStmt->stmtExpr)){
@@ -773,7 +889,7 @@ public:
             }
             // todo exoression without block required here
             if(node.PredicateLoopExpression->ExpressionWithoutBlock){
-                //
+                //seems no need to process return in loop body
             }
             currentScope = currentScope->parent;
             auto returnBlock = std::make_shared<IRBlock>();
@@ -781,6 +897,17 @@ public:
             blocks.push_back(condBlock);
             blocks.push_back(bodyBlock);
             for(auto &blk: bodyBlock->blockList){
+                for(int i = 0; i < blk->instrList.size(); i++){
+                    if(auto *breakInstr = dynamic_cast<IRBreak *>(& *blk->instrList[i])){
+                        //replace break with br to returnBlock
+                        blk->instrList[i] = std::make_shared<IRBr>(returnBlock);
+                        for(int j = i + 1; j < blk->instrList.size(); j++){
+                            //remove instructions after break
+                            blk->instrList.erase(blk->instrList.begin() + j);
+                            j--;
+                        }
+                    }
+                }
                 blocks.push_back(blk);
             }
             blocks.push_back(returnBlock);
@@ -2005,7 +2132,47 @@ public:
                 }
             }
             if(node.fnBody->ExpressionWithoutBlock){
-                //todo about br instruction
+                if(auto *retExpr = dynamic_cast<ExprPath *>(& *node.fnBody->ExpressionWithoutBlock)){
+                    if(retExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string retVarName = retExpr->pathFirst->pathSegments.identifier;
+                        auto retVarSymbol = currentScope->lookupValueSymbol(retVarName);
+                        if(retVarSymbol){
+                            auto retLoadedVar = std::make_shared<IRVar>();
+                            if(currentIRFunc->body->blockList.size() == 0){
+                                retLoadedVar->type = retVarSymbol->type;
+                                currentIRFunc->body->instrList.push_back(std::make_shared<IRLoad>(retLoadedVar, retVarSymbol, retVarSymbol->type));
+                                currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(retVarSymbol->type, retLoadedVar));
+                            }else{
+                                retLoadedVar->type = retVarSymbol->type;
+                                currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRLoad>(retLoadedVar, retVarSymbol, retVarSymbol->type));
+                                currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(retVarSymbol->type, retLoadedVar));
+                            }
+                        }
+                    }
+                }else if(auto *retLiteral = dynamic_cast<ExprLiteral *>(& *node.fnBody->ExpressionWithoutBlock)){
+                    if(currentIRFunc->body->blockList.size() == 0){
+                        currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, retLiteral->integer)));
+                    }else{
+                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, retLiteral->integer)));
+                    }
+                }else if(auto *retBinaryOp = dynamic_cast<ExprOpbinary *>(& *node.fnBody->ExpressionWithoutBlock)){
+                    auto retInstrs = visit(*retBinaryOp);
+                    if(currentIRFunc->body->blockList.size() == 0){
+                        for(auto & instr : retInstrs){
+                            currentIRFunc->body->instrList.push_back(instr);
+                        }
+                        if(auto *lastInstr = dynamic_cast<IRBinaryop *>(& *retInstrs[retInstrs.size() - 1])){
+                            currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, lastInstr->result));
+                        }
+                    }else{
+                        for(auto & instr : retInstrs){
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                        }
+                        if(auto *lastInstr = dynamic_cast<IRBinaryop *>(& *retInstrs[retInstrs.size() - 1])){
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, lastInstr->result));
+                        }
+                    }
+                }
             }
         }
         //deal with return todo!
