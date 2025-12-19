@@ -58,9 +58,8 @@ public:
             return type_table[name];
         } else if(parent != nullptr) {
             return parent->lookupTypeSymbol(name);
-        } else {
-            throw std::runtime_error("Type " + name + " not found.");
         }
+        return nullptr;
     }
 
     std::shared_ptr<IRVar> lookupValueSymbol(const std::string &name) {
@@ -68,9 +67,8 @@ public:
             return value_table[name];
         } else if(parent != nullptr) {
             return parent->lookupValueSymbol(name);
-        } else {
-            throw std::runtime_error("Variable " + name + " not found.");
         }
+        return nullptr;
     }
 
     std::shared_ptr<IRFunction> lookupFunctionSymbol(const std::string &name) {
@@ -78,9 +76,8 @@ public:
             return function_table[name];
         } else if(parent != nullptr) {
             return parent->lookupFunctionSymbol(name);
-        } else {
-            throw std::runtime_error("Function " + name + " not found.");
         }
+        return nullptr;
     }
 
     constInfo lookupConstantSymbol(const std::string &name) {
@@ -88,9 +85,8 @@ public:
             return constant_table[name];
         } else if(parent != nullptr) {
             return parent->lookupConstantSymbol(name);
-        } else {
-            throw std::runtime_error("Constant " + name + " not found.");
-        }
+        } 
+        return {0,""};
     }
 };  
 }

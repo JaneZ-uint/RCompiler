@@ -1392,29 +1392,29 @@ public:
                         if(rightVarName == "usize" || rightVarName == "isize" ){
                             if(node.op == AS_CAST){
                                 auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = leftVarSymbol->type;
                                 instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                                 auto resultVar = std::make_shared<IRVar>();
                                 //todo cast instr
-                                if(leftVarSymbol->type == currentScope->lookupTypeSymbol("i32")){
-                                    instrs.push_back(std::make_shared<IRSext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
-                                    resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                }else if(leftVarSymbol->type == currentScope->lookupTypeSymbol("u32")){
-                                    instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
-                                    resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                if(auto *intType = dynamic_cast<IRIntType *>(& *leftVarSymbol->type)){
+                                    if(intType->bitWidth == 32){
+                                        resultVar->type = currentScope->lookupTypeSymbol("isize");
+                                        instrs.push_back(std::make_shared<IRSext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
+                                    }
                                 }
                             }
                         }else if(rightVarName == "u32" || rightVarName == "i32" ){
                             if(node.op == AS_CAST){
                                 auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = leftVarSymbol->type;
                                 instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                                 auto resultVar = std::make_shared<IRVar>();
                                 //todo cast instr
-                                if(leftVarSymbol->type == currentScope->lookupTypeSymbol("isize")){
-                                    instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("i32"), resultVar));
-                                    resultVar->type = currentScope->lookupTypeSymbol("i32");
-                                }else if(leftVarSymbol->type == currentScope->lookupTypeSymbol("usize")){
-                                    instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("u32"), resultVar));
-                                    resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                if(auto *intType = dynamic_cast<IRIntType *>(& *leftVarSymbol->type)){
+                                    if(intType->bitWidth == 32){
+                                        resultVar->type = currentScope->lookupTypeSymbol("i32");
+                                        instrs.push_back(std::make_shared<IRTrunc>(currentScope->lookupTypeSymbol("isize"),leftLoadedVar, currentScope->lookupTypeSymbol("i32"), resultVar));
+                                    }
                                 }
                             }
                         }else{
@@ -1929,6 +1929,14 @@ public:
             }
             if(auto *opBinaryLastInstr = dynamic_cast<IRBinaryop *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
                 auto retVar = opBinaryLastInstr->result;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }else if(auto *sextOp = dynamic_cast<IRSext *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
+                auto retVar = sextOp->result;
+                retVar->type = sextOp->targetType;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }else if(auto *zextOp = dynamic_cast<IRZext *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
+                auto retVar = zextOp->result;
+                retVar->type = zextOp->targetType;
                 instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
             }
         }
