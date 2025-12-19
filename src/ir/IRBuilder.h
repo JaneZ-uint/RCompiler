@@ -207,6 +207,22 @@ public:
                 //todo
             }
         }
+        if(funcName == ""){
+            std::string structName = "";
+            if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+                if(p->pathSecond->pathSegments.type == IDENTIFIER){
+                    funcName = p->pathSecond->pathSegments.identifier;
+                }
+                if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                    structName = p->pathFirst->pathSegments.identifier;
+                }
+                auto currentStruct = currentScope->lookupTypeSymbol(structName);
+                if(auto *implType = dynamic_cast<IRStructType *>(& *currentStruct)){
+                    //find impl
+                    
+                }
+            }
+        }
         auto currentIRFunc = currentScope->lookupFunctionSymbol(funcName);
         auto currentCallInstr = std::make_shared<IRCall>();
         currentCallInstr->function = currentIRFunc;
@@ -1714,8 +1730,10 @@ public:
                         loadedVar->type = varSymbol->type;
                         instrs.push_back(std::make_shared<IRLoad>(loadedVar, varSymbol, loadedVar->type));
                         auto resultVar = std::make_shared<IRVar>();
-                        resultVar->type = varSymbol->type;
-                        instrs.push_back(std::make_shared<IRLoad>(resultVar, loadedVar, varSymbol->type));
+                        if(auto *ptrType = dynamic_cast<IRPtrType *>(& *varSymbol->type)){
+                            resultVar->type = ptrType->baseType;
+                        }
+                        instrs.push_back(std::make_shared<IRLoad>(resultVar, loadedVar, resultVar->type));
                         return instrs;
                     }
                 }
@@ -1786,7 +1804,7 @@ public:
                     auto structVar =  std::make_shared<IRVar>();
                     structVar->type = structTypeSymbol;
                     instrs.push_back(std::make_shared<IRAlloca>(structTypeSymbol, structVar));
-                    
+                    //todo
                 }
             }
         }
@@ -1840,7 +1858,7 @@ public:
                 bodyVar->reName = p->reName;
                 bodyVar->type = p->type;
                 currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
-                currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, bodyVar, nullptr, p));
+                currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
                 currentScope->addValueSymbol(p->varName, bodyVar);
             }
         }
@@ -1992,6 +2010,13 @@ public:
         }
         //deal with return todo!
         currentScope = currentScope->parent;
+        if(currentIRFunc->name == "main"){
+            if(currentIRFunc->body->blockList.size() == 0){
+                currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol("i32"), std::make_shared<IRLiteral>(INT_LITERAL, 0)));
+            }else{
+                currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol("i32"), std::make_shared<IRLiteral>(INT_LITERAL, 0)));
+            }
+        }
         
         return currentIRFunc;
     }

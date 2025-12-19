@@ -86,6 +86,9 @@ public:
             }else if(p->retType->type == BaseType::PTR){
                 std::cout << "ptr ";
             }
+            if(p->name == "main"){
+                std::cout << "i32 ";
+            }
             std::cout << "@" << p->name << "(";
             for(size_t i = 0; i < p->paramList->paramList.size(); ++i){
                 auto &param = p->paramList->paramList[i];
@@ -1302,7 +1305,7 @@ public:
                 std::cout << "%" << p->base->serial << ", i32 0, i32 %" << p->index->serial << "\n";    
             }
         }else if(auto *p = dynamic_cast<IRExit *>(& node)){
-            std::cout << "call void @exit(i32 0)\n";
+            std::cout << "call void @__builtin_exit(i32 0)\n";
         }
     }
 };
