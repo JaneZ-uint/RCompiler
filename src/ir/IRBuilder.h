@@ -65,6 +65,7 @@
 #include "IRReturn.h"
 #include "IRExit.h"
 #include "IRBreak.h"
+#include "IRContinue.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -276,7 +277,9 @@ public:
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprContinue &node){
-        return {};
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        instrs.push_back(std::make_shared<IRContinue>());
+        return instrs;
     }
 
     std::vector<std::shared_ptr<IRNode>> visit(ExprField &node){
@@ -903,6 +906,17 @@ public:
                         blk->instrList[i] = std::make_shared<IRBr>(returnBlock);
                         for(int j = i + 1; j < blk->instrList.size(); j++){
                             //remove instructions after break
+                            blk->instrList.erase(blk->instrList.begin() + j);
+                            j--;
+                        }
+                    }
+                }
+                for(int i = 0;i < blk->instrList.size(); i++){
+                    if(auto *continueInstr = dynamic_cast<IRContinue *>(& *blk->instrList[i])){
+                        //replace continue with br to condBlock
+                        blk->instrList[i] = std::make_shared<IRBr>(condBlock);
+                        for(int j = i + 1; j < blk->instrList.size(); j++){
+                            //remove instructions after continue
                             blk->instrList.erase(blk->instrList.begin() + j);
                             j--;
                         }
