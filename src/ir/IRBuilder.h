@@ -66,6 +66,7 @@
 #include "IRExit.h"
 #include "IRBreak.h"
 #include "IRContinue.h"
+#include "IRPrint.h"
 #include "IRGlobalbuilder.h"
 #include <memory>
 #include <map>
@@ -208,7 +209,43 @@ public:
         }
         if(funcName == "printlnInt"){
             for(auto &arg :node.callParams){
-                //todo
+                if(auto *printArg = dynamic_cast<ExprLiteral *>(& *arg)){
+                    if(printArg->type == INTEGER_LITERAL){
+                        auto printInstr = std::make_shared<IRPrint>(std::make_shared<IRLiteral>(INT_LITERAL, printArg->integer));
+                        instrs.push_back(printInstr);
+                    }
+                }else if(auto *printArg = dynamic_cast<ExprPath *>(& *arg)){
+                    if(printArg->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string varName = printArg->pathFirst->pathSegments.identifier;
+                        auto varSymbol = currentScope->lookupValueSymbol(varName);
+                        //TODO load instruction
+                        auto currentParamVar = std::make_shared<IRVar>();
+                        currentParamVar->varName = varSymbol->varName;
+                        if(vars_cnt.find(currentParamVar->varName) != vars_cnt.end()){
+                            vars_cnt[currentParamVar->varName] += 1;
+                            currentParamVar->reName = currentParamVar->varName + "_" + std::to_string(vars_cnt[currentParamVar->varName]);
+                        }else{
+                            vars_cnt[currentParamVar->varName] = 1;
+                            currentParamVar->reName = currentParamVar->varName;
+                        }
+                        currentParamVar->type = varSymbol->type;
+                        instrs.push_back(std::make_shared<IRLoad>(currentParamVar, varSymbol,varSymbol->type));
+                        auto printInstr = std::make_shared<IRPrint>(currentParamVar);
+                        instrs.push_back(printInstr);
+                    }
+                }else if(auto *printArg = dynamic_cast<ExprIndex *>(& *arg)){
+                    auto indexInstrs = visit(*printArg);
+                    for(auto & instr : indexInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto lastInstr = indexInstrs[indexInstrs.size() - 1];
+                    if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->res);
+                        instrs.push_back(printInstr);
+                    }
+                }else if(auto *printArg = dynamic_cast<ExprField *>(& *arg)){
+                    //
+                }
             }
         }
         if(funcName == ""){
@@ -297,13 +334,29 @@ public:
                                 auto loadedVar = std::make_shared<IRVar>();
                                 loadedVar->type = structType->memberTypes[i].second;
                                 instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,loadedVar,i));
-                            }else if(auto *type = dynamic_cast<IRArrayType *>(& *structType->memberTypes[i].second)){
-                                // a.b[0] 结构体成员是数组
+                            }
+                        }
+                    }
+                }
+            }
+        }else if(auto *p = dynamic_cast<ExprIndex *>(& *node.expr)){
+            //a[0].b
+            auto indexInstrs = visit(*p);
+            for(auto & instr : indexInstrs){
+                instrs.push_back(instr);
+            }
+            auto lastInstr = indexInstrs[indexInstrs.size() - 1];
+            if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                auto currentVar = q->res;
+                //todo load and getfield
+                if(auto *structType = dynamic_cast<IRStructType *>(& *currentVar->type)){
+                    std::string fieldName = node.identifier;
+                    for(int i = 0; i < structType->memberTypes.size(); i++){
+                        if(structType->memberTypes[i].first == fieldName){
+                            if(auto *type = dynamic_cast<IRIntType *>(& *structType->memberTypes[i].second)){     
                                 auto loadedVar = std::make_shared<IRVar>();
                                 loadedVar->type = structType->memberTypes[i].second;
                                 instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,loadedVar,i));
-                                auto indexVar = std::make_shared<IRVar>();
-
                             }
                         }
                     }
@@ -690,6 +743,16 @@ public:
                                 auto res = std::make_shared<IRVar>();
                                 res->type = type->elementType;
                                 instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                            }else if(auto *q = dynamic_cast<IRSext *>(& *lastInstr)){
+                                auto indexVar = q->result;
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                            }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
+                                auto indexVar = q->result;
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
                             }
                         }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
                             if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
@@ -716,61 +779,123 @@ public:
             }
         }else if(auto *p = dynamic_cast<ExprField *>(& *node.name)){
             //a.b[0] 结构体成员是数组
-            if(auto *structName = dynamic_cast<ExprPath *>(& *p->expr)){
-                if(structName->pathFirst->pathSegments.type == IDENTIFIER){
-                    std::string varName = structName->pathFirst->pathSegments.identifier;
-                    auto currentVar = currentScope->lookupValueSymbol(varName);
-                    //todo load and getfield then getindex
-                    if(auto *structType = dynamic_cast<IRStructType *>(& *currentVar->type)){
-                        std::string fieldName = p->identifier;
-                        for(int i = 0; i < structType->memberTypes.size(); i++){
-                            if(structType->memberTypes[i].first == fieldName){
-                                if(auto *type = dynamic_cast<IRArrayType *>(& *structType->memberTypes[i].second)){
-                                    auto loadedVar = std::make_shared<IRVar>();
-                                    loadedVar->type = structType->memberTypes[i].second;
-                                    instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,loadedVar,i));
-                                    //getindex
-                                    if(auto *indexExpr = dynamic_cast<ExprLiteral *>(& *node.index)){
-                                        if(indexExpr->type == INTEGER_LITERAL){
-                                            auto res = std::make_shared<IRVar>();
-                                            res->type = type->elementType;
-                                            instrs.push_back(std::make_shared<IRGetptr>(loadedVar->type, loadedVar,res,i));
-                                        }
-                                    }else{
-                                        if(auto *indexExpr = dynamic_cast<ExprOpbinary *>(& *node.index)){
-                                            auto indexInstrs = visit(*indexExpr);
-                                            for(auto & instr : indexInstrs){
-                                                instrs.push_back(instr);
-                                            }
-                                            auto lastInstr = indexInstrs[indexInstrs.size() - 1];
-                                            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
-                                                auto indexVar = q->result;
-                                                auto res = std::make_shared<IRVar>();
-                                                res->type = type->elementType;
-                                                instrs.push_back(std::make_shared<IRGetptr>(loadedVar->type, loadedVar,res,-1,indexVar));
-                                            }
-                                        }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
-                                            if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
-                                                std::string indexVarName = indexExpr->pathFirst->pathSegments.identifier;
-                                                auto indexVarSymbol = currentScope->lookupValueSymbol(indexVarName);
-                                                if(indexVarSymbol){
-                                                    auto indexLoadedVar = std::make_shared<IRVar>();
-                                                    indexLoadedVar->type = indexVarSymbol->type;
-                                                    instrs.push_back(std::make_shared<IRLoad>(indexLoadedVar, indexVarSymbol,indexVarSymbol->type));
-                                                    auto res = std::make_shared<IRVar>();
-                                                    res->type = type->elementType;
-                                                    instrs.push_back(std::make_shared<IRGetptr>(loadedVar->type, loadedVar,res,-1,indexLoadedVar));
-                                                }else{
-                                                    //constant
-                                                    constInfo res = currentScope->lookupConstantSymbol(indexVarName);
-                                                    auto result = std::make_shared<IRVar>();
-                                                    result->type = type->elementType;
-                                                    instrs.push_back(std::make_shared<IRGetptr>(loadedVar->type, loadedVar,result,res.value,nullptr));
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+            auto fieldInstrs = visit(*p);
+            for(auto & instr : fieldInstrs){
+                instrs.push_back(instr);
+            }
+            auto lastInstr = fieldInstrs[fieldInstrs.size() - 1];
+            if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                auto currentVar = q->res;
+                //todo load and getindex
+                if(auto *type = dynamic_cast<IRArrayType *>(& *currentVar->type)){
+                    //getindex
+                    if(auto *indexExpr = dynamic_cast<ExprLiteral *>(& *node.index)){
+                        if(indexExpr->type == INTEGER_LITERAL){
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,indexExpr->integer));
+                        }
+                    }else if(auto *indexExpr = dynamic_cast<ExprOpbinary *>(& *node.index)){
+                        auto indexInstrs = visit(*indexExpr);
+                        for(auto & instr : indexInstrs){
+                            instrs.push_back(instr);
+                        }
+                        auto lastInstr = indexInstrs[indexInstrs.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRSext *>(& *lastInstr)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }
+                    }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
+                        if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string indexVarName = indexExpr->pathFirst->pathSegments.identifier;
+                            auto indexVarSymbol = currentScope->lookupValueSymbol(indexVarName);
+                            if(indexVarSymbol){
+                                auto indexLoadedVar = std::make_shared<IRVar>();
+                                indexLoadedVar->type = indexVarSymbol->type;
+                                instrs.push_back(std::make_shared<IRLoad>(indexLoadedVar, indexVarSymbol,indexVarSymbol->type));
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexLoadedVar));
+                            }else{
+                                //constant
+                                constInfo res = currentScope->lookupConstantSymbol(indexVarName);
+                                auto result = std::make_shared<IRVar>();
+                                result->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,result,res.value));
+                            }
+                        }
+                    }
+                }
+            }
+        }else if(auto *p = dynamic_cast<ExprIndex *>(& *node.name)){
+            //a[0][1] 多维数组
+            auto indexInstrs1 = visit(*p);
+            for(auto & instr : indexInstrs1){
+                instrs.push_back(instr);
+            }
+            auto lastInstr1 = indexInstrs1[indexInstrs1.size() - 1];
+            if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr1)){
+                auto currentVar = q->res;
+                //todo load and getindex
+                if(auto *type = dynamic_cast<IRArrayType *>(& *currentVar->type)){
+                    //getindex
+                    if(auto *indexExpr = dynamic_cast<ExprLiteral *>(& *node.index)){
+                        if(indexExpr->type == INTEGER_LITERAL){
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,indexExpr->integer));
+                        }
+                    }else if(auto *indexExpr = dynamic_cast<ExprOpbinary *>(& *node.index)){
+                        auto indexInstrs2 = visit(*indexExpr);
+                        for(auto & instr : indexInstrs2){
+                            instrs.push_back(instr);
+                        }
+                        auto lastInstr2 = indexInstrs2[indexInstrs2.size() - 1];
+                        if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr2)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRSext *>(& *lastInstr2)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr2)){
+                            auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }
+                    }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
+                        if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string indexVarName = indexExpr->pathFirst->pathSegments.identifier;
+                            auto indexVarSymbol = currentScope->lookupValueSymbol(indexVarName);
+                            if(indexVarSymbol){
+                                auto indexLoadedVar = std::make_shared<IRVar>();
+                                indexLoadedVar->type = indexVarSymbol->type;
+                                instrs.push_back(std::make_shared<IRLoad>(indexLoadedVar, indexVarSymbol,indexVarSymbol->type));
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexLoadedVar));
+                            }else{
+                                //constant
+                                constInfo res = currentScope->lookupConstantSymbol(indexVarName);
+                                auto result = std::make_shared<IRVar>();
+                                result->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,result,res.value));
                             }
                         }
                     }
