@@ -104,7 +104,7 @@ public:
     }
 
     void visit(ItemFnDecl &node){
-        std::shared_ptr<IRType> retType;
+        std::shared_ptr<IRType> retType = nullptr;
         if(node.returnType){
             retType = resolveType(*node.returnType);
         }
@@ -130,6 +130,14 @@ public:
         }
         if(!retType){
             retType = std::make_shared<IRVoidType>();
+        }else{
+            if(auto *p = dynamic_cast<IRStructType *>(& *retType)){
+                auto ptrVar = std::make_shared<IRVar>();
+                ptrVar->type = std::make_shared<IRPtrType>(retType);
+                ptrVar->varName = "return_ptr";
+                ptrVar->reName = "return_ptr";
+                paramList->paramList.push_back(ptrVar);
+            }
         }
         auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
         currentFunction->body = std::make_shared<IRBlock>();
