@@ -14,6 +14,7 @@ public:
     std::string varName;
     std::string reName;
     int serial;
+    bool isSelf = false;
 
     IRVar(){
         serial = ir_cnt++;

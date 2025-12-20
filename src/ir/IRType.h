@@ -80,6 +80,7 @@ public:
     // for impl
     std::vector<std::shared_ptr<IRFunction>> memberFunctions;
     std::vector<std::pair<std::string, long long int>> memberConstants;
+    int size = 0;
     
     IRStructType() : IRType(BaseType::STRUCT), name(""), true_name(""), memberTypes({}), memberFunctions({}), memberConstants({}) {}
     IRStructType(std::string n, std::string tn, std::vector<std::pair<std::string,std::shared_ptr<IRType>>> mts,

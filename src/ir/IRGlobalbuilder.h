@@ -4,6 +4,7 @@
 #include "../ast/root.h"
 #include "../ast/Expression/ExprStruct.h"
 #include "../ast/Expression/ExprLiteral.h"
+#include "../ast/Expression/ExprOpbinary.h"
 #include "../ast/Expression/ExprMethodcall.h"
 #include "../ast/Expression/ExprPath.h"
 #include "../ast/Item/ItemConst.h"
@@ -27,7 +28,6 @@
 #include "IRScope.h"
 #include "IRType.h"
 #include "IRVar.h"
-#include "IRSelf.h"
 #include <memory>
 #include <vector>
 
@@ -110,10 +110,6 @@ public:
         }
         std::string funcName = node.identifier;
         std::shared_ptr<IRParam> paramList = std::make_shared<IRParam>();
-        if(node.fnParameters.SelfParam.isShortSelf){
-            auto selfParam = std::make_shared<IRSelf>();
-            paramList->paramList.push_back(selfParam);
-        } 
         if(node.fnParameters.FunctionParam.size() > 0){
             for(auto& param : node.fnParameters.FunctionParam){
                 auto currentVar = std::make_shared<IRVar>();
@@ -160,13 +156,16 @@ public:
                             std::string funcName = itemFn->identifier;
                             std::shared_ptr<IRParam> paramList =  std::make_shared<IRParam>();
                             if(itemFn->fnParameters.SelfParam.isShortSelf){
-                                auto selfParam = std::make_shared<IRSelf>();
+                                auto selfParam = std::make_shared<IRVar>();
+                                selfParam->varName = "self";
+                                selfParam->reName = "self";
+                                selfParam->type = std::make_shared<IRPtrType>(structType);
+                                selfParam->isSelf = true;
                                 paramList->paramList.push_back(selfParam);
                             } 
                             if(itemFn->fnParameters.FunctionParam.size() > 0){
                                 for(auto& param : itemFn->fnParameters.FunctionParam){
                                     auto currentVar = std::make_shared<IRVar>();
-                                    //left with ref and mut to do
                                     if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
                                         currentVar->varName = p->identifier;
                                     }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
@@ -195,6 +194,26 @@ public:
         }
     }
 
+    void caculateStructSize(std::shared_ptr<IRStructType> structType){
+        int totalSize = 0;
+        for(auto & member : structType->memberTypes){
+            if(auto *p = dynamic_cast<IRIntType *>(member.second.get())){
+                totalSize += p->bitWidth / 8;
+            }else if(auto *p = dynamic_cast<IRArrayType *>(member.second.get())){
+                if(auto *q = dynamic_cast<IRIntType *>(p->elementType.get())){
+                    totalSize += (p->size * q->bitWidth) / 8;
+                }else if(auto *q = dynamic_cast<IRArrayType *>(member.second.get())){
+                    if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                        totalSize += (p->size * q->size * r->bitWidth) /8;
+                    }
+                }
+            }else if(auto *p = dynamic_cast<IRStructType *>(member.second.get())){
+                totalSize += p->size;
+            }
+        }
+        structType->size = totalSize;
+    }
+
     void visit(ItemStructDecl &node){
         std::vector<std::pair<std::string,std::shared_ptr<IRType>>> fieldTypes;
         std::string structName = node.identifier;
@@ -207,6 +226,7 @@ public:
         currentStructType->name = structName;
         currentStructType->true_name = structName;
         currentStructType->memberTypes = fieldTypes;
+        caculateStructSize(currentStructType);
         globalScope->addTypeSymbol(structName, currentStructType);
     }
 
@@ -251,10 +271,54 @@ public:
             currentType = resolveType(*node.type);
         }
         if(node.expr){
-            if(auto *p = dynamic_cast<ExprLiteral *>(& *node.expr)){
-                size = p->integer;
-            }else{
-                size = node.expr->constValue;
+            if(auto *literal = dynamic_cast<ExprLiteral *>(& *node.expr)){
+                size = literal->integer;
+            }else if(auto *path = dynamic_cast<ExprPath *>(& *node.expr)){
+                if(path->pathFirst->pathSegments.type == IDENTIFIER){
+                    std::string constName = path->pathFirst->pathSegments.identifier;
+                    constInfo res = globalScope->lookupConstantSymbol(constName);
+                    size = res.value;
+                }
+            }else if(auto *opbinary = dynamic_cast<ExprOpbinary *>(& *node.expr)){
+                if(opbinary->op == PLUS){
+                    if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
+                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = left->pathFirst->pathSegments.identifier;
+                            constInfo res = globalScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
+                        size += leftLiteral->integer;
+                    }
+                    if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
+                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = right->pathFirst->pathSegments.identifier;
+                            constInfo res = globalScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
+                        size += rightLiteral->integer;
+                    }
+                }else if(opbinary->op == MINUS){
+                    if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
+                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = left->pathFirst->pathSegments.identifier;
+                            constInfo res = globalScope->lookupConstantSymbol(constName);
+                            size += res.value;
+                        }
+                    }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
+                        size += leftLiteral->integer;
+                    }
+                    if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
+                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
+                            std::string constName = right->pathFirst->pathSegments.identifier;
+                            constInfo res = globalScope->lookupConstantSymbol(constName);
+                            size -= res.value;
+                        }
+                    }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
+                        size -= rightLiteral->integer;
+                    }
+                }
             }
         }
         return std::make_shared<IRArrayType>(currentType, size);
