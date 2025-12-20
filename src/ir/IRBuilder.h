@@ -68,6 +68,7 @@
 #include "IRContinue.h"
 #include "IRPrint.h"
 #include "IRGlobalbuilder.h"
+#include "IRGetint.h"
 #include <memory>
 #include <map>
 #include <vector>
@@ -244,9 +245,42 @@ public:
                         instrs.push_back(printInstr);
                     }
                 }else if(auto *printArg = dynamic_cast<ExprField *>(& *arg)){
-                    //
+                    auto fieldInstrs = visit(*printArg);
+                    for(auto & instr : fieldInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto lastInstr = fieldInstrs[fieldInstrs.size() - 1];
+                    if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->res);
+                        instrs.push_back(printInstr);
+                    }
+                }else if(auto *printArg = dynamic_cast<ExprOpbinary *>(& *arg)){
+                    auto opInstrs = visit(*printArg);
+                    for(auto & instr : opInstrs){
+                        instrs.push_back(instr);
+                    }
+                    auto lastInstr = opInstrs[opInstrs.size() - 1];
+                    if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->result);
+                        instrs.push_back(printInstr);
+                    }else if(auto *q = dynamic_cast<IRSext *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->result);
+                        instrs.push_back(printInstr);
+                    }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->result);
+                        instrs.push_back(printInstr);
+                    }
                 }
             }
+            return instrs;
+        }else if(funcName == "getInt"){
+            //todo getint special handling
+            auto getIntInstr = std::make_shared<IRGetint>();
+            auto retVar = std::make_shared<IRVar>();
+            retVar->type = currentScope->lookupTypeSymbol("i32");
+            getIntInstr->result = retVar;
+            instrs.push_back(getIntInstr);
+            return instrs;
         }
         if(funcName == ""){
             std::string structName = "";
@@ -2116,7 +2150,7 @@ public:
     }
 
     // function param not adding to func irscope here
-    std::shared_ptr<IRFunction> visit(ItemFnDecl &node){
+    std::shared_ptr<IRFunction> visit(ItemFnDecl &node,std::shared_ptr<IRType> structSelfType = nullptr){
         auto currentIRFunc = currentScope->lookupFunctionSymbol(node.identifier);
         auto funcScope = std::make_shared<IRScope>();
         funcScope->parent = currentScope;
@@ -2134,6 +2168,16 @@ public:
                 currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
                 currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
                 currentScope->addValueSymbol(p->varName, bodyVar);
+            }else if(auto p = std::dynamic_pointer_cast<IRSelf>(param)){
+                //todo self param
+                auto selfVar = std::make_shared<IRVar>();
+                selfVar->varName = "self";
+                selfVar->reName = "self";
+                selfVar->type = structSelfType;
+                // currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(structSelfType, selfVar));
+                // currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(structSelfType, p, nullptr, selfVar));
+                //todotodotodo !!!
+                currentScope->addValueSymbol("self", selfVar);
             }
         }
         if(node.fnBody){
@@ -2350,7 +2394,7 @@ public:
                         for(int i = 0;i < structType->memberFunctions.size();i ++){
                             //todo finish method adding
                             if(node.item_trait_fn[j]->identifier == structType->memberFunctions[i]->name){
-                                structType->memberFunctions[i] = visit(*node.item_trait_fn[j]);
+                                structType->memberFunctions[i] = visit(*node.item_trait_fn[j], Type);
                                 implNode->functions.push_back(structType->memberFunctions[i]);
                                 j ++;
                             }

@@ -5,11 +5,13 @@
 # include "IRBuilder.h"
 #include "IRExit.h"
 #include "IRFunction.h"
+#include "IRGetint.h"
 #include "IRGetptr.h"
 #include "IRImpl.h"
 #include "IRLiteral.h"
 #include "IRLoad.h"
 #include "IRNode.h"
+#include "IRPrint.h"
 #include "IRReturn.h"
 #include "IRRoot.h"
 #include "IRSext.h"
@@ -38,8 +40,10 @@ public:
     void codeGen(IRNode &node){
         if(auto *p = dynamic_cast<IRFunction *>(& node)){
             //print functions info here
-            std::cout << "define ";;
-            if(p->retType->type == BaseType::INT){
+            std::cout << "define ";
+            if(!p->retType){
+                std::cout << "void ";
+            }else if(p->retType->type == BaseType::INT){
                 if(auto *q = dynamic_cast<IRIntType *>(p->retType.get())){
                     if(q->bitWidth == 32){
                         std::cout << "i32 ";
@@ -85,6 +89,8 @@ public:
                 }
             }else if(p->retType->type == BaseType::PTR){
                 std::cout << "ptr ";
+            }else if(p->retType->type == BaseType::VOID){
+                std::cout << "void ";
             }
             if(p->name == "main"){
                 std::cout << "i32 ";
@@ -1312,6 +1318,16 @@ public:
             }
         }else if(auto *p = dynamic_cast<IRExit *>(& node)){
             std::cout << "call void @__builtin_exit(i32 0)\n";
+        }else if(auto *p = dynamic_cast<IRPrint *>(& node)){
+            std::cout << "call void @printlnInt(i32 ";
+            if(p->printLiteral){
+                std::cout << p->printLiteral->intValue;
+            }else if(p->printVar){
+                std::cout << "%" << p->printVar->serial;
+            }
+            std::cout << ")\n";
+        }else if(auto *p = dynamic_cast<IRGetint *>(& node)){
+            std::cout << "%" << p->result->serial << " = call i32 @getInt()\n";
         }
     }
 };
