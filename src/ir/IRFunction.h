@@ -17,6 +17,7 @@ public:
     std::string name;
     std::shared_ptr<IRParam> paramList;
     std::shared_ptr<IRBlock> body;
+    std::shared_ptr<IRStructType> parentStructType; // null if not a member function
 
     IRFunction() = default;
     IRFunction(std::shared_ptr<IRType> retType, std::string name,

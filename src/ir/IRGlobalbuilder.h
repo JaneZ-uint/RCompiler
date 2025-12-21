@@ -196,6 +196,7 @@ public:
                             }
                             auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
                             currentFunction->body = std::make_shared<IRBlock>();
+                            currentFunction->parentStructType = structType;
                             structType->memberFunctions.push_back(currentFunction);
                         }
                     }

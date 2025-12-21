@@ -352,7 +352,7 @@ int main() {
 
     return failed == 0 ? 0 : 1;
 }*/
-int ir_cnt = 0;
+long long int ir_cnt = 0;
 int main(){
     JaneZ::Simplifier simplifier("../tmp");
     std::string source_code = simplifier.work();

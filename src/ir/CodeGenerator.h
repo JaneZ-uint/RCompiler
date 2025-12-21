@@ -1190,7 +1190,12 @@ public:
                 }
             }
         }else if(auto *p = dynamic_cast<IRCall *>(& node)){
-            std::cout << "%" << p->retVar->serial << " = call ";
+            if(p->function->retType->type == BaseType::INT){
+                std::cout << "%" << p->retVar->serial << " = call ";
+            }else{
+                std::cout << "call ";
+            }
+            
             if(p->retVar->type->type == BaseType::INT){
                 if(auto *q = dynamic_cast<IRIntType *>(p->retVar.get())){
                     if(q->bitWidth == 32){
@@ -1232,11 +1237,15 @@ public:
                     std::cout << "] ";
                 }
             }else if(p->retVar->type->type == BaseType::STRUCT){
-                if(auto *q = dynamic_cast<IRStructType *>(p->retVar->type.get())){
-                    std::cout << "%struct." << q->name << " ";
-                }
+                std::cout << "void ";
+            }else if(p->retVar->type->type == BaseType::VOID){
+                std::cout << "void ";
             }
-            std::cout << "@" << p->function->name << "(";
+            if(p->function->parentStructType){
+                std::cout << "@" << p->function->parentStructType->name << "::" << p->function->name << "(";
+            }else{
+                std::cout << "@" << p->function->name << "(";
+            }
             for(size_t i = 0; i < p->pList->paramList.size(); i++){
                 auto &arg = p->pList->paramList[i];
                 if(auto *p = dynamic_cast<IRVar *>(& *arg)){
@@ -1300,11 +1309,6 @@ public:
             if(p->type->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
                     std::cout << "%struct." << q->name << ", ";
-                }
-            }
-            if(p->base->type->type == BaseType::STRUCT){
-                if(auto *q = dynamic_cast<IRStructType *>(p->base->type.get())){
-                    std::cout << "%struct." << q->name << "* ";
                 }
             }
             if(p->offset != -1){

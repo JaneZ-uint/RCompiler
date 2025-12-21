@@ -5,7 +5,7 @@
 # include <memory>
 # include <string>
 
-extern int ir_cnt;
+extern long long int ir_cnt;
 
 namespace JaneZ {
 class IRVar : public IRNode {
@@ -13,7 +13,7 @@ public:
     std::shared_ptr<IRType> type;
     std::string varName;
     std::string reName;
-    int serial;
+    long long int serial;
     bool isSelf = false;
 
     IRVar(){

@@ -4,7 +4,7 @@
 # include <vector>
 #include <memory>
 
-extern int ir_cnt;
+extern long long int ir_cnt;
 
 namespace JaneZ {
 class IRReturn;
@@ -13,7 +13,7 @@ class IRBlock : public IRNode {
 public:
     std::vector<std::shared_ptr<IRNode>> instrList;
     std::vector<std::shared_ptr<IRBlock>> blockList;
-    int label;
+    long long int label;
 
     IRBlock() {
         label = ir_cnt++;

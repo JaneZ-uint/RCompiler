@@ -195,12 +195,73 @@ public:
         return instrs;
     }
 
+    std::vector<std::shared_ptr<IRNode>> processNewfunc(ExprCall &node){
+        std::vector<std::shared_ptr<IRNode>> instrs;
+        if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                std::string structName = p->pathFirst->pathSegments.identifier;
+                auto currentStruct = currentScope->lookupTypeSymbol(structName);
+                if(auto *implType = dynamic_cast<IRStructType *>(& *currentStruct)){
+                    //find impl
+                    if(p->pathSecond->pathSegments.type == IDENTIFIER){
+                        std::string funcName = p->pathSecond->pathSegments.identifier;
+                        for(auto & impl : implType->memberFunctions){
+                            if(impl->name == "new"){
+                                auto currentIRFunc = impl;
+                                auto currentCallInstr = std::make_shared<IRCall>();
+                                currentCallInstr->function = currentIRFunc;
+                                auto callRet = std::make_shared<IRVar>();
+                                callRet->type = currentIRFunc->retType;
+                                currentCallInstr->retVar = callRet;
+                                currentCallInstr->pList =  std::make_shared<IRParam>();
+                                for(auto & arg: node.callParams){
+                                    if(auto *argPath = dynamic_cast<ExprPath *>(& *arg)){
+                                        if(argPath->pathFirst->pathSegments.type == IDENTIFIER){
+                                            std::string varName = argPath->pathFirst->pathSegments.identifier;
+                                            auto varSymbol = currentScope->lookupValueSymbol(varName);
+                                            //TODO load instruction
+                                            auto currentParamVar = std::make_shared<IRVar>();
+                                            currentParamVar->varName = varSymbol->varName;
+                                            if(vars_cnt.find(currentParamVar->varName) != vars_cnt.end()){
+                                                vars_cnt[currentParamVar->varName] += 1;
+                                                currentParamVar->reName = currentParamVar->varName + "_" + std::to_string(vars_cnt[currentParamVar->varName]);
+                                            }else{
+                                                vars_cnt[currentParamVar->varName] = 1;
+                                                currentParamVar->reName = currentParamVar->varName;
+                                            }
+                                            currentParamVar->type = varSymbol->type;
+                                            instrs.push_back(std::make_shared<IRLoad>(currentParamVar, varSymbol,varSymbol->type));
+                                            currentCallInstr->pList->paramList.push_back(currentParamVar);
+                                        }
+                                    }else if(auto *argLiteral = dynamic_cast<ExprLiteral *>(& *arg)){
+                                        if(argLiteral->type == INTEGER_LITERAL){
+                                            currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, argLiteral->integer));
+                                        }
+                                    }
+                                }
+                                currentCallInstr->pList->paramList.push_back(callRet);
+                                instrs.push_back(currentCallInstr);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return instrs;
+    }
+
     std::vector<std::shared_ptr<IRNode>> visit(ExprCall &node){
         std::vector<std::shared_ptr<IRNode>> instrs;
         std::string funcName = "";
         if(auto *p = dynamic_cast<ExprPath *>(& *node.expr)){
-            if(p->pathFirst->pathSegments.type == IDENTIFIER){
+            if(p->pathFirst->pathSegments.type == IDENTIFIER && p->pathSecond == nullptr){
                 funcName = p->pathFirst->pathSegments.identifier;
+            }else{
+                auto newINstrs = processNewfunc(node);
+                for(auto & instr : newINstrs){
+                    instrs.push_back(instr);
+                }
+                return instrs;
             }
         }
         if(funcName == "exit"){
@@ -2300,17 +2361,43 @@ public:
                                     getptrInstr->type = structTypeSymbol;
                                     getptrInstr->base = structVar;
                                     getptrInstr->offset = offset;
+                                    getptrInstr->res = fieldVar;
                                     instrs.push_back(getptrInstr);
                                     auto memsetInstr = std::make_shared<IRMemset>();
                                     //TODO TODO TODO
+                                    memsetInstr->dest = getptrInstr->res;
                                     if(auto *elementType = dynamic_cast<IRIntType *>(& *currentType->elementType)){
                                         memsetInstr->size = (currentType->size * elementType->bitWidth) / 8;
                                     }else if(auto *elementType = dynamic_cast<IRArrayType *>(& *currentType->elementType)){
                                         if(auto *innerElementType = dynamic_cast<IRIntType *>(& *elementType->elementType)){
                                             memsetInstr->size = (currentType->size * elementType->size * innerElementType->bitWidth) /8;
                                         }
+                                    }else if(auto *elementType = dynamic_cast<IRStructType *>(& *currentType->elementType)){
+                                        memsetInstr->size = currentType->size * elementType->size;
+                                        if(auto *array = dynamic_cast<ExprArray *>(& *fieldInit.expr)){
+                                            if(auto *firstElem = dynamic_cast<ExprCall *>(& *array->type)){
+                                                auto arrayInitInstrs = visit(*firstElem);
+                                                for(auto & instr : arrayInitInstrs){
+                                                    instrs.push_back(instr);
+                                                }
+                                                if(auto *arrayInitLastInstr = dynamic_cast<IRCall *>(& *arrayInitInstrs[arrayInitInstrs.size() - 1])){
+                                                    auto arrayInitRetVar = arrayInitLastInstr->retVar;
+                                                    for(int k = 0;k < currentType->size;k++){
+                                                        auto currentMemcpy = std::make_shared<IRMemcpy>();
+                                                        auto getArrayPtr = std::make_shared<IRGetptr>();
+                                                        getArrayPtr->type = structType->memberTypes[i].second;
+                                                        getArrayPtr->base = getptrInstr->res;
+                                                        getArrayPtr->offset = k;
+                                                        instrs.push_back(getArrayPtr);
+                                                        currentMemcpy->dest = getArrayPtr->res;
+                                                        currentMemcpy->value = arrayInitRetVar;
+                                                        currentMemcpy->size = elementType->size;
+                                                        instrs.push_back(currentMemcpy);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-                                    memsetInstr->dest = getptrInstr->res;;
                                     instrs.push_back(memsetInstr);
                                 }
                             }
@@ -2888,19 +2975,60 @@ public:
                                     getptrInstr->type = varType;
                                     getptrInstr->base = currentVar;
                                     getptrInstr->offset = offset;
+                                    getptrInstr->res = fieldVar;
                                     instrs.push_back(getptrInstr);
                                     auto memsetInstr = std::make_shared<IRMemset>();
                                     //TODO TODO TODO
                                     if(auto *elementType = dynamic_cast<IRIntType *>(& *currentType->elementType)){
                                         memsetInstr->size = (currentType->size * elementType->bitWidth) / 8;
+                                        if(auto *arrayValue = dynamic_cast<ExprArray *>(& *fieldInit.expr)){
+                                            if(auto *firstElem = dynamic_cast<ExprLiteral *>(& *arrayValue->type)){
+                                                memsetInstr->value = firstElem->integer;
+                                            }
+                                        }
                                     }else if(auto *elementType = dynamic_cast<IRArrayType *>(& *currentType->elementType)){
                                         if(auto *innerElementType = dynamic_cast<IRIntType *>(& *elementType->elementType)){
                                             memsetInstr->size = (currentType->size * elementType->size * innerElementType->bitWidth) /8;
+                                            if(auto *array = dynamic_cast<ExprArray *>(& *fieldInit.expr)){
+                                                if(auto *firstElem = dynamic_cast<ExprArray *>(& *array->type)){
+                                                    if(auto *innerFirstElem = dynamic_cast<ExprLiteral *>(& *firstElem->type)){
+                                                        memsetInstr->value = innerFirstElem->integer;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }else if(auto *elementType = dynamic_cast<IRStructType *>(& *currentType->elementType)){
+                                        memsetInstr->size = currentType->size * elementType->size;
+                                        if(auto *array = dynamic_cast<ExprArray *>(& *fieldInit.expr)){
+                                            if(auto *firstElem = dynamic_cast<ExprCall *>(& *array->type)){
+                                                auto arrayInitInstrs = visit(*firstElem);
+                                                for(auto & instr : arrayInitInstrs){
+                                                    instrs.push_back(instr);
+                                                }
+                                                if(auto *arrayInitLastInstr = dynamic_cast<IRCall *>(& *arrayInitInstrs[arrayInitInstrs.size() - 1])){
+                                                    auto arrayInitRetVar = arrayInitLastInstr->retVar;
+                                                    for(int k = 0;k < currentType->size;k++){
+                                                        auto currentMemcpy = std::make_shared<IRMemcpy>();
+                                                        auto getArrayPtr = std::make_shared<IRGetptr>();
+                                                        auto currentArrayPtr = std::make_shared<IRVar>();
+                                                        getArrayPtr->res = currentArrayPtr;
+                                                        getArrayPtr->type = structType->memberTypes[i].second;
+                                                        getArrayPtr->base = getptrInstr->res;
+                                                        getArrayPtr->offset = k;
+                                                        instrs.push_back(getArrayPtr);
+                                                        currentMemcpy->dest = getArrayPtr->res;
+                                                        currentMemcpy->value = arrayInitRetVar;
+                                                        currentMemcpy->size = elementType->size;
+                                                        instrs.push_back(currentMemcpy);
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     memsetInstr->dest = getptrInstr->res;;
                                     instrs.push_back(memsetInstr);
                                 }
+                                break;
                             }
                         }
                     }
@@ -3001,7 +3129,14 @@ public:
     }
 
     std::shared_ptr<IRStructType> visit(Path &node){
-        return nullptr;
+        if(node.pathSegments.type == IDENTIFIER){
+            std::string typeName = node.pathSegments.identifier;
+            auto Type = currentScope->lookupTypeSymbol(typeName);
+            if(Type){
+                return std::dynamic_pointer_cast<IRStructType>(Type);
+            }
+        }
+        throw std::runtime_error("IRBuilder visit Path error: unknown type path");
     }
 
     std::shared_ptr<IRPtrType> visit(TypeReference &node){
