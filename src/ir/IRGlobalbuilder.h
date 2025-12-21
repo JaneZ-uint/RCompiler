@@ -55,7 +55,7 @@ public:
 
         for(auto& item : node.child){
             if(auto *p = dynamic_cast<ItemImplDecl *>(& *item)){
-                implList.push_back(std::shared_ptr<ItemImplDecl>(p));
+                implList.push_back(std::static_pointer_cast<ItemImplDecl>(item));
                 continue;
             }
             visit(*item);
@@ -151,11 +151,6 @@ public:
                 auto tp = globalScope->lookupTypeSymbol(typeName);
                 if(tp){
                     if(auto structType = std::dynamic_pointer_cast<IRStructType>(tp)){
-                        for(auto &itemConst  : node.item_trait_const){
-                            std::string constName = itemConst->identifier;
-                            auto constValue = itemConst->value;
-                            structType->memberConstants.push_back({constName, constValue});
-                        }
                         for(auto & itemFn: node.item_trait_fn){
                             std::shared_ptr<IRType> retType;
                             if(itemFn->returnType){

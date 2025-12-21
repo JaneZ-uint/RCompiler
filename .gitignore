@@ -1,6 +1,6 @@
 build
 .cache
-tmp.cpp
+tmp
 words.md
 RCompiler-Testcases
 Test.md

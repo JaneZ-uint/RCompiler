@@ -235,11 +235,11 @@ public:
                         std::cout << "] ";
                     }
                 }else if(func->retType->type == BaseType::STRUCT){
-                    if(auto *q = dynamic_cast<IRStructType *>(func->retType.get())){
-                        std::cout << "%struct." << q->name << " ";
-                    }
+                    std::cout << "void ";
                 }else if(func->retType->type == BaseType::PTR){
                     std::cout << "ptr ";
+                }else if(func->retType->type == BaseType::VOID){
+                    std::cout << "void ";
                 }
                 if(auto *r = dynamic_cast<IRStructType *>(type.get())){
                     std::cout << "@" << r->name << "::" << func->name << "(";
@@ -553,18 +553,17 @@ public:
             std::cout << "ptr %" << p->address->serial << ", align 4\n";
         }else if(auto *p = dynamic_cast<IRReturn *>(& node)){
             std::cout << "ret ";
-            if(!p->returnValue){
-                if(p->returnLiteral){
-                    std::cout << "i32 " << p->returnLiteral->intValue << "\n";
-                    return;
-                }
-            }
             if(p->returnType->type == BaseType::INT){
                 if(auto *q = dynamic_cast<IRIntType *>(p->returnType.get())){
                     if(q->bitWidth == 32){
                         std::cout << "i32 ";
                     }else if(q->bitWidth == 8){
                         std::cout << "i8 ";
+                    }
+                    if(p->returnValue){
+                        std::cout << "%" << p->returnValue->serial << "\n";
+                    }else if(p->returnLiteral){
+                        std::cout << p->returnLiteral->intValue << "\n";
                     }
                 }
             }else if(p->returnType->type == BaseType::ARRAY  ){
@@ -605,9 +604,6 @@ public:
                 }
             }else if(p->returnType->type == BaseType::PTR){
                 std::cout << "ptr ";
-            }
-            if(p->returnValue){
-                std::cout << "%" << p->returnValue->serial << "\n";
             }else{
                 std::cout << "void\n";
             }
@@ -1312,9 +1308,9 @@ public:
                 }
             }
             if(p->offset != -1){
-                std::cout << "%" << p->base->serial << ", i32 0, i32 " << p->offset << "\n";
+                std::cout << "ptr " <<"%" << p->base->serial << ", i32 0, i32 " << p->offset << "\n";
             }else{
-                std::cout << "%" << p->base->serial << ", i32 0, i32 %" << p->index->serial << "\n";    
+                std::cout << "ptr " << "%" << p->base->serial << ", i32 0, i32 %" << p->index->serial << "\n";    
             }
         }else if(auto *p = dynamic_cast<IRExit *>(& node)){
             std::cout << "call void @__builtin_exit(i32 0)\n";

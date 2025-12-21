@@ -20,7 +20,9 @@ public:
             item_trait_const(std::move(_item_trait_const)),
             item_trait_fn(std::move(_item_trait_fn)) {}
 
-    ~ItemImplDecl() = default;
+    ~ItemImplDecl() {
+        
+    }
 
     void accept(ASTVisitor &visitor) override {
         visitor.visit(*this);
