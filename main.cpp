@@ -363,8 +363,8 @@ int main(){
     JaneZ::Parser parser(tokens);
     auto root = parser.parse();
     
-    // JaneZ::PrintVisitor print_visitor;
-    // print_visitor.visit(*root);
+    //JaneZ::PrintVisitor print_visitor;
+    //print_visitor.visit(*root);
 
     JaneZ::GlobalScopeBuilder global_scope_builder;
     JaneZ::NameResolver name_resolver;

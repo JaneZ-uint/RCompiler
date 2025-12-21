@@ -456,6 +456,20 @@ public:
                         }
                     }
                 }
+            }else if(p->pathFirst->pathSegments.type == SELF){
+                auto currentVar = currentScope->lookupValueSymbol("self");
+                if(auto *structType = dynamic_cast<IRStructType *>(& *currentVar->type)){
+                    std::string fieldName = node.identifier;
+                    for(int i = 0; i < structType->memberTypes.size(); i++){
+                        if(structType->memberTypes[i].first == fieldName){
+                            if(auto *type = dynamic_cast<IRIntType *>(& *structType->memberTypes[i].second)){     
+                                auto loadedVar = std::make_shared<IRVar>();
+                                loadedVar->type = structType->memberTypes[i].second;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,loadedVar,i));
+                            }
+                        }
+                    }
+                }
             }
         }else if(auto *p = dynamic_cast<ExprIndex *>(& *node.expr)){
             //a[0].b
@@ -1849,6 +1863,7 @@ public:
                     auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
                     if(leftVarSymbol){
                         auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = leftVarSymbol->type;
                         instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
                         std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
                         for(auto & instr : rightInstrs){
@@ -1869,6 +1884,38 @@ public:
                         if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
                             auto rightResultVar = q->result;
                             leftLiteralRightLoad(instrs, nullptr, rightResultVar, node.op, res,true);
+                        }
+                    }
+                }
+            }else if(auto *rightBinary = dynamic_cast<ExprGroup *>(& *node.right)){
+                if(auto *rightOpBinary = dynamic_cast<ExprOpbinary *>(& *rightBinary->expr)){
+                    if(leftPath->pathFirst->pathSegments.type == IDENTIFIER){
+                        std::string leftVarName = leftPath->pathFirst->pathSegments.identifier;
+                        auto leftVarSymbol = currentScope->lookupValueSymbol(leftVarName);
+                        if(leftVarSymbol){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftVarSymbol->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
+                            std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                            for(auto & instr : rightInstrs){
+                                instrs.push_back(instr);
+                            }
+                            auto lastInstr = rightInstrs[rightInstrs.size() - 1];
+                            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                                auto rightResultVar = q->result;
+                                bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
+                            }
+                        }else{
+                            constInfo res = currentScope->lookupConstantSymbol(leftVarName);
+                            std::vector<std::shared_ptr<IRNode>> rightInstrs = visit(*rightOpBinary);
+                            for(auto & instr : rightInstrs){
+                                instrs.push_back(instr);
+                            }
+                            auto lastInstr = rightInstrs[rightInstrs.size() - 1];
+                            if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                                auto rightResultVar = q->result;
+                                leftLiteralRightLoad(instrs, nullptr, rightResultVar, node.op, res,true);
+                            }
                         }
                     }
                 }
