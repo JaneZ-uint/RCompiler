@@ -20,6 +20,7 @@
 #include "IRType.h"
 #include "IRVar.h"
 #include "IRZext.h"
+#include "IRMem.h"
 #include <memory>
 #include <vector>
 
@@ -89,7 +90,7 @@ public:
                 }
             }else if(p->retType->type == BaseType::PTR){
                 std::cout << "ptr ";
-            }else if(p->retType->type == BaseType::VOID){
+            }else if(p->retType->type == BaseType::VOID && p->name != "main"){
                 std::cout << "void ";
             }
             if(p->name == "main"){
@@ -1328,6 +1329,10 @@ public:
             std::cout << ")\n";
         }else if(auto *p = dynamic_cast<IRGetint *>(& node)){
             std::cout << "%" << p->result->serial << " = call i32 @getInt()\n";
+        }else if(auto *p = dynamic_cast<IRMemcpy *>(& node)){
+            //todo 格式待定
+        }else if(auto *p = dynamic_cast<IRMemset *>(& node)){
+            //todo 格式待定
         }
     }
 };

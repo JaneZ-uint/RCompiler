@@ -6,7 +6,16 @@
 namespace JaneZ {
 class IRMemset : public IRNode {
 public:
-    
+    std::shared_ptr<IRVar> dest;
+    int size;
+    int value = 0;
+
+    IRMemset() = default;
+    IRMemset(std::shared_ptr<IRVar> dest, int size) : dest(dest), size(size) {}
+    ~IRMemset() = default;
+    void accept(IRVisitor &visitor) override {
+        visitor.visit(*this);
+    }
 };
 
 class IRMemcpy: public IRNode {
