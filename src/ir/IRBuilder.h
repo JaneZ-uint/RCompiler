@@ -2602,12 +2602,12 @@ public:
                         for(auto & instr : retInstrs){
                             currentIRFunc->body->instrList.push_back(instr);
                         }
-                        currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, currentIRFunc->paramList->paramList[currentIRFunc->paramList->paramList.size() -1]));
+                        currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol("void"),std::make_shared<IRLiteral>(INT_LITERAL, 0)));
                     }else{
                         for(auto & instr : retInstrs){
                             currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
                         }
-                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, currentIRFunc->paramList->paramList[currentIRFunc->paramList->paramList.size() -1]));
+                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentScope->lookupTypeSymbol("void"),std::make_shared<IRLiteral>(INT_LITERAL, 0)));
                     }
                 }
             }

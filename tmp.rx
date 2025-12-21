@@ -1,0 +1,43 @@
+struct Edge {
+    from: i32,
+    to: i32,
+    weight: i32,
+    capacity: i32,
+    flow: i32,
+}
+struct Graph {
+    vertices: i32,
+    edges: [Edge; 2000],
+    edge_count: i32,
+    adj_list: [[i32; 100]; 100], // adjacency list as 2D array
+    adj_count: [i32; 100],
+
+    // For Dijkstra's algorithm
+    dist: [i32; 100],
+    visited: [bool; 100],
+
+    // For Floyd-Warshall algorithm
+    floyd_dist: [[i32; 100]; 100],
+
+    // For Tarjan's SCC algorithm
+    low: [i32; 100],
+    disc: [i32; 100],
+    on_stack: [bool; 100],
+    stack: [i32; 100],
+    stack_top: i32,
+    time: i32,
+    scc_count: i32,
+
+    // For Kruskal's MST algorithm
+    parent: [i32; 100],
+    rank: [i32; 100],
+    mst_weight: i32,
+}
+
+fn add(a : &i32) -> i32 {
+    *a + 10
+}
+
+fn main() {
+    exit(0);
+}

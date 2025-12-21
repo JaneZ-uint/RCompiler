@@ -354,7 +354,7 @@ int main() {
 }*/
 int ir_cnt = 0;
 int main(){
-    JaneZ::Simplifier simplifier("../tmp.cpp");
+    JaneZ::Simplifier simplifier("../tmp.rx");
     std::string source_code = simplifier.work();
 
     JaneZ::Lexer lexer(source_code);
@@ -373,6 +373,11 @@ int main(){
     checker.semantic_check(global_scope_builder, name_resolver, *root);
     
     JaneZ::ConstEvaluator const_evaluator;
+    if(auto *r = dynamic_cast<JaneZ::ASTRootNode *>(& *root)){
+        std::cout << "YES!!!";
+    }else{
+        std::cout << "NO!!!";
+    }
     const_evaluator.visit(*root);
 
     JaneZ::CodeGenerator code_generator;

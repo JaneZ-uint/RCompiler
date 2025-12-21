@@ -76,6 +76,8 @@ public:
             node.accept(*this);
         }else if(auto *p = dynamic_cast<TypeUnit *>(& node)) {
             node.accept(*this);
+        }else if(auto *p = dynamic_cast<Path *>(& node)) {
+            node.accept(*this);
         }else{
             throw std::runtime_error("ConstEvaluator: Unhandled ASTNode type in visit(ASTNode&)");
         }

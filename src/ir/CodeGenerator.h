@@ -347,7 +347,6 @@ public:
                                 std::cout << "i8";
                             }
                         }
-                        std::cout << "i32";
                     }else if(q->memberTypes[i].second->type == BaseType::ARRAY  ){
                         if(auto *r = dynamic_cast<IRArrayType *>(q->memberTypes[i].second.get())){
                             std::cout << "[" << r->size << " x ";
@@ -1330,9 +1329,15 @@ public:
         }else if(auto *p = dynamic_cast<IRGetint *>(& node)){
             std::cout << "%" << p->result->serial << " = call i32 @getInt()\n";
         }else if(auto *p = dynamic_cast<IRMemcpy *>(& node)){
-            //todo 格式待定
+            std::cout << "call void @memcpy(ptr ";
+            std::cout << "%" << p->dest->serial << ", ptr ";
+            std::cout << "%" << p->value->serial << ", i32 " ;
+            std::cout << p->size << ")\n";
         }else if(auto *p = dynamic_cast<IRMemset *>(& node)){
-            //todo 格式待定
+            std::cout << "call void @memset(ptr ";
+            std::cout << "%" << p->dest->serial << ", i32 " ;
+            std::cout << p->value << ", i32 " ;
+            std::cout << p->size << ")\n";
         }
     }
 };
