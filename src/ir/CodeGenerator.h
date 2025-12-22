@@ -324,6 +324,7 @@ public:
                         if(block->instrList.empty()){
                             continue;
                         }
+                        std::cout << block->label << ":\n";
                         for(auto &instr: block->instrList){
                             if(auto *q = dynamic_cast<IRAlloca *>(& *instr)){
                                 continue;
