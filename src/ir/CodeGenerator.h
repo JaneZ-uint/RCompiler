@@ -1196,7 +1196,7 @@ public:
             }
             
             if(p->retVar->type->type == BaseType::INT){
-                if(auto *q = dynamic_cast<IRIntType *>(p->retVar.get())){
+                if(auto *q = dynamic_cast<IRIntType *>(p->retVar->type.get())){
                     if(q->bitWidth == 32){
                         std::cout << "i32 ";
                     }else if(q->bitWidth == 8){

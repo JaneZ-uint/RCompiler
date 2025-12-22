@@ -156,6 +156,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
+    IREq() = default;
     IREq( std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,
