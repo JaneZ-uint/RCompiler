@@ -179,6 +179,7 @@ public:
     std::shared_ptr<IRVar> right;
     std::shared_ptr<IRLiteral> rightLiteral;
 
+    IRNeq() = default;
     IRNeq(std::shared_ptr<IRVar> l,
           std::shared_ptr<IRLiteral> llit,
           std::shared_ptr<IRVar> r,

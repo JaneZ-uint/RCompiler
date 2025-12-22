@@ -143,9 +143,7 @@ public:
                             std::cout << "] ";
                         }
                     }else if(var->type->type == BaseType::STRUCT){
-                        if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
-                            std::cout << "%struct." << q->name << " ";
-                        }
+                        std::cout << "ptr ";
                     }else if(var->type->type == BaseType::PTR){
                         std::cout << "ptr ";
                     }
@@ -289,7 +287,7 @@ public:
                             }
                         }else if(var->type->type == BaseType::STRUCT){
                             if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
-                                std::cout << "%struct." << q->name << " ";
+                                std::cout << "ptr ";
                             }
                         }else if(var->type->type == BaseType::PTR){
                             std::cout << "ptr ";
@@ -1285,15 +1283,17 @@ public:
                                 }
                             }else if(q->elementType->type == BaseType::STRUCT){
                                 if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
-                                    std::cout << "%struct." << r->name;
+                                    std::cout << "ptr ";
                                 }
                             }
                             std::cout << "] ";
                         }
                     }else if(p->type->type == BaseType::STRUCT){
                         if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
-                            std::cout << "%struct." << q->name << " ";
+                            std::cout << "ptr ";
                         }
+                    }else if(p->type->type == BaseType::PTR){
+                        std::cout << "ptr ";
                     }
                     std::cout << "%" << p->serial;
                 }else if(auto *p = dynamic_cast<IRLiteral *>(& *arg)){
@@ -1310,6 +1310,74 @@ public:
             if(p->type->type == BaseType::STRUCT){
                 if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
                     std::cout << "%struct." << q->name << ", ";
+                }
+            }else if(p->type->type == BaseType::ARRAY  ){
+                if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
+                    std::cout << "[" << q->size << " x ";
+                    if(q->elementType->type == BaseType::INT){
+                        if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
+                            if(r->bitWidth == 32){
+                                std::cout << "i32";
+                            }else if(r->bitWidth == 8){
+                                std::cout << "i8";
+                            }
+                        }
+                    }else if(q->elementType->type == BaseType::ARRAY  ){
+                        if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
+                            std::cout << "[" << r->size << " x ";
+                            if(r->elementType->type == BaseType::INT){
+                                if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                    if(s->bitWidth == 32){
+                                        std::cout << "i32";
+                                    }else if(s->bitWidth == 8){
+                                        std::cout << "i8";
+                                    }
+                                }
+                            }
+                            std::cout << "]";
+                        }
+                    }else if(q->elementType->type == BaseType::STRUCT){
+                        if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
+                            std::cout << "%struct." << r->name;
+                        }
+                    }
+                    std::cout << "], ";
+                }
+            }else if(p->type->type == BaseType::PTR){
+                if(auto *q = dynamic_cast<IRPtrType *>(p->type.get())){
+                    if(auto *r = dynamic_cast<IRStructType *>(& *q->baseType)){
+                        std::cout << "%struct." << r->name << ", ";
+                    }else if(auto *r = dynamic_cast<IRArrayType *>(q)){
+                        std::cout << "[" << r->size << " x ";
+                        if(r->elementType->type == BaseType::INT){
+                            if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
+                                if(s->bitWidth == 32){
+                                    std::cout << "i32";
+                                }else if(s->bitWidth == 8){
+                                    std::cout << "i8";
+                                }
+                            }
+                        }else if(r->elementType->type == BaseType::ARRAY  ){
+                            if(auto *s = dynamic_cast<IRArrayType *>(r->elementType.get())){
+                                std::cout << "[" << s->size << " x ";
+                                if(s->elementType->type == BaseType::INT){
+                                    if(auto *t = dynamic_cast<IRIntType *>(s->elementType.get())){
+                                        if(t->bitWidth == 32){
+                                            std::cout << "i32";
+                                        }else if(t->bitWidth == 8){
+                                            std::cout << "i8";
+                                        }
+                                    }
+                                }
+                                std::cout << "]";
+                            }
+                        }else if(r->elementType->type == BaseType::STRUCT){
+                            if(auto *s = dynamic_cast<IRStructType *>(r->elementType.get())){
+                                std::cout << "%struct." << s->name;
+                            }
+                        }
+                        std::cout << "], ";
+                    }
                 }
             }
             if(p->offset != -1){

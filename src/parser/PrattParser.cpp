@@ -996,7 +996,7 @@ std::shared_ptr<ExprOpunary> Parser::parse_expr_opunary() {
     }
     std::shared_ptr<Expression> right = nullptr;
     //right = parse_expr();
-    right = parse_expr_interface(30);
+    right = parse_expr_interface(22);
     if(op == DEREFERENCE){
         if(auto *p = dynamic_cast<ExprLiteral *>(& *right)){
             throw std::runtime_error("Wrong in expr unaryOp parsing, literal cannot be borrowed or dereferenced.");

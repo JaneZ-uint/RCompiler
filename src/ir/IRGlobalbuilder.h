@@ -263,15 +263,15 @@ public:
 
     std::shared_ptr<IRIntType> visit(Type &node){
         if(node.type == I32){
-            return std::make_shared<IRIntType>(32);
+            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("i32"));
         }else if(node.type == U32){
-            return std::make_shared<IRIntType>(32);
+            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("u32"));
         }else if(node.type == ISIZE){
-            return std::make_shared<IRIntType>(32);
+            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("isize"));
         }else if(node.type == USIZE){
-            return std::make_shared<IRIntType>(32);
+            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("usize"));
         }else if(node.type == BOOL){
-            return std::make_shared<IRIntType>(8);
+            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("bool"));
         }
         throw std::runtime_error("Unknown primitive type");
     }

@@ -198,12 +198,12 @@ int main() {
     compare_results(expected, actual_result);
 
     return failed == 0 ? 0 : 1;
-}
+}*/
 
 // ============================================================
 // 工具函数
 // ============================================================
-std::string trim(const std::string &s) {
+/*std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) return "";
     size_t end = s.find_last_not_of(" \t\r\n");
@@ -363,8 +363,8 @@ int main(){
     JaneZ::Parser parser(tokens);
     auto root = parser.parse();
     
-    //JaneZ::PrintVisitor print_visitor;
-    //print_visitor.visit(*root);
+    // JaneZ::PrintVisitor print_visitor;
+    // print_visitor.visit(*root);
 
     JaneZ::GlobalScopeBuilder global_scope_builder;
     JaneZ::NameResolver name_resolver;
