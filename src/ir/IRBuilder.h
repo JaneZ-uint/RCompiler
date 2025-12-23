@@ -332,6 +332,9 @@ public:
                     }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
                         auto printInstr = std::make_shared<IRPrint>(q->result);
                         instrs.push_back(printInstr);
+                    }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                        auto printInstr = std::make_shared<IRPrint>(q->tmp);
+                        instrs.push_back(printInstr);
                     }
                 }
             }
@@ -414,6 +417,24 @@ public:
                 }
             }else if(auto *p = dynamic_cast<ExprOpbinary *>(& *arg)){
                 //todo
+            }else if(auto *p = dynamic_cast<ExprIndex *>(& *arg)){
+                auto indexInstrs = visit(*p);
+                for(auto & instr : indexInstrs){
+                    instrs.push_back(instr);
+                }
+                auto lastInstr = indexInstrs[indexInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                    currentCallInstr->pList->paramList.push_back(q->res);
+                }
+            }else if(auto *p = dynamic_cast<ExprField *>(& *arg)){
+                auto fieldInstrs = visit(*p);
+                for(auto & instr : fieldInstrs){
+                    instrs.push_back(instr);
+                }
+                auto lastInstr = fieldInstrs[fieldInstrs.size() - 1];
+                if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
+                    currentCallInstr->pList->paramList.push_back(q->res);
+                }
             }
         }
         if(auto *structType = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
@@ -534,6 +555,8 @@ public:
                     condVar = q->result;
                 }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
                     condVar = q->result;
+                }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                    condVar = q->tmp;
                 }
             }else if(auto *p = dynamic_cast<ExprPath *>(& *node.condition)){
                 if(p->pathFirst->pathSegments.type == IDENTIFIER){
@@ -902,6 +925,11 @@ public:
                                 auto res = std::make_shared<IRVar>();
                                 res->type = type->elementType;
                                 instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                            }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                                auto indexVar = q->tmp;
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
                             }
                         }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
                             if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
@@ -920,6 +948,64 @@ public:
                                     auto result = std::make_shared<IRVar>();
                                     result->type = type->elementType;
                                     instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,result,res.value));
+                                }
+                            }
+                        }
+                    }
+                }else if(auto *ptrtype = dynamic_cast<IRPtrType *>(& *currentVar->type)){
+                    if(auto *type = dynamic_cast<IRArrayType *>(& *ptrtype->baseType)){
+                        if(auto *indexExpr = dynamic_cast<ExprLiteral *>(& *node.index)){
+                            if(indexExpr->type == INTEGER_LITERAL){
+                                auto res = std::make_shared<IRVar>();
+                                res->type = type->elementType;
+                                instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,indexExpr->integer));
+                            }
+                        }else{
+                            if(auto *indexExpr = dynamic_cast<ExprOpbinary *>(& *node.index)){
+                                auto indexInstrs = visit(*indexExpr);
+                                for(auto & instr : indexInstrs){
+                                    instrs.push_back(instr);
+                                }
+                                auto lastInstr = indexInstrs[indexInstrs.size() - 1];
+                                if(auto *q = dynamic_cast<IRBinaryop *>(& *lastInstr)){
+                                    auto indexVar = q->result;
+                                    auto res = std::make_shared<IRVar>();
+                                    res->type = type->elementType;
+                                    instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                                }else if(auto *q = dynamic_cast<IRSext *>(& *lastInstr)){
+                                    auto indexVar = q->result;
+                                    auto res = std::make_shared<IRVar>();
+                                    res->type = type->elementType;
+                                    instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                                }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
+                                    auto indexVar = q->result;
+                                    auto res = std::make_shared<IRVar>();
+                                    res->type = type->elementType;
+                                    instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                                }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                                    auto indexVar = q->tmp;
+                                    auto res = std::make_shared<IRVar>();
+                                    res->type = type->elementType;
+                                    instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                                }
+                            }else if(auto *indexExpr = dynamic_cast<ExprPath *>(& *node.index)){
+                                if(indexExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                                    std::string indexVarName = indexExpr->pathFirst->pathSegments.identifier;
+                                    auto indexVarSymbol = currentScope->lookupValueSymbol(indexVarName);
+                                    if(indexVarSymbol){
+                                        auto indexLoadedVar = std::make_shared<IRVar>();
+                                        indexLoadedVar->type = indexVarSymbol->type;
+                                        instrs.push_back(std::make_shared<IRLoad>(indexLoadedVar, indexVarSymbol,indexVarSymbol->type));
+                                        auto res = std::make_shared<IRVar>();
+                                        res->type = type->elementType;
+                                        instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexLoadedVar));
+                                    }else{
+                                        //constant
+                                        constInfo res = currentScope->lookupConstantSymbol(indexVarName);
+                                        auto result = std::make_shared<IRVar>();
+                                        result->type = type->elementType;
+                                        instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,result,res.value));
+                                    }
                                 }
                             }
                         }
@@ -962,6 +1048,11 @@ public:
                             instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
                         }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
                             auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                            auto indexVar = q->tmp;
                             auto res = std::make_shared<IRVar>();
                             res->type = type->elementType;
                             instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
@@ -1024,6 +1115,11 @@ public:
                             instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
                         }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr2)){
                             auto indexVar = q->result;
+                            auto res = std::make_shared<IRVar>();
+                            res->type = type->elementType;
+                            instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
+                        }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr2)){
+                            auto indexVar = q->tmp;
                             auto res = std::make_shared<IRVar>();
                             res->type = type->elementType;
                             instrs.push_back(std::make_shared<IRGetptr>(currentVar->type, currentVar,res,-1,indexVar));
@@ -1288,6 +1384,10 @@ public:
                                             memcpyInstr->value = varSymbol;
                                             memcpyInstr->size = type->size;
                                             instrs.push_back(memcpyInstr);
+                                        }else if(auto *type = dynamic_cast<IRPtrType *>(& *varSymbol->type)){
+                                            currentCallInstr->pList->paramList.push_back(varSymbol);
+                                        }else if(auto *type = dynamic_cast<IRArrayType *>(& *varSymbol->type)){
+                                            //todo
                                         }else{
                                             instrs.push_back(std::make_shared<IRLoad>(currentParamVar, varSymbol,varSymbol->type));
                                             currentCallInstr->pList->paramList.push_back(currentParamVar);
@@ -1296,6 +1396,16 @@ public:
                                 }else if(auto *lit = dynamic_cast<ExprLiteral *>(& *arg)){
                                     auto literalVar = std::make_shared<IRLiteral>(INT_LITERAL, lit->integer);
                                     currentCallInstr->pList->paramList.push_back(literalVar);
+                                }else if(auto *index = dynamic_cast<ExprOpunary *>(& *arg)){
+                                    if(index->op == BORROW){
+                                        if(auto *rightExpr = dynamic_cast<ExprPath *>(& *index->right)){
+                                            if(rightExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                                                std::string varName = rightExpr->pathFirst->pathSegments.identifier;
+                                                auto varSymbol = currentScope->lookupValueSymbol(varName);
+                                                currentCallInstr->pList->paramList.push_back(varSymbol);
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             if(auto *structTp = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
@@ -1309,6 +1419,96 @@ public:
                             }
                             instrs.push_back(currentCallInstr);
                             break;
+                        }
+                    }
+                }else if(auto *ptrtype = dynamic_cast<IRPtrType *>(& *currentVar->type)){
+                    if(auto *structType = dynamic_cast<IRStructType *>(& *ptrtype->baseType)){
+                        std::string methodName = node.PathExprSegment->pathSegments.identifier;
+                        for(int i = 0;i < structType->memberFunctions.size();i ++){
+                            if(structType->memberFunctions[i]->name == methodName){
+                                auto currentIRFunc = structType->memberFunctions[i];
+                                auto currentCallInstr = std::make_shared<IRCall>();
+                                currentCallInstr->function = currentIRFunc;
+                                auto callRet = std::make_shared<IRVar>();
+                                callRet->type = currentIRFunc->retType;
+                                currentCallInstr->retVar = callRet;
+                                currentCallInstr->pList = std::make_shared<IRParam>();
+                                //first param is self
+                                //todo self processing
+                                if(auto *selfVar = dynamic_cast<IRVar *>(& *currentIRFunc->paramList->paramList[0])){
+                                    if(selfVar->isSelf){
+                                        currentCallInstr->pList->paramList.push_back(currentVar);
+                                    }
+                                }
+                                for(auto & arg : node.callParams){
+                                    if(auto *p = dynamic_cast<ExprPath *>(& *arg)){
+                                        if(p->pathFirst->pathSegments.type == IDENTIFIER){
+                                            std::string varName = p->pathFirst->pathSegments.identifier;
+                                            auto varSymbol = currentScope->lookupValueSymbol(varName);
+                                            if(varSymbol == nullptr){
+                                                //constant
+                                                constInfo res = currentScope->lookupConstantSymbol(varName);
+                                                currentCallInstr->pList->paramList.push_back(std::make_shared<IRLiteral>(INT_LITERAL, res.value));
+                                                continue;
+                                            }
+                                            auto currentParamVar = std::make_shared<IRVar>();
+                                            currentParamVar->varName = varSymbol->varName;
+                                            if(vars_cnt.find(currentParamVar->varName) != vars_cnt.end()){
+                                                vars_cnt[currentParamVar->varName] += 1;
+                                                currentParamVar->reName = currentParamVar->varName + "_" + std::to_string(vars_cnt[currentParamVar->varName]);
+                                            }else{
+                                                vars_cnt[currentParamVar->varName] = 1;
+                                                currentParamVar->reName = currentParamVar->varName;
+                                            }
+                                            currentParamVar->type = varSymbol->type;
+                                            if(auto *type = dynamic_cast<IRStructType *>(& *varSymbol->type)){
+                                            //TODO TODO TODO !!!
+                                                auto memcpyInstr = std::make_shared<IRMemcpy>();
+                                                auto structVar = std::make_shared<IRVar>();
+                                                structVar->varName = currentParamVar->varName + "_struct";
+                                                structVar->reName = currentParamVar->reName + "_struct";
+                                                structVar->type = varSymbol->type;
+                                                instrs.push_back(std::make_shared<IRAlloca>(structVar->type, structVar));
+                                                memcpyInstr->dest = structVar;
+                                                memcpyInstr->value = varSymbol;
+                                                memcpyInstr->size = type->size;
+                                                instrs.push_back(memcpyInstr);
+                                            }else if(auto *type = dynamic_cast<IRPtrType *>(& *varSymbol->type)){
+                                                currentCallInstr->pList->paramList.push_back(varSymbol);
+                                            }else if(auto *type = dynamic_cast<IRArrayType *>(& *varSymbol->type)){
+                                                //todo
+                                            }else{
+                                                instrs.push_back(std::make_shared<IRLoad>(currentParamVar, varSymbol,varSymbol->type));
+                                                currentCallInstr->pList->paramList.push_back(currentParamVar);
+                                            }
+                                        }
+                                    }else if(auto *lit = dynamic_cast<ExprLiteral *>(& *arg)){
+                                        auto literalVar = std::make_shared<IRLiteral>(INT_LITERAL, lit->integer);
+                                        currentCallInstr->pList->paramList.push_back(literalVar);
+                                    }else if(auto *index = dynamic_cast<ExprOpunary *>(& *arg)){
+                                        if(index->op == BORROW){
+                                            if(auto *rightExpr = dynamic_cast<ExprPath *>(& *index->right)){
+                                                if(rightExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                                                    std::string varName = rightExpr->pathFirst->pathSegments.identifier;
+                                                    auto varSymbol = currentScope->lookupValueSymbol(varName);
+                                                    currentCallInstr->pList->paramList.push_back(varSymbol);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if(auto *structTp = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
+                                    auto structVar = std::make_shared<IRVar>();
+                                    structVar->varName = callRet->varName + "_struct";
+                                    structVar->reName = callRet->reName + "_struct";
+                                    structVar->type = currentIRFunc->retType;
+                                    instrs.push_back(std::make_shared<IRAlloca>(structVar->type, structVar));
+                                    currentCallInstr->retVar = structVar;
+                                    currentCallInstr->pList->paramList.push_back(structVar);
+                                }
+                                instrs.push_back(currentCallInstr);
+                                break;
+                            }
                         }
                     }
                 }
@@ -1386,6 +1586,16 @@ public:
                                             loadInstr->type = q->res->type;
                                             instrs.push_back(loadInstr);
                                             currentCallInstr->pList->paramList.push_back(loadedVar);
+                                        }
+                                    }else if(auto *index = dynamic_cast<ExprOpunary *>(& *arg)){
+                                        if(index->op == BORROW){
+                                            if(auto *rightExpr = dynamic_cast<ExprPath *>(& *index->right)){
+                                                if(rightExpr->pathFirst->pathSegments.type == IDENTIFIER){
+                                                    std::string varName = rightExpr->pathFirst->pathSegments.identifier;
+                                                    auto varSymbol = currentScope->lookupValueSymbol(varName);
+                                                    currentCallInstr->pList->paramList.push_back(varSymbol);
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1806,14 +2016,14 @@ public:
                                 auto leftLoadedVar = std::make_shared<IRVar>();
                                 leftLoadedVar->type = leftVarSymbol->type;
                                 instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftVarSymbol, leftVarSymbol->type));
-                                auto resultVar = std::make_shared<IRVar>();
+                                /*auto resultVar = std::make_shared<IRVar>();
                                 //todo cast instr
                                 if(auto *intType = dynamic_cast<IRIntType *>(& *leftVarSymbol->type)){
                                     if(intType->bitWidth == 32){
                                         resultVar->type = currentScope->lookupTypeSymbol("isize");
                                         instrs.push_back(std::make_shared<IRSext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                     }
-                                }
+                                }*/
                             }
                         }else if(rightVarName == "u32" || rightVarName == "i32" ){
                             if(node.op == AS_CAST){
@@ -1937,6 +2147,12 @@ public:
                             bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
                         }else if(auto *q = dynamic_cast<IRZext *>(& *lastInstr)){
                             auto rightResultVar = q->result;
+                            bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
+                        }else if(auto *q = dynamic_cast<IRTrunc *>(& *lastInstr)){
+                            auto rightResultVar = q->result;
+                            bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
+                        }else if(auto *q = dynamic_cast<IRLoad *>(& *lastInstr)){
+                            auto rightResultVar = q->tmp;
                             bothLoadForCall(instrs, leftVarSymbol,leftLoadedVar, rightResultVar, node.op);
                         }
                     }else{
@@ -2341,7 +2557,7 @@ public:
                         }else{
                             if(rightVarName == "usize" || rightVarName == "isize" ){
                                 if(node.op == AS_CAST){
-                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    /*auto leftLoadedVar = std::make_shared<IRVar>();
                                     instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftRetVar, leftRetVar->type));
                                     auto resultVar = std::make_shared<IRVar>();
                                     //todo cast instr
@@ -2351,7 +2567,7 @@ public:
                                     }else if(leftRetVar->type == currentScope->lookupTypeSymbol("u32")){
                                         instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                         resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                    }
+                                    }*/
                                 }
                             }else if(rightVarName == "u32" || rightVarName == "i32" ){
                                 if(node.op == AS_CAST){
@@ -2451,6 +2667,46 @@ public:
                     if(node.op == ASSIGN){
                         constInfo res = {rightLiteral->integer, "null"};
                         leftLoadRightLiteral(instrs, indexVar, nullptr, node.op, res,true);
+                    }else if(node.op == PLUS_EQUAL){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, indexVar, indexVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRAdd>(loadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightLiteral->integer),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                    }else if(node.op == MINUS_EQUAL){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, indexVar, indexVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRSub>(loadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightLiteral->integer),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                    }else if(node.op == MULTIPLY_EQUAL){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, indexVar, indexVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRMul>(loadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightLiteral->integer),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                    }else if(node.op == DIVIDE_EQUAL){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, indexVar, indexVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRDiv>(loadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightLiteral->integer),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                    }else if(node.op == MODULO_EQUAL){
+                        auto loadedVar = std::make_shared<IRVar>();
+                        loadedVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(loadedVar, indexVar, indexVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = indexVar->type;
+                        instrs.push_back(std::make_shared<IRMod>(loadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightLiteral->integer),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
                     }else{
                         auto loadedVar = std::make_shared<IRVar>();
                         loadedVar->type = indexVar->type;
@@ -2492,7 +2748,7 @@ public:
                 auto lastInstr = leftIndexInstrs[leftIndexInstrs.size() - 1];
                 if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto indexVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         indexVar = q->res;
                     }else{
                         indexVar->type = q->res->type;
@@ -2504,11 +2760,53 @@ public:
                         if(rightVarSymbol){
                             auto rightLoadedVar = std::make_shared<IRVar>();
                             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
-                            bothLoadForCall(instrs, rightVarSymbol,indexVar, rightLoadedVar, node.op);
+                            if(node.op == PLUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MINUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MULTIPLY_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == DIVIDE_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MODULO_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else{
+                                bothLoadForCall(instrs, rightVarSymbol,indexVar, rightLoadedVar, node.op);
+                            }
                         }else{
                             if(rightVarName == "usize" || rightVarName == "isize" ){
                                 if(node.op == AS_CAST){
-                                    auto indexLoadedVar = std::make_shared<IRVar>();
+                                    /*auto indexLoadedVar = std::make_shared<IRVar>();
                                     indexLoadedVar->type = indexVar->type;
                                     instrs.push_back(std::make_shared<IRLoad>(indexLoadedVar, indexVar, indexVar->type));
                                     auto resultVar = std::make_shared<IRVar>();
@@ -2519,7 +2817,7 @@ public:
                                     }else if(indexVar->type == currentScope->lookupTypeSymbol("u32")){
                                         instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),indexLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                         resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                    }
+                                    }*/
                                 }
                             }else if(rightVarName == "u32" || rightVarName == "i32" ){
                                 if(node.op == AS_CAST){
@@ -2538,7 +2836,49 @@ public:
                                 }
                             }else{
                                 constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
-                                leftLoadRightLiteral(instrs, indexVar, nullptr, node.op, rightRes,true);
+                                if(node.op == PLUS_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                                }else if(node.op == MINUS_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                                }else if(node.op == MULTIPLY_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                                }else if(node.op == DIVIDE_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                                }else if(node.op == MODULO_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = indexVar->type;
+                                    instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                                }else{
+                                    leftLoadRightLiteral(instrs, indexVar, nullptr, node.op, rightRes,true);
+                                }
                             }
                         }
                     }
@@ -2551,7 +2891,7 @@ public:
                 auto lastInstr = leftIndexInstrs[leftIndexInstrs.size() - 1];
                 if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto indexVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         indexVar = q->res;
                     }else{
                         indexVar->type = q->res->type;
@@ -2564,13 +2904,97 @@ public:
                     auto rightLastInstr = rightFieldInstrs[rightFieldInstrs.size() - 1];
                     if(auto *rightQ = dynamic_cast<IRLoad *>(& *rightLastInstr)){
                         auto fieldVar = rightQ->tmp;
-                        bothLoadForCall(instrs, indexVar,indexVar, fieldVar, node.op);
+                        if(node.op == PLUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,fieldVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MINUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,fieldVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MULTIPLY_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,fieldVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == DIVIDE_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,fieldVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MODULO_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,fieldVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else{
+                            bothLoadForCall(instrs, indexVar,indexVar, fieldVar, node.op);
+                        }
                     }else if(auto *rightQ = dynamic_cast<IRGetptr *>(& *rightLastInstr)){
                         auto fieldVar = rightQ->res;
                         auto rightLoadedVar = std::make_shared<IRVar>();
                         rightLoadedVar->type = fieldVar->type;
                         instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, fieldVar, fieldVar->type));
-                        bothLoadForCall(instrs, indexVar,indexVar, rightLoadedVar, node.op);
+                        if(node.op == PLUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MINUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MULTIPLY_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == DIVIDE_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MODULO_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else{
+                            bothLoadForCall(instrs, indexVar,indexVar, rightLoadedVar, node.op);
+                        }
                     }
                 }
             }else if(auto *rightIndex = dynamic_cast<ExprIndex *>(& *node.right)){
@@ -2581,7 +3005,7 @@ public:
                 auto lastInstr = leftIndexInstrs[leftIndexInstrs.size() - 1];
                 if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto leftIndexVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         leftIndexVar = q->res;
                     }else{
                         leftIndexVar->type = q->res->type;
@@ -2597,7 +3021,49 @@ public:
                         auto rightLoadedVar = std::make_shared<IRVar>();
                         rightLoadedVar->type = rightIndexVar->type;
                         instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightIndexVar, rightIndexVar->type));
-                        bothLoadForCall(instrs, leftIndexVar,leftIndexVar, rightLoadedVar, node.op);
+                        if(node.op == PLUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftIndexVar, leftIndexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftIndexVar->type,resultVar,nullptr,leftIndexVar));
+                        }else if(node.op == MINUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftIndexVar, leftIndexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftIndexVar->type,resultVar,nullptr,leftIndexVar));
+                        }else if(node.op == MULTIPLY_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftIndexVar, leftIndexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftIndexVar->type,resultVar,nullptr,leftIndexVar));
+                        }else if(node.op == DIVIDE_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftIndexVar, leftIndexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftIndexVar->type,resultVar,nullptr,leftIndexVar));
+                        }else if(node.op == MODULO_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftIndexVar, leftIndexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = leftIndexVar->type;
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(leftIndexVar->type,resultVar,nullptr,leftIndexVar));
+                        }else{
+                            bothLoadForCall(instrs, leftIndexVar,leftIndexVar, rightLoadedVar, node.op);
+                        }
                     }
                 }
             }else if(auto *rightUnary = dynamic_cast<ExprOpunary *>(& *node.right)){
@@ -2608,7 +3074,7 @@ public:
                 auto lastInstr = leftIndexInstrs[leftIndexInstrs.size() - 1];
                 if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto indexVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         indexVar = q->res;
                     }else{
                         indexVar->type = q->res->type;
@@ -2617,7 +3083,49 @@ public:
                     if(rightUnary->op == NEGATE){
                         if(auto *unaryRight = dynamic_cast<ExprLiteral *>(& *rightUnary->right)){
                             constInfo res = {-unaryRight->integer, "null"};
-                            leftLoadRightLiteral(instrs, indexVar, nullptr, node.op, res,true);
+                            if(node.op == PLUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MINUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MULTIPLY_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == DIVIDE_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else if(node.op == MODULO_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = indexVar->type;
+                                instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                            }else{
+                                leftLoadRightLiteral(instrs, indexVar, nullptr, node.op, res,true);
+                            }
                         }
                     }
                 }
@@ -2629,7 +3137,7 @@ public:
                 auto lastInstr = leftIndexInstrs[leftIndexInstrs.size() - 1];
                 if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto indexVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         indexVar = q->res;
                     }else{
                         indexVar->type = q->res->type;
@@ -2642,7 +3150,49 @@ public:
                         for(auto & instr : methodCallInstrs){
                             instrs.push_back(instr);
                         }
-                        bothLoadForCall(instrs, indexVar,indexVar, rightMethodCallRetVar, node.op);
+                        if(node.op == PLUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightMethodCallRetVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MINUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightMethodCallRetVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MULTIPLY_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightMethodCallRetVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == DIVIDE_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightMethodCallRetVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else if(node.op == MODULO_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, indexVar, indexVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = indexVar->type;
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightMethodCallRetVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(indexVar->type,resultVar,nullptr,indexVar));
+                        }else {
+                            bothLoadForCall(instrs, indexVar,indexVar, rightMethodCallRetVar, node.op);
+                        }
                     }
                 }
             }
@@ -2662,7 +3212,7 @@ public:
                     leftLoadRightLiteral(instrs, fieldVar, nullptr, node.op, res,true);
                 }else if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto fieldVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         fieldVar = q->res;
                     }else{
                         fieldVar->type = q->res->type;
@@ -2672,7 +3222,49 @@ public:
                         rightLiteral->integer = 1;
                     }
                     constInfo res = {rightLiteral->integer, "null"};
-                    leftLoadRightLiteral(instrs, fieldVar, nullptr, node.op, res,true);
+                    if(node.op == PLUS_EQUAL){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                    }else if(node.op == MINUS_EQUAL){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                    }else if(node.op == MULTIPLY_EQUAL){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                    }else if(node.op == DIVIDE_EQUAL){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                    }else if(node.op == MODULO_EQUAL){
+                        auto leftLoadedVar = std::make_shared<IRVar>();
+                        leftLoadedVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                        auto resultVar = std::make_shared<IRVar>();
+                        resultVar->type = fieldVar->type;
+                        instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,res.value),resultVar));
+                        instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                    }else{
+                        leftLoadRightLiteral(instrs, fieldVar, nullptr, node.op, res,true);
+                    }
                 }
             }else if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
                 auto leftFieldInstrs = visit(*leftField);
@@ -2692,7 +3284,7 @@ public:
                         }else{
                             if(node.op == AS_CAST){
                                 if(rightVarName == "usize" || rightVarName == "isize" ){
-                                    auto fieldLoadedVar = std::make_shared<IRVar>();
+                                    /*auto fieldLoadedVar = std::make_shared<IRVar>();
                                     instrs.push_back(std::make_shared<IRLoad>(fieldLoadedVar, fieldVar, fieldVar->type));
                                     auto resultVar = std::make_shared<IRVar>();
                                     //todo cast instr
@@ -2702,7 +3294,7 @@ public:
                                     }else if(fieldVar->type == currentScope->lookupTypeSymbol("u32")){
                                         instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),fieldLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                         resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                    }
+                                    }*/
                                 }else if(rightVarName == "u32" || rightVarName == "i32" ){
                                     auto fieldLoadedVar = std::make_shared<IRVar>();
                                     instrs.push_back(std::make_shared<IRLoad>(fieldLoadedVar, fieldVar, fieldVar->type));
@@ -2724,7 +3316,7 @@ public:
                     }
                 }else if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto fieldVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         fieldVar = q->res;
                     }else{
                         fieldVar->type = q->res->type;
@@ -2736,11 +3328,53 @@ public:
                         if(rightVarSymbol){
                             auto rightLoadedVar = std::make_shared<IRVar>();
                             instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightVarSymbol, rightVarSymbol->type));
-                            bothLoadForCall(instrs, rightVarSymbol,fieldVar, rightLoadedVar, node.op);
+                            if(node.op == PLUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                            }else if(node.op == MINUS_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                            }else if(node.op == MULTIPLY_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                            }else if(node.op == DIVIDE_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                            }else if(node.op == MODULO_EQUAL){
+                                auto leftLoadedVar = std::make_shared<IRVar>();
+                                leftLoadedVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                auto resultVar = std::make_shared<IRVar>();
+                                resultVar->type = fieldVar->type;
+                                instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                                instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                            }else{
+                                bothLoadForCall(instrs, rightVarSymbol,fieldVar, rightLoadedVar, node.op);
+                            }
                         }else{
                             if(node.op == AS_CAST){
                                 if(rightVarName == "usize" || rightVarName == "isize" ){
-                                    auto fieldLoadedVar = std::make_shared<IRVar>();
+                                    /*auto fieldLoadedVar = std::make_shared<IRVar>();
                                     fieldLoadedVar->type = fieldVar->type;
                                     instrs.push_back(std::make_shared<IRLoad>(fieldLoadedVar, fieldVar, fieldVar->type));
                                     auto resultVar = std::make_shared<IRVar>();
@@ -2751,7 +3385,7 @@ public:
                                     }else if(fieldVar->type == currentScope->lookupTypeSymbol("u32")){
                                         instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),fieldLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                         resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                    }
+                                    }*/
                                 }else if(rightVarName == "u32" || rightVarName == "i32" ){
                                     auto fieldLoadedVar = std::make_shared<IRVar>();
                                     fieldLoadedVar->type = fieldVar->type;
@@ -2768,7 +3402,49 @@ public:
                                 }
                             }else{
                                 constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
-                                leftLoadRightLiteral(instrs, fieldVar, nullptr, node.op, rightRes,true);
+                                if(node.op == PLUS_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                                }else if(node.op == MINUS_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                                }else if(node.op == MULTIPLY_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                                }else if(node.op == DIVIDE_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                                }else if(node.op == MODULO_EQUAL){
+                                    auto leftLoadedVar = std::make_shared<IRVar>();
+                                    leftLoadedVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                                    auto resultVar = std::make_shared<IRVar>();
+                                    resultVar->type = fieldVar->type;
+                                    instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,nullptr,std::make_shared<IRLiteral>(INT_LITERAL,rightRes.value),resultVar));
+                                    instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                                }else{
+                                    leftLoadRightLiteral(instrs, fieldVar, nullptr, node.op, rightRes,true);
+                                }
                             }
                         }
                     }
@@ -2799,7 +3475,7 @@ public:
                     }
                 }else if(auto *q = dynamic_cast<IRGetptr *>(& *lastInstr)){
                     auto fieldVar = std::make_shared<IRVar>();
-                    if(node.op == ASSIGN){
+                    if(node.op == ASSIGN || node.op == PLUS_EQUAL || node.op == MINUS_EQUAL || node.op == MULTIPLY_EQUAL || node.op == DIVIDE_EQUAL || node.op == MODULO_EQUAL){
                         fieldVar = q->res;
                     }else{
                         fieldVar->type = q->res->type;
@@ -2818,7 +3494,49 @@ public:
                         auto rightLoadedVar = std::make_shared<IRVar>();
                         rightLoadedVar->type = rightFieldVar->type;
                         instrs.push_back(std::make_shared<IRLoad>(rightLoadedVar, rightFieldVar, rightFieldVar->type));
-                        bothLoadForCall(instrs, fieldVar,fieldVar, rightLoadedVar, node.op);
+                        if(node.op == PLUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRAdd>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                        }else if(node.op == MINUS_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRSub>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                        }else if(node.op == MULTIPLY_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRMul>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                        }else if(node.op == DIVIDE_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRDiv>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                        }else if(node.op == MODULO_EQUAL){
+                            auto leftLoadedVar = std::make_shared<IRVar>();
+                            leftLoadedVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, fieldVar, fieldVar->type));
+                            auto resultVar = std::make_shared<IRVar>();
+                            resultVar->type = fieldVar->type;
+                            instrs.push_back(std::make_shared<IRMod>(leftLoadedVar,nullptr,rightLoadedVar,nullptr,resultVar));
+                            instrs.push_back(std::make_shared<IRStore>(fieldVar->type,resultVar,nullptr,fieldVar));
+                        }else{
+                            bothLoadForCall(instrs, fieldVar,fieldVar, rightLoadedVar, node.op);
+                        }
                     }
                 }
             }
@@ -2847,7 +3565,7 @@ public:
                             }else{
                                 if(rightVarName == "usize" || rightVarName == "isize" ){
                                     if(node.op == AS_CAST){
-                                        auto leftLoadedVar = std::make_shared<IRVar>();
+                                        /*auto leftLoadedVar = std::make_shared<IRVar>();
                                         leftLoadedVar->type = leftRetVar->type;
                                         instrs.push_back(std::make_shared<IRLoad>(leftLoadedVar, leftRetVar, leftRetVar->type));
                                         auto resultVar = std::make_shared<IRVar>();
@@ -2858,7 +3576,7 @@ public:
                                         }else if(leftRetVar->type == currentScope->lookupTypeSymbol("u32")){
                                             instrs.push_back(std::make_shared<IRZext>(currentScope->lookupTypeSymbol("i32"),leftLoadedVar, currentScope->lookupTypeSymbol("isize"), resultVar));
                                             resultVar->type = currentScope->lookupTypeSymbol("isize");
-                                        }
+                                        }*/
                                     }
                                 }else if(rightVarName == "u32" || rightVarName == "i32" ){
                                     if(node.op == AS_CAST){
@@ -2879,6 +3597,18 @@ public:
                                     constInfo rightRes = currentScope->lookupConstantSymbol(rightVarName);
                                     leftLoadRightLiteral(instrs, leftRetVar, nullptr, node.op, rightRes,true);
                                 }
+                            }
+                        }
+                    }else if(auto *rightGroup = dynamic_cast<ExprGroup *>(& *node.right)){
+                        if(auto *rightGroupOpbinary = dynamic_cast<ExprOpbinary *>(& *rightGroup->expr)){
+                            auto rightInstrs = visit(*rightGroupOpbinary);
+                            for(auto & instr : rightInstrs){
+                                instrs.push_back(instr);
+                            }
+                            auto rightLastInstr = rightInstrs[rightInstrs.size() - 1];
+                            if(auto *rightQ = dynamic_cast<IRBinaryop *>(& *rightLastInstr)){
+                                auto rightRetVar = rightQ->result;
+                                bothLoadForCall(instrs, leftRetVar,leftRetVar, rightRetVar, node.op);
                             }
                         }
                     }
@@ -2987,6 +3717,9 @@ public:
             }else if(auto *zextOp = dynamic_cast<IRZext *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
                 auto retVar = zextOp->result;
                 retVar->type = zextOp->targetType;
+                instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
+            }else if(auto *loadOp = dynamic_cast<IRLoad *>(& *opBinaryInstrs[opBinaryInstrs.size() - 1])){
+                auto retVar = loadOp->tmp;
                 instrs.push_back(std::make_shared<IRReturn>(retVar->type, retVar));
             }
         }else if(auto *retIndex = dynamic_cast<ExprIndex *>(& *node.expr)){
@@ -3209,8 +3942,16 @@ public:
                 bodyVar->varName = p->varName;
                 bodyVar->reName = p->reName;
                 bodyVar->type = p->type;
-                currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
-                currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
+                if(auto *structType = dynamic_cast<IRStructType *>(& *p->type)){
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(std::make_shared<IRPtrType>(p->type), bodyVar));
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(std::make_shared<IRPtrType>(p->type), p, nullptr, bodyVar));
+                }else if(auto *arrayType = dynamic_cast<IRArrayType *>(& *p->type)){
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(std::make_shared<IRPtrType>(p->type), bodyVar));
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(std::make_shared<IRPtrType>(p->type), p, nullptr, bodyVar));
+                }else{
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
+                    currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
+                }
                 currentScope->addValueSymbol(p->varName, bodyVar);
             }
         }
@@ -3391,6 +4132,26 @@ public:
                         }
                     }
                 }else if(auto *p = dynamic_cast<StmtLet *>(& *stmt)){
+                    if(auto *ifExpr = dynamic_cast<ExprIf *>(& *p->expression)){
+                        auto letBlock = processLetIf(*p);
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            for(auto & instr : letBlock->instrList){
+                                currentIRFunc->body->instrList.push_back(instr);
+                            }
+                            for(auto & block : letBlock->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }else{
+                            auto lastBlock = currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1];
+                            for(auto & instr : letBlock->instrList){
+                                lastBlock->instrList.push_back(instr);
+                            }
+                            for(auto & block : letBlock->blockList){
+                                currentIRFunc->body->blockList.push_back(block);
+                            }
+                        }
+                        continue;
+                    }
                     auto letInstrs = visit(*p);
                     if(currentIRFunc->body->blockList.size() == 0){
                          for(auto & instr : letInstrs){
@@ -3450,10 +4211,12 @@ public:
             }else{
                 //ensure function has return
                 if(auto *p = dynamic_cast<IRVoidType *>(& *currentIRFunc->retType)){
-                    if(currentIRFunc->body->blockList.size() == 0){
-                        currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, 0)));
-                    }else{
-                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, 0)));
+                    if(currentIRFunc->name != "main"){
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, 0)));
+                        }else{
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(currentIRFunc->retType, std::make_shared<IRLiteral>(INT_LITERAL, 0)));
+                        }
                     }
                 }
             }
@@ -3821,6 +4584,82 @@ public:
             }
         }
         return instrs;
+    }
+
+    std::shared_ptr<IRBlock> processLetIf(StmtLet &node){
+        auto block = std::make_shared<IRBlock>();
+        //todo 
+        std::string varName;
+        std::string reName;
+        if(auto *p = dynamic_cast<PatternIdentifier *>(& *node.PatternNoTopAlt)){
+            varName = p->identifier;
+        }else if(auto *p = dynamic_cast<PatternReference *>(& *node.PatternNoTopAlt)){
+            if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
+                varName = q->identifier;
+            }
+        }
+        if(vars_cnt.find(varName) != vars_cnt.end()){
+            vars_cnt[varName] += 1;
+            reName = varName + "_" + std::to_string(vars_cnt[varName]);
+        }else{
+            vars_cnt[varName] = 1;
+            reName = varName;
+        }
+        //todo
+        std::shared_ptr<IRType> varType = resolveType(*node.type);
+        auto currentVar = std::make_shared<IRVar>(varType,varName, reName);
+        currentScope->addValueSymbol(varName, currentVar);
+        block->instrList.push_back(std::make_shared<IRAlloca>(varType,currentVar));
+        if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
+            if(auto *cond = dynamic_cast<ExprOpbinary *>(& *ifExpr->condition)){
+                auto condInstrs = visit(*cond);
+                for(auto & instr : condInstrs){
+                    block->instrList.push_back(instr);
+                }
+                if(auto *lastInstr = dynamic_cast<IRBinaryop *>(& *condInstrs[condInstrs.size() -1])){
+                    auto condVar = lastInstr->result;
+                    auto ifBlock = std::make_shared<IRBlock>();
+                    auto elseBlock = std::make_shared<IRBlock>();
+                    auto mergeBlock = std::make_shared<IRBlock>();
+                    block->instrList.push_back(std::make_shared<IRBr>(condVar, ifBlock, elseBlock));
+                    //if block
+                    if(ifExpr->thenBlock->ExpressionWithoutBlock){
+                        if(auto *thenPath = dynamic_cast<ExprPath *>(& *ifExpr->thenBlock->ExpressionWithoutBlock)){
+                            if(thenPath->pathFirst->pathSegments.type == IDENTIFIER){
+                                std::string thenVarName = thenPath->pathFirst->pathSegments.identifier;
+                                auto thenVarSymbol = currentScope->lookupValueSymbol(thenVarName);
+                                if(thenVarSymbol){
+                                    auto thenLoadedVar = std::make_shared<IRVar>();
+                                    ifBlock->instrList.push_back(std::make_shared<IRLoad>(thenLoadedVar, thenVarSymbol, thenVarSymbol->type));
+                                    ifBlock->instrList.push_back(std::make_shared<IRStore>(varType, thenLoadedVar,nullptr, currentVar));
+                                    ifBlock->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
+                                }
+                            }
+                        }
+                    }else if(auto *elseblock = dynamic_cast<ExprBlock *>(& *ifExpr->thenBlock)){
+                        if(elseblock->ExpressionWithoutBlock){
+                            if(auto *elsePath = dynamic_cast<ExprPath *>(& *elseblock->ExpressionWithoutBlock)){
+                                if(elsePath->pathFirst->pathSegments.type == IDENTIFIER){
+                                    std::string elseVarName = elsePath->pathFirst->pathSegments.identifier;
+                                    auto elseVarSymbol = currentScope->lookupValueSymbol(elseVarName);
+                                    if(elseVarSymbol){
+                                        auto elseLoadedVar = std::make_shared<IRVar>();
+                                        ifBlock->instrList.push_back(std::make_shared<IRLoad>(elseLoadedVar, elseVarSymbol, elseVarSymbol->type));
+                                        ifBlock->instrList.push_back(std::make_shared<IRStore>(varType, elseLoadedVar,nullptr, currentVar));
+                                        ifBlock->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //todo
+                    block->blockList.push_back(ifBlock);
+                    block->blockList.push_back(elseBlock);
+                    block->blockList.push_back(mergeBlock);
+                }
+            }
+        }
+        return block;
     }
 
     //Type

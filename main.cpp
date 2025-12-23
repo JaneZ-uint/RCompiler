@@ -354,6 +354,19 @@ int main() {
 }*/
 long long int ir_cnt = 0;
 int main(){
+    std::ofstream out("../test.ll");
+    if (!out.is_open()) {
+        std::cerr << "Failed to open log file\n";
+        return 1;
+    }
+
+    // 2. 备份原来的 streambuf
+    auto *cout_buf = std::cout.rdbuf();
+    auto *cerr_buf = std::cerr.rdbuf();
+
+    // 3. 重定向
+    std::cout.rdbuf(out.rdbuf());
+    std::cerr.rdbuf(out.rdbuf());
     JaneZ::Simplifier simplifier("../tmp");
     std::string source_code = simplifier.work();
 
@@ -377,4 +390,7 @@ int main(){
 
     JaneZ::CodeGenerator code_generator;
     code_generator.generateCode(*root);
+
+    std::cout.rdbuf(cout_buf);
+    std::cerr.rdbuf(cerr_buf);
 }
