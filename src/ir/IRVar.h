@@ -15,6 +15,7 @@ public:
     std::string reName;
     long long int serial;
     bool isSelf = false;
+    std::shared_ptr<IRVar> baseVar = nullptr; // ptr type
 
     IRVar(){
         serial = ir_cnt++;
