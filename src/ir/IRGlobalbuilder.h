@@ -159,12 +159,21 @@ public:
                             std::string funcName = itemFn->identifier;
                             std::shared_ptr<IRParam> paramList =  std::make_shared<IRParam>();
                             if(itemFn->fnParameters.SelfParam.isShortSelf){
-                                auto selfParam = std::make_shared<IRVar>();
-                                selfParam->varName = "self";
-                                selfParam->reName = "self";
-                                selfParam->type = std::make_shared<IRPtrType>(structType);
-                                selfParam->isSelf = true;
-                                paramList->paramList.push_back(selfParam);
+                                if(itemFn->fnParameters.SelfParam.short_self.is_and){
+                                    auto selfParam = std::make_shared<IRVar>();
+                                    selfParam->varName = "self";
+                                    selfParam->reName = "self";
+                                    selfParam->type = std::make_shared<IRPtrType>(structType);
+                                    selfParam->isSelf = true;
+                                    paramList->paramList.push_back(selfParam);
+                                }else{
+                                    auto selfParam = std::make_shared<IRVar>();
+                                    selfParam->varName = "self";
+                                    selfParam->reName = "self";
+                                    selfParam->type = structType;
+                                    selfParam->isSelf = true;
+                                    paramList->paramList.push_back(selfParam);
+                                }
                             } 
                             if(itemFn->fnParameters.FunctionParam.size() > 0){
                                 for(auto& param : itemFn->fnParameters.FunctionParam){
