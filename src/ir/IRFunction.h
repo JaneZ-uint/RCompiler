@@ -6,6 +6,7 @@
 # include <memory>
 #include <utility>
 # include <string>
+#include <vector>
 
 namespace JaneZ {
 class IRAlloca;
@@ -19,6 +20,7 @@ public:
     std::shared_ptr<IRParam> paramList;
     std::shared_ptr<IRBlock> body;
     std::shared_ptr<IRStructType> parentStructType; // null if not a member function
+    std::vector<std::shared_ptr<IRType>> typeList;
 
     IRFunction() = default;
     IRFunction(std::shared_ptr<IRType> retType, std::string name,

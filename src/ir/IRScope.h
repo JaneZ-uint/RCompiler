@@ -86,7 +86,7 @@ public:
         } else if(parent != nullptr) {
             return parent->lookupConstantSymbol(name);
         } 
-        return {0,""};
+        return {0,"null"};
     }
 };  
 }

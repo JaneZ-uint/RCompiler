@@ -110,6 +110,7 @@ public:
         }
         std::string funcName = node.identifier;
         std::shared_ptr<IRParam> paramList = std::make_shared<IRParam>();
+        std::vector<std::shared_ptr<IRType>> typeList;
         if(node.fnParameters.FunctionParam.size() > 0){
             for(auto& param : node.fnParameters.FunctionParam){
                 auto currentVar = std::make_shared<IRVar>();
@@ -124,6 +125,7 @@ public:
                 currentVar->reName = currentVar->varName;
                 if(param.type){
                     currentVar->type = resolveType(*param.type);
+                    typeList.push_back(currentVar->type);
                 }
                 paramList->paramList.push_back(currentVar);
             }
@@ -141,10 +143,12 @@ public:
         }
         auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
         currentFunction->body = std::make_shared<IRBlock>();
+        currentFunction->typeList = typeList;
         globalScope->addFunctionSymbol(node.identifier,currentFunction);
     }
 
     void visit(ItemImplDecl &node){
+        //todo with typelist
         if(auto *p = dynamic_cast<Path *>(& *node.targetType)){
             if(p->pathSegments.type == IDENTIFIER){
                 std::string typeName = p->pathSegments.identifier;
@@ -158,12 +162,14 @@ public:
                             }
                             std::string funcName = itemFn->identifier;
                             std::shared_ptr<IRParam> paramList =  std::make_shared<IRParam>();
+                            std::vector<std::shared_ptr<IRType>> typeList;
                             if(itemFn->fnParameters.SelfParam.isShortSelf){
                                 if(itemFn->fnParameters.SelfParam.short_self.is_and){
                                     auto selfParam = std::make_shared<IRVar>();
                                     selfParam->varName = "self";
                                     selfParam->reName = "self";
                                     selfParam->type = std::make_shared<IRPtrType>(structType);
+                                    typeList.push_back(selfParam->type);
                                     selfParam->isSelf = true;
                                     paramList->paramList.push_back(selfParam);
                                 }else{
@@ -171,6 +177,7 @@ public:
                                     selfParam->varName = "self";
                                     selfParam->reName = "self";
                                     selfParam->type = structType;
+                                    typeList.push_back(selfParam->type);
                                     selfParam->isSelf = true;
                                     paramList->paramList.push_back(selfParam);
                                 }
@@ -188,6 +195,7 @@ public:
                                     currentVar->reName = currentVar->varName;
                                     if(param.type){
                                         currentVar->type = resolveType(*param.type);
+                                        typeList.push_back(currentVar->type);
                                     }
                                     paramList->paramList.push_back(currentVar);
                                 }
@@ -206,6 +214,7 @@ public:
                             auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
                             currentFunction->body = std::make_shared<IRBlock>();
                             currentFunction->parentStructType = structType;
+                            currentFunction->typeList = typeList;
                             structType->memberFunctions.push_back(currentFunction);
                         }
                     }
@@ -285,6 +294,17 @@ public:
         throw std::runtime_error("Unknown primitive type");
     }
 
+    void calculateArraySize(std::shared_ptr<IRArrayType> arrayType){
+        int totalSize = 0;
+        if(auto *p = dynamic_cast<IRArrayType *>(arrayType->elementType.get())){
+            calculateArraySize(std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType));
+            totalSize = arrayType->size * p->size;
+        }else{
+            totalSize = arrayType->size;
+        }
+        arrayType->size = totalSize;
+    }
+
     std::shared_ptr<IRArrayType> visit(TypeArray &node){
         auto currentType = std::make_shared<IRType>();
         int size = 0;
@@ -342,7 +362,9 @@ public:
                 }
             }
         }
-        return std::make_shared<IRArrayType>(currentType, size);
+        auto arrayType = std::make_shared<IRArrayType>(currentType, size);
+        calculateArraySize(arrayType);
+        return arrayType;
     }
 
     std::shared_ptr<IRStructType> visit(Path &node){

@@ -23,6 +23,7 @@
 #include "IRZext.h"
 #include "IRMem.h"
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 namespace JaneZ {
@@ -68,7 +69,7 @@ public:
                 }
             }else if(p->retType->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->retType.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -78,7 +79,7 @@ public:
                             }
                         }else if(q->elementType->type == BaseType::ARRAY  ){
                             if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                std::cout << "[" << r->size << " x ";
+                                std::cout << "[" << r->length << " x ";
                                 if(r->elementType->type == BaseType::INT){
                                     if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                         if(s->bitWidth == 32){
@@ -183,7 +184,7 @@ public:
                     }
                 }else if(func->retType->type == BaseType::ARRAY  ){ 
                     if(auto *q = dynamic_cast<IRArrayType *>(func->retType.get())){
-                        std::cout << "[" << q->size << " x ";
+                        std::cout << "[" << q->length << " x ";
                         if(q->elementType->type == BaseType::INT){
                             if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                                 if(r->bitWidth == 32){
@@ -193,7 +194,7 @@ public:
                                 }
                             }else if(q->elementType->type == BaseType::ARRAY  ){
                                 if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                    std::cout << "[" << r->size << " x ";
+                                    std::cout << "[" << r->length << " x ";
                                     if(r->elementType->type == BaseType::INT){
                                         if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                             if(s->bitWidth == 32){
@@ -301,7 +302,7 @@ public:
                         }
                     }else if(q->memberTypes[i].second->type == BaseType::ARRAY  ){
                         if(auto *r = dynamic_cast<IRArrayType *>(q->memberTypes[i].second.get())){
-                            std::cout << "[" << r->size << " x ";
+                            std::cout << "[" << r->length << " x ";
                             if(r->elementType->type == BaseType::INT){
                                 if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                     if(s->bitWidth == 32){
@@ -312,7 +313,7 @@ public:
                                 }
                             }else if(r->elementType->type == BaseType::ARRAY  ){
                                 if(auto *s = dynamic_cast<IRArrayType *>(r->elementType.get())){
-                                    std::cout << "[" << s->size << " x ";
+                                    std::cout << "[" << s->length << " x ";
                                     if(s->elementType->type == BaseType::INT){
                                         if(auto *t = dynamic_cast<IRIntType *>(s->elementType.get())){
                                             if(t->bitWidth == 32){
@@ -360,7 +361,7 @@ public:
                 }
             }else if(p->allocatedType->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->allocatedType.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -375,7 +376,7 @@ public:
                         }
                     }else if(q->elementType->type == BaseType::ARRAY){
                         if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                            std::cout << "[" << r->size << " x ";
+                            std::cout << "[" << r->length << " x ";
                             if(r->elementType->type == BaseType::INT){
                                 if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                     if(s->bitWidth == 32){
@@ -410,7 +411,7 @@ public:
                 }
             }else if(p->type->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -420,7 +421,7 @@ public:
                             }
                         }else if(q->elementType->type == BaseType::ARRAY  ){
                             if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                std::cout << "[" << r->size << " x ";
+                                std::cout << "[" << r->length << " x ";
                                 if(r->elementType->type == BaseType::INT){
                                     if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                         if(s->bitWidth == 32){
@@ -460,7 +461,7 @@ public:
                 }
             }else if(p->valueType->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->valueType.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -470,7 +471,7 @@ public:
                             }
                         }else if(q->elementType->type == BaseType::ARRAY  ){
                             if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                std::cout << "[" << r->size << " x ";
+                                std::cout << "[" << r->length << " x ";
                                 if(r->elementType->type == BaseType::INT){
                                     if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                         if(s->bitWidth == 32){
@@ -520,7 +521,7 @@ public:
                 }
             }else if(p->returnType->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->returnType.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -530,7 +531,7 @@ public:
                             }
                         }else if(q->elementType->type == BaseType::ARRAY  ){
                             if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                std::cout << "[" << r->size << " x ";
+                                std::cout << "[" << r->length << " x ";
                                 if(r->elementType->type == BaseType::INT){
                                     if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                         if(s->bitWidth == 32){
@@ -664,18 +665,17 @@ public:
             }else{
                 std::cout << "call ";
             }
-            
-            if(p->retVar->type->type == BaseType::INT){
-                if(auto *q = dynamic_cast<IRIntType *>(p->retVar->type.get())){
+            if(p->function->retType->type == BaseType::INT){
+                if(auto *q = dynamic_cast<IRIntType *>(p->function->retType.get())){
                     if(q->bitWidth == 32){
                         std::cout << "i32 ";
                     }else if(q->bitWidth == 8){
                         std::cout << "i8 ";
                     }
                 }
-            }else if(p->retVar->type->type == BaseType::ARRAY  ){
-                if(auto *q = dynamic_cast<IRArrayType *>(p->retVar->type.get())){
-                    std::cout << "[" << q->size << " x ";
+            }else if(p->function->retType->type == BaseType::ARRAY  ){
+                if(auto *q = dynamic_cast<IRArrayType *>(p->function->retType.get())){
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -686,7 +686,7 @@ public:
                         }
                     }else if(q->elementType->type == BaseType::ARRAY  ){
                         if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                            std::cout << "[" << r->size << " x ";
+                            std::cout << "[" << r->length << " x ";
                             if(r->elementType->type == BaseType::INT){
                                 if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                     if(s->bitWidth == 32){
@@ -705,9 +705,9 @@ public:
                     }
                     std::cout << "] ";
                 }
-            }else if(p->retVar->type->type == BaseType::STRUCT){
+            }else if(p->function->retType->type == BaseType::STRUCT){
                 std::cout << "void ";
-            }else if(p->retVar->type->type == BaseType::VOID){
+            }else if(p->function->retType->type == BaseType::VOID){
                 std::cout << "void ";
             }
             if(p->function->parentStructType){
@@ -728,35 +728,7 @@ public:
                         }
                     }else if(p->type->type == BaseType::ARRAY  ){
                         if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
-                            std::cout << "[" << q->size << " x ";
-                            if(q->elementType->type == BaseType::INT){
-                                if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
-                                    if(r->bitWidth == 32){
-                                        std::cout << "i32";
-                                    }else if(r->bitWidth == 8){
-                                        std::cout << "i8";
-                                    }
-                                }
-                            }else if(q->elementType->type == BaseType::ARRAY  ){
-                                if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                    std::cout << "[" << r->size << " x ";
-                                    if(r->elementType->type == BaseType::INT){
-                                        if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
-                                            if(s->bitWidth == 32){
-                                                std::cout << "i32";
-                                            }else if(s->bitWidth == 8){
-                                                std::cout << "i8";
-                                            }
-                                        }
-                                    }
-                                    std::cout << "]";
-                                }
-                            }else if(q->elementType->type == BaseType::STRUCT){
-                                if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
-                                    std::cout << "ptr ";
-                                }
-                            }
-                            std::cout << "] ";
+                            std::cout << "ptr ";
                         }
                     }else if(p->type->type == BaseType::STRUCT){
                         if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
@@ -783,7 +755,7 @@ public:
                 }
             }else if(p->type->type == BaseType::ARRAY  ){
                 if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
-                    std::cout << "[" << q->size << " x ";
+                    std::cout << "[" << q->length << " x ";
                     if(q->elementType->type == BaseType::INT){
                         if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
                             if(r->bitWidth == 32){
@@ -794,7 +766,7 @@ public:
                         }
                     }else if(q->elementType->type == BaseType::ARRAY  ){
                         if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                            std::cout << "[" << r->size << " x ";
+                            std::cout << "[" << r->length << " x ";
                             if(r->elementType->type == BaseType::INT){
                                 if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
                                     if(s->bitWidth == 32){
@@ -829,7 +801,7 @@ public:
                             }
                         }else if(r->elementType->type == BaseType::ARRAY  ){
                             if(auto *s = dynamic_cast<IRArrayType *>(r->elementType.get())){
-                                std::cout << "[" << s->size << " x ";
+                                std::cout << "[" << s->length << " x ";
                                 if(s->elementType->type == BaseType::INT){
                                     if(auto *t = dynamic_cast<IRIntType *>(s->elementType.get())){
                                         if(t->bitWidth == 32){

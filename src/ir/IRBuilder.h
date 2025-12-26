@@ -139,44 +139,64 @@ public:
         std::shared_ptr<IRBlock> ret = nullptr;
         if(auto *p = dynamic_cast<ExprArray *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprBlock *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprBreak *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprCall *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprConstBlock *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprContinue *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprField *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprGroup *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprIf *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprIndex *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprLiteral *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprLoop *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprMatch *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprMethodcall *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprOpbinary *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprOpunary *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprPath *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprReturn *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprStruct *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else if(auto *p = dynamic_cast<ExprUnderscore *>(& node)) {
             ret = visit(*p);
+            node.ret = p->ret;
         }else{
             throw std::runtime_error("IRBuilder visit Expression error");
         }
@@ -256,7 +276,7 @@ public:
                     }
                 }
             }
-            if(auto *sizeLiteral = dynamic_cast<IRLiteral *>(& *node.size)){
+            if(auto *sizeLiteral = dynamic_cast<IRLiteral *>(& *node.size->ret)){
                 size = sizeLiteral->intValue;
             }
             auto condBlock = std::make_shared<IRBlock>();
@@ -292,12 +312,14 @@ public:
             getptrInstr->index = index;
             getptrInstr->offset = -1;
             getptrInstr->base = arrayVar;
-            getptrInstr->type = arrayVar->type;
             auto resVar = std::make_shared<IRVar>();
             if(auto *literal = dynamic_cast<IRLiteral *>(& *node.type->ret)){
                 int init;
                 if(literal->literalType == BOOL_LITERAL){
                     arrayVar->type = std::make_shared<IRArrayType>(currentScope->lookupTypeSymbol("BOOL"), size);
+                    if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
+                        caculateArraySize(arraytp);
+                    }
                     if(literal->intValue != 0){
                         init = 1;
                     }else{
@@ -305,22 +327,29 @@ public:
                     }
                 }else if(literal->literalType == INT_LITERAL){
                     arrayVar->type = std::make_shared<IRArrayType>(currentScope->lookupTypeSymbol("i32"), size);
+                    if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
+                        caculateArraySize(arraytp);
+                    }
                     init = literal->intValue;
                 }
                 block->instrList.push_back(std::make_shared<IRAlloca>(arrayVar->type,arrayVar)); 
                 resVar->type = currentScope->lookupTypeSymbol("i32");
                 getptrInstr->res = resVar;
+                getptrInstr->type = arrayVar->type;
                 assignBlock->instrList.push_back(getptrInstr);
                 auto storeInstr = std::make_shared<IRStore>();
                 storeInstr->valueType = currentScope->lookupTypeSymbol("i32");
                 storeInstr->address = getptrInstr->res;
                 storeInstr->storeLiteral = std::make_shared<IRLiteral>(INT_LITERAL, init);
                 assignBlock->instrList.push_back(storeInstr);
-                
             }else if(auto var = std::dynamic_pointer_cast<IRVar>(node.type->ret)){
                 arrayVar->type = std::make_shared<IRArrayType>(var->type, size);
+                if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
+                    caculateArraySize(arraytp);
+                }
                 resVar->type = var->type;
                 getptrInstr->res = resVar;
+                getptrInstr->type = arrayVar->type;
                 assignBlock->instrList.push_back(getptrInstr);
                 block->instrList.push_back(std::make_shared<IRAlloca>(arrayVar->type,arrayVar));
                 auto memcpyInstr = std::make_shared<IRMemcpy>();
@@ -385,12 +414,14 @@ public:
             auto printInstr = std::make_shared<IRPrint>();
             for(auto &arg: node.callParams){
                 auto argInstrs = visit(*arg);
-                for(auto & instr : argInstrs->instrList){
-                    block->instrList.push_back(instr);
-                }
-                if(argInstrs->blockList.size() > 0){
-                    for(auto & b : argInstrs->blockList){
-                        block->blockList.push_back(b);
+                if(argInstrs){
+                    for(auto & instr : argInstrs->instrList){
+                        block->instrList.push_back(instr);
+                    }
+                    if(argInstrs->blockList.size() > 0){
+                        for(auto & b : argInstrs->blockList){
+                            block->blockList.push_back(b);
+                        }
                     }
                 }
                 printInstr->printVar = arg->ret;
@@ -412,24 +443,28 @@ public:
             node.ret = retVar;
             return block;
         }
+        node.expr->is_lvalue = true;
         auto funcNameInstrs = visit(*node.expr);
-        for(auto & instr : funcNameInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(funcNameInstrs->blockList.size() > 0){
-            for(auto & b : funcNameInstrs->blockList){
-                block->blockList.push_back(b);
+        if(funcNameInstrs){
+            for(auto & instr : funcNameInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(funcNameInstrs->blockList.size() > 0){
+                for(auto & b : funcNameInstrs->blockList){
+                    block->blockList.push_back(b);
+                }
             }
         }
         if(auto func = std::dynamic_pointer_cast<IRFunction>(node.expr->ret)){
             auto currentCallInstr = std::make_shared<IRCall>();
             currentCallInstr->function = func;
+            currentCallInstr->pList = std::make_shared<IRParam>();
             for(int i = 0;i < node.callParams.size();i ++){
                 auto & arg = node.callParams[i];
-                if(auto *variable = dynamic_cast<IRVar *>(& *func->paramList->paramList[i])){
-                    if(auto *ptrtype = dynamic_cast<IRPtrType *>(& *variable->type)){
-                        arg->is_lvalue = true;
-                        auto argInstrs = visit(*arg);
+                if(auto *ptrtype = dynamic_cast<IRPtrType *>(& *func->typeList[i])){
+                    arg->is_lvalue = true;
+                    auto argInstrs = visit(*arg);
+                    if(argInstrs){
                         if(block->blockList.empty()){
                             for(auto & instr : argInstrs->instrList){
                                 block->instrList.push_back(instr);
@@ -445,26 +480,28 @@ public:
                                 }
                             }
                         }
-                        currentCallInstr->pList->paramList.push_back(arg->ret);
-                    }else{
-                        auto argInstrs = visit(*arg);
-                        if(block->blockList.empty()){
-                            for(auto & instr : argInstrs->instrList){
-                                block->instrList.push_back(instr);
-                            }
-                        }else{
-                            for(auto & instr : argInstrs->instrList){
-                                auto lastBlock = block->blockList[block->blockList.size() - 1];
-                                lastBlock->instrList.push_back(instr);
-                            }
-                            if(argInstrs->blockList.size() > 0){
-                                for(auto & b : argInstrs->blockList){
-                                    block->blockList.push_back(b);
-                                }
-                            }
-                        }
-                        currentCallInstr->pList->paramList.push_back(arg->ret);
                     }
+                    currentCallInstr->pList->paramList.push_back(arg->ret);
+                }else{
+                    auto argInstrs = visit(*arg);
+                    if(argInstrs){
+                        if(block->blockList.empty()){
+                            for(auto & instr : argInstrs->instrList){
+                                block->instrList.push_back(instr);
+                            }
+                        }else{
+                            for(auto & instr : argInstrs->instrList){
+                                auto lastBlock = block->blockList[block->blockList.size() - 1];
+                                lastBlock->instrList.push_back(instr);
+                            }
+                            if(argInstrs->blockList.size() > 0){
+                                for(auto & b : argInstrs->blockList){
+                                    block->blockList.push_back(b);
+                                }
+                            }
+                        }
+                    }
+                    currentCallInstr->pList->paramList.push_back(arg->ret);
                 }
             }
             if(auto *retType = dynamic_cast<IRStructType *>(& *func->retType)){
@@ -509,24 +546,26 @@ public:
     std::shared_ptr<IRBlock> visit(ExprField &node){
         auto block = std::make_shared<IRBlock>();
         auto fieldInstrs = visit(*node.expr);
-        for(auto & instr : fieldInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(fieldInstrs->blockList.size() > 0){
-            for(auto & b : fieldInstrs->blockList){
-                block->blockList.push_back(b);
+        if(fieldInstrs){
+            for(auto & instr : fieldInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(fieldInstrs->blockList.size() > 0){
+                for(auto & b : fieldInstrs->blockList){
+                    block->blockList.push_back(b);
+                }
             }
         }
         auto obj = node.expr->ret;
         if(auto var = std::dynamic_pointer_cast<IRVar>(obj)){
-            if(auto *structType = dynamic_cast<IRStructType *>(& *var->type)){
+            if(auto structType = std::dynamic_pointer_cast<IRStructType>(var->type)){
                 for(int i = 0;i < structType->memberTypes.size();i ++){
                     auto & member = structType->memberTypes[i];
                     if(member.first == node.identifier){
                         auto getptrInstr = std::make_shared<IRGetptr>();
                         getptrInstr->base = var;
                         getptrInstr->offset = i;
-                        getptrInstr->type = member.second;
+                        getptrInstr->type = structType;
                         auto resVar = std::make_shared<IRVar>();
                         resVar->type = member.second;
                         getptrInstr->res = resVar;
@@ -547,12 +586,14 @@ public:
     std::shared_ptr<IRBlock> visit(ExprGroup &node){
         auto block = std::make_shared<IRBlock>();
         auto exprInstrs = visit(*node.expr);
-        for(auto & instr : exprInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(exprInstrs->blockList.size() > 0){
-            for(auto & b : exprInstrs->blockList){
-                block->blockList.push_back(b);
+        if(exprInstrs){
+            for(auto & instr : exprInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(exprInstrs->blockList.size() > 0){
+                for(auto & b : exprInstrs->blockList){
+                    block->blockList.push_back(b);
+                }
             }
         }
         node.ret = node.expr->ret;
@@ -618,6 +659,31 @@ public:
                         }
                     }else{
                         auto stmtInstrs = visit(*exprStmt->stmtExpr);
+                        if(stmtInstrs){
+                            if(thenBlock->blockList.empty()){
+                                for(auto & instr : stmtInstrs->instrList){
+                                    thenBlock->instrList.push_back(instr);
+                                }
+                                for(auto & block : stmtInstrs->blockList){
+                                    thenBlock->blockList.push_back(block);
+                                }
+                            }else{
+                                auto lastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
+                                for(auto & instr : stmtInstrs->instrList){
+                                    lastBlock->instrList.push_back(instr);
+                                }
+                                for(auto & block : stmtInstrs->blockList){
+                                    thenBlock->blockList.push_back(block);
+                                }
+                            }
+                        }
+                        if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
+                            isThenReturn = true;
+                        }
+                    }
+                }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
+                    auto stmtInstrs = visit(*letStmt);
+                    if(stmtInstrs){
                         if(thenBlock->blockList.empty()){
                             for(auto & instr : stmtInstrs->instrList){
                                 thenBlock->instrList.push_back(instr);
@@ -633,27 +699,6 @@ public:
                             for(auto & block : stmtInstrs->blockList){
                                 thenBlock->blockList.push_back(block);
                             }
-                        }
-                        if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
-                            isThenReturn = true;
-                        }
-                    }
-                }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
-                    auto stmtInstrs = visit(*letStmt);
-                    if(thenBlock->blockList.empty()){
-                        for(auto & instr : stmtInstrs->instrList){
-                            thenBlock->instrList.push_back(instr);
-                        }
-                        for(auto & block : stmtInstrs->blockList){
-                            thenBlock->blockList.push_back(block);
-                        }
-                    }else{
-                        auto lastBlock = thenBlock->blockList[thenBlock->blockList.size() - 1];
-                        for(auto & instr : stmtInstrs->instrList){
-                            lastBlock->instrList.push_back(instr);
-                        }
-                        for(auto & block : stmtInstrs->blockList){
-                            thenBlock->blockList.push_back(block);
                         }
                     }
                 }
@@ -724,6 +769,31 @@ public:
                             }   
                         }else{
                             auto stmtInstrs = visit(*exprStmt->stmtExpr);
+                            if(stmtInstrs){
+                                if(elseBlock->blockList.empty()){
+                                    for(auto & instr : stmtInstrs->instrList){
+                                        elseBlock->instrList.push_back(instr);
+                                    }
+                                    for(auto & block : stmtInstrs->blockList){
+                                        elseBlock->blockList.push_back(block);
+                                    }
+                                }else{
+                                    auto lastBlock = elseBlock->blockList[elseBlock->blockList.size() - 1];
+                                    for(auto & instr : stmtInstrs->instrList){
+                                        lastBlock->instrList.push_back(instr);
+                                    }
+                                    for(auto & block : stmtInstrs->blockList){
+                                        elseBlock->blockList.push_back(block);
+                                    }
+                                }
+                            }
+                            if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
+                                isElseBlock = true;
+                            }
+                        }
+                    }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
+                        auto stmtInstrs = visit(*letStmt);
+                        if(stmtInstrs){
                             if(elseBlock->blockList.empty()){
                                 for(auto & instr : stmtInstrs->instrList){
                                     elseBlock->instrList.push_back(instr);
@@ -739,27 +809,6 @@ public:
                                 for(auto & block : stmtInstrs->blockList){
                                     elseBlock->blockList.push_back(block);
                                 }
-                            }
-                            if(auto *returnExpr = dynamic_cast<ExprReturn *>(& *exprStmt->stmtExpr)){
-                                isElseBlock = true;
-                            }
-                        }
-                    }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
-                        auto stmtInstrs = visit(*letStmt);
-                        if(elseBlock->blockList.empty()){
-                            for(auto & instr : stmtInstrs->instrList){
-                                elseBlock->instrList.push_back(instr);
-                            }
-                            for(auto & block : stmtInstrs->blockList){
-                                elseBlock->blockList.push_back(block);
-                            }
-                        }else{
-                            auto lastBlock = elseBlock->blockList[elseBlock->blockList.size() - 1];
-                            for(auto & instr : stmtInstrs->instrList){
-                                lastBlock->instrList.push_back(instr);
-                            }
-                            for(auto & block : stmtInstrs->blockList){
-                                elseBlock->blockList.push_back(block);
                             }
                         }
                     }
@@ -814,23 +863,27 @@ public:
     std::shared_ptr<IRBlock> visit(ExprIndex &node){
         auto block = std::make_shared<IRBlock>();
         auto arrayInstrs = visit(*node.name);
-        for(auto & instr : arrayInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(arrayInstrs->blockList.size() > 0){
-            for(auto & b : arrayInstrs->blockList){
-                block->blockList.push_back(b);
+        if(arrayInstrs){
+            for(auto & instr : arrayInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(arrayInstrs->blockList.size() > 0){
+                for(auto & b : arrayInstrs->blockList){
+                    block->blockList.push_back(b);
+                }
             }
         }
         auto indexInstrs = visit(*node.index);
-        if(block->blockList.empty()){
-            for(auto & instr : indexInstrs->instrList){
-                block->instrList.push_back(instr);
-            }
-        }else{
-            for(auto & instr : indexInstrs->instrList){
-                auto lastBlock = block->blockList[block->blockList.size() - 1];
-                lastBlock->instrList.push_back(instr);
+        if(indexInstrs){
+            if(block->blockList.empty()){
+                for(auto & instr : indexInstrs->instrList){
+                    block->instrList.push_back(instr);
+                }
+            }else{
+                for(auto & instr : indexInstrs->instrList){
+                    auto lastBlock = block->blockList[block->blockList.size() - 1];
+                    lastBlock->instrList.push_back(instr);
+                }
             }
         }
         if(auto var = std::dynamic_pointer_cast<IRVar>(node.name->ret)){
@@ -927,6 +980,28 @@ public:
                         }
                     }else {
                         auto stmtInstrs = visit(*exprStmt->stmtExpr);
+                        if(stmtInstrs){
+                            if(bodyBlock->blockList.empty()){
+                                for(auto & instr : stmtInstrs->instrList){
+                                    bodyBlock->instrList.push_back(instr);
+                                }
+                                for(auto & block : stmtInstrs->blockList){
+                                    bodyBlock->blockList.push_back(block);
+                                }
+                            }else{
+                                auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
+                                for(auto & instr : stmtInstrs->instrList){
+                                    lastBlock->instrList.push_back(instr);
+                                }
+                                for(auto & block : stmtInstrs->blockList){
+                                    bodyBlock->blockList.push_back(block);
+                                }
+                            }
+                        }
+                    }
+                }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
+                    auto stmtInstrs = visit(*letStmt);
+                    if(stmtInstrs){
                         if(bodyBlock->blockList.empty()){
                             for(auto & instr : stmtInstrs->instrList){
                                 bodyBlock->instrList.push_back(instr);
@@ -942,24 +1017,6 @@ public:
                             for(auto & block : stmtInstrs->blockList){
                                 bodyBlock->blockList.push_back(block);
                             }
-                        }
-                    }
-                }else if(auto *letStmt = dynamic_cast<StmtLet *>(& *stmt)){
-                    auto stmtInstrs = visit(*letStmt);
-                    if(bodyBlock->blockList.empty()){
-                        for(auto & instr : stmtInstrs->instrList){
-                            bodyBlock->instrList.push_back(instr);
-                        }
-                        for(auto & block : stmtInstrs->blockList){
-                            bodyBlock->blockList.push_back(block);
-                        }
-                    }else{
-                        auto lastBlock = bodyBlock->blockList[bodyBlock->blockList.size() - 1];
-                        for(auto & instr : stmtInstrs->instrList){
-                            lastBlock->instrList.push_back(instr);
-                        }
-                        for(auto & block : stmtInstrs->blockList){
-                            bodyBlock->blockList.push_back(block);
                         }
                     }
                 }
@@ -1014,12 +1071,14 @@ public:
     std::shared_ptr<IRBlock> visit(ExprMethodcall &node){
         auto block = std::make_shared<IRBlock>();
         auto objInstrs = visit(*node.expr);
-        for(auto & instr : objInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(objInstrs->blockList.size()){
-            for(auto & blk : objInstrs->blockList){
-                block->blockList.push_back(blk);
+        if(objInstrs){
+            for(auto & instr : objInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(objInstrs->blockList.size()){
+                for(auto & blk : objInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
             }
         }
         auto funcname = node.PathExprSegment->pathSegments.identifier;
@@ -1035,10 +1094,10 @@ public:
                         currentCallInstr->pList->paramList.push_back(objvar);
                         for(int i = 0;i < node.callParams.size();i ++){
                             auto &arg = node.callParams[i];
-                            if(auto *variable = dynamic_cast<IRVar *>(& *currentIRFunc->paramList->paramList[i + 1])){
-                                if(auto *ptrType = dynamic_cast<IRPtrType *>(& *variable->type)){
-                                    arg->is_lvalue = true;
-                                    auto argInstrs = visit(*arg);
+                            if(auto *ptrType = dynamic_cast<IRPtrType *>(& *currentIRFunc->typeList[i + 1])){
+                                arg->is_lvalue = true;
+                                auto argInstrs = visit(*arg);
+                                if(argInstrs){
                                     if(block->blockList.size() == 0){
                                         for(auto & instr : argInstrs->instrList){
                                             block->instrList.push_back(instr);
@@ -1054,26 +1113,28 @@ public:
                                             block->blockList.push_back(blk);
                                         }
                                     }
-                                    currentCallInstr->pList->paramList.push_back(arg->ret);
-                                }else{
-                                    auto argInstrs = visit(*arg);
-                                    if(block->blockList.size() == 0){
-                                        for(auto & instr : argInstrs->instrList){
-                                            block->instrList.push_back(instr);
-                                        }
-                                        for(auto & blk : argInstrs->blockList){
-                                            block->blockList.push_back(blk);
-                                        }
-                                    }else{
-                                        for(auto & instr : argInstrs->instrList){
-                                            block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
-                                        }
-                                        for(auto & blk : argInstrs->blockList){
-                                            block->blockList.push_back(blk);
-                                        }
-                                    }
-                                    currentCallInstr->pList->paramList.push_back(arg->ret);
                                 }
+                                currentCallInstr->pList->paramList.push_back(arg->ret);
+                            }else{
+                                auto argInstrs = visit(*arg);
+                                if(argInstrs){
+                                    if(block->blockList.size() == 0){
+                                        for(auto & instr : argInstrs->instrList){
+                                            block->instrList.push_back(instr);
+                                        }
+                                        for(auto & blk : argInstrs->blockList){
+                                            block->blockList.push_back(blk);
+                                        }
+                                    }else{
+                                        for(auto & instr : argInstrs->instrList){
+                                            block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
+                                        }
+                                        for(auto & blk : argInstrs->blockList){
+                                            block->blockList.push_back(blk);
+                                        }
+                                    }
+                                }
+                                currentCallInstr->pList->paramList.push_back(arg->ret);
                             }
                         }
                         if(auto *structType = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
@@ -1157,29 +1218,33 @@ public:
     std::shared_ptr<IRBlock> visit(ExprOpbinary &node){
         auto block = std::make_shared<IRBlock>();
         auto leftInstrs = visit(*node.left);
-        for(auto & instr : leftInstrs->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(leftInstrs->blockList.size()){
-            for(auto & blk : leftInstrs->blockList){
-                block->blockList.push_back(blk);
+        if(leftInstrs){
+            for(auto & instr : leftInstrs->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(leftInstrs->blockList.size()){
+                for(auto & blk : leftInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
             }
         }
         auto leftExpr = node.left->ret;
         auto rightInstrs = visit(*node.right);
-        if(block->blockList.size() == 0){
-            for(auto & instr : rightInstrs->instrList){
-                block->instrList.push_back(instr);
-            }
-            for(auto & blk : rightInstrs->blockList){
-                block->blockList.push_back(blk);
-            }
-        }else{
-            for(auto & instr : rightInstrs->instrList){
-                block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
-            }
-            for(auto & blk : rightInstrs->blockList){
-                block->blockList.push_back(blk);
+        if(rightInstrs){
+            if(block->blockList.size() == 0){
+                for(auto & instr : rightInstrs->instrList){
+                    block->instrList.push_back(instr);
+                }
+                for(auto & blk : rightInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
+            }else{
+                for(auto & instr : rightInstrs->instrList){
+                    block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
+                }
+                for(auto & blk : rightInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
             }
         }
         auto rightExpr = node.right->ret;
@@ -1301,12 +1366,14 @@ public:
             node.ret = node.right->ret;
         }else if(node.op == NOT){
             auto rightInstrs = visit(*node.right);
-            for(auto & instr : rightInstrs->instrList){
-                block->instrList.push_back(instr);
-            }
-            if(rightInstrs->blockList.size()){
-                for(auto &blk: rightInstrs->blockList){
-                    block->blockList.push_back(blk);
+            if(rightInstrs){
+                for(auto & instr : rightInstrs->instrList){
+                    block->instrList.push_back(instr);
+                }
+                if(rightInstrs->blockList.size()){
+                    for(auto &blk: rightInstrs->blockList){
+                        block->blockList.push_back(blk);
+                    }
                 }
             }
             auto right = node.right->ret;
@@ -1366,6 +1433,7 @@ public:
                 }
             }
         }else if(node.op == BORROW){
+            node.right->is_lvalue = true;
             auto rightInstrs = visit(*node.right);
             if(rightInstrs){
                 if(rightInstrs->blockList.empty()){
@@ -1431,12 +1499,14 @@ public:
         if(node.expr){
             node.expr->is_lvalue = true;
             auto rightInstr = visit(*node.expr);
-            for(auto & instr : rightInstr->instrList){
-                block->instrList.push_back(instr);
-            }
-            if(rightInstr->blockList.size()){
-                for(auto & blk : rightInstr->blockList){
-                    block->blockList.push_back(blk);
+            if(rightInstr){
+                for(auto & instr : rightInstr->instrList){
+                    block->instrList.push_back(instr);
+                }
+                if(rightInstr->blockList.size()){
+                    for(auto & blk : rightInstr->blockList){
+                        block->blockList.push_back(blk);
+                    }
                 }
             }
             auto res = node.expr->ret;
@@ -1473,15 +1543,18 @@ public:
         return block;
     }
 
-    std::shared_ptr<IRBlock> visit(ExprStruct &node,std::shared_ptr<IRVar> structVar = nullptr){
+    std::shared_ptr<IRBlock> visit(ExprStruct &node){
         auto block = std::make_shared<IRBlock>();
+        node.pathInExpr->is_lvalue = true;
         auto structPath = visit(*node.pathInExpr);
-        for(auto & instr : structPath->instrList){
-            block->instrList.push_back(instr);
-        }
-        if(structPath->blockList.size()){
-            for(auto & blk : structPath->blockList){
-                block->blockList.push_back(blk);
+        if(structPath){
+            for(auto & instr : structPath->instrList){
+                block->instrList.push_back(instr);
+            }
+            if(structPath->blockList.size()){
+                for(auto & blk : structPath->blockList){
+                    block->blockList.push_back(blk);
+                }
             }
         }
         auto structType = node.pathInExpr->ret;
@@ -1508,16 +1581,18 @@ public:
                                 fieldInit.expr->is_lvalue = true;
                             }
                             auto initInstrs = visit(*fieldInit.expr);
-                            if(block->blockList.empty()){
-                                for(auto & instr : initInstrs->instrList){
-                                    block->instrList.push_back(instr);
-                                }
-                            }else{
-                                for(auto & instr : initInstrs->instrList){
-                                    block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
-                                }
-                                for(auto & blk : initInstrs->blockList){
-                                    block->blockList.push_back(blk);
+                            if(initInstrs){
+                                if(block->blockList.empty()){
+                                    for(auto & instr : initInstrs->instrList){
+                                        block->instrList.push_back(instr);
+                                    }
+                                }else{
+                                    for(auto & instr : initInstrs->instrList){
+                                        block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
+                                    }
+                                    for(auto & blk : initInstrs->blockList){
+                                        block->blockList.push_back(blk);
+                                    }
                                 }
                             }
                             auto getptrInstr = std::make_shared<IRGetptr>();
@@ -1570,8 +1645,8 @@ public:
                     }
                 }
             }
+            node.ret = structVar;
         }
-        node.ret = structVar;
         node.is_lvalue = true;
         return block;
     }
@@ -1685,18 +1760,21 @@ public:
                         }
                         std::string funcName = p->identifier;
                         std::shared_ptr<IRParam> irParam;
+                        std::vector<std::shared_ptr<IRType>> typeList;
                         if(node.fnParameters.SelfParam.isShortSelf){
                             if(node.fnParameters.SelfParam.short_self.is_and){
                                 auto selfParam = std::make_shared<IRVar>();
                                 selfParam->varName = "self";
                                 selfParam->reName  = "self";
                                 selfParam->type = std::make_shared<IRPtrType>(structSelfType);
+                                typeList.push_back(selfParam->type);
                                 irParam->paramList.push_back(selfParam);
                             }else{
                                 auto selfParam = std::make_shared<IRVar>();
                                 selfParam->varName = "self";
                                 selfParam->reName  = "self";
                                 selfParam->type = structSelfType;
+                                typeList.push_back(selfParam->type);
                                 irParam->paramList.push_back(selfParam);
                             }
                         }
@@ -1719,6 +1797,7 @@ public:
                                 }
                                 if(param.type){
                                     currentVar->type = resolveType(*param.type);
+                                    typeList.push_back(currentVar->type);
                                 }
                                 irParam->paramList.push_back(currentVar);
                             }
@@ -1738,6 +1817,7 @@ public:
                         currentFunction->name = funcName;
                         currentFunction->retType = returnType;
                         currentFunction->paramList = irParam;
+                        currentFunction->typeList = typeList;
                         currentScope->addFunctionSymbol(funcName, currentFunction);
                     }else if(auto *p = dynamic_cast<ItemImplDecl *>(& *itemStmt)){
                     }else if(auto *p = dynamic_cast<ItemStructDecl *>(& *itemStmt)){
@@ -1819,19 +1899,21 @@ public:
                     }else{
                         if(auto *retStmt = dynamic_cast<ExprReturn *>(& *p->stmtExpr)){
                             auto returnInstrs = visit(*retStmt);
-                            if(currentIRFunc->body->blockList.size() == 0){
-                                for(auto & instr : returnInstrs->instrList){
-                                    currentIRFunc->body->instrList.push_back(instr);
-                                }
-                                for(auto & blk : returnInstrs->blockList){
-                                    currentIRFunc->body->blockList.push_back(blk);
-                                }
-                            }else{
-                                for(auto & instr : returnInstrs->instrList){
-                                    currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
-                                }
-                                for(auto & blk : returnInstrs->blockList){
-                                    currentIRFunc->body->blockList.push_back(blk);
+                            if(returnInstrs){
+                                if(currentIRFunc->body->blockList.size() == 0){
+                                    for(auto & instr : returnInstrs->instrList){
+                                        currentIRFunc->body->instrList.push_back(instr);
+                                    }
+                                    for(auto & blk : returnInstrs->blockList){
+                                        currentIRFunc->body->blockList.push_back(blk);
+                                    }
+                                }else{
+                                    for(auto & instr : returnInstrs->instrList){
+                                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                                    }
+                                    for(auto & blk : returnInstrs->blockList){
+                                        currentIRFunc->body->blockList.push_back(blk);
+                                    }
                                 }
                             }
                             if(auto *retType = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
@@ -1849,38 +1931,42 @@ public:
                             }
                         }else{
                             auto exprInstrs = visit(*p->stmtExpr);
-                            if(currentIRFunc->body->blockList.size() == 0){
-                                for(auto & instr : exprInstrs->instrList){
-                                    currentIRFunc->body->instrList.push_back(instr);
-                                }
-                                for(auto & blk : exprInstrs->blockList){
-                                    currentIRFunc->body->blockList.push_back(blk);
-                                }
-                            }else{
-                                for(auto & instr : exprInstrs->instrList){
-                                    currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
-                                }
-                                for(auto & blk : exprInstrs->blockList){
-                                    currentIRFunc->body->blockList.push_back(blk);
+                            if(exprInstrs){
+                                if(currentIRFunc->body->blockList.size() == 0){
+                                    for(auto & instr : exprInstrs->instrList){
+                                        currentIRFunc->body->instrList.push_back(instr);
+                                    }
+                                    for(auto & blk : exprInstrs->blockList){
+                                        currentIRFunc->body->blockList.push_back(blk);
+                                    }
+                                }else{
+                                    for(auto & instr : exprInstrs->instrList){
+                                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                                    }
+                                    for(auto & blk : exprInstrs->blockList){
+                                        currentIRFunc->body->blockList.push_back(blk);
+                                    }
                                 }
                             }
                         }
                     }
                 }else if(auto *p = dynamic_cast<StmtLet *>(& *stmt)){
                     auto letInstrs = visit(*p);
-                    if(currentIRFunc->body->blockList.size() == 0){
-                        for(auto & instr : letInstrs->instrList){
-                            currentIRFunc->body->instrList.push_back(instr);
-                        }
-                        for(auto & blk : letInstrs->blockList){
-                            currentIRFunc->body->blockList.push_back(blk);
-                        }
-                    }else{
-                        for(auto & instr : letInstrs->instrList){
-                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
-                        }
-                        for(auto & blk : letInstrs->blockList){
-                            currentIRFunc->body->blockList.push_back(blk);
+                    if(letInstrs){
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            for(auto & instr : letInstrs->instrList){
+                                currentIRFunc->body->instrList.push_back(instr);
+                            }
+                            for(auto & blk : letInstrs->blockList){
+                                currentIRFunc->body->blockList.push_back(blk);
+                            }
+                        }else{
+                            for(auto & instr : letInstrs->instrList){
+                                currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                            }
+                            for(auto & blk : letInstrs->blockList){
+                                currentIRFunc->body->blockList.push_back(blk);
+                            }
                         }
                     }
                 }
@@ -1890,19 +1976,21 @@ public:
                     node.fnBody->ExpressionWithoutBlock->is_lvalue = true;
                 }
                 auto exprInstrs = visit(*node.fnBody->ExpressionWithoutBlock);
-                if(currentIRFunc->body->blockList.size() == 0){
-                    for(auto & instr : exprInstrs->instrList){
-                        currentIRFunc->body->instrList.push_back(instr);
-                    }
-                    for(auto & blk : exprInstrs->blockList){
-                        currentIRFunc->body->blockList.push_back(blk);
-                    }
-                }else{
-                    for(auto & instr : exprInstrs->instrList){
-                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
-                    }
-                    for(auto & blk : exprInstrs->blockList){
-                        currentIRFunc->body->blockList.push_back(blk);
+                if(exprInstrs){
+                    if(currentIRFunc->body->blockList.size() == 0){
+                        for(auto & instr : exprInstrs->instrList){
+                            currentIRFunc->body->instrList.push_back(instr);
+                        }
+                        for(auto & blk : exprInstrs->blockList){
+                            currentIRFunc->body->blockList.push_back(blk);
+                        }
+                    }else{
+                        for(auto & instr : exprInstrs->instrList){
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(instr);
+                        }
+                        for(auto & blk : exprInstrs->blockList){
+                            currentIRFunc->body->blockList.push_back(blk);
+                        }
                     }
                 }
                 if(auto *retType = dynamic_cast<IRIntType *>(& *currentIRFunc->retType)){
@@ -1927,8 +2015,22 @@ public:
                     memcpyInstr->dest = std::dynamic_pointer_cast<IRVar>(currentIRFunc->paramList->paramList[currentIRFunc->paramList->paramList.size() -1]);
                     if(currentIRFunc->body->blockList.size() == 0){
                         currentIRFunc->body->instrList.push_back(memcpyInstr);
+                        currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(std::make_shared<IRVoidType>(),std::make_shared<IRVar>()));
                     }else{
                         currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(memcpyInstr);
+                        currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(std::make_shared<IRVoidType>(),std::make_shared<IRVar>()));
+                    }
+                }
+            }else if(currentIRFunc->name != "main"){
+                if(auto *voidtp = dynamic_cast<IRVoidType *>(& *currentIRFunc->retType)){
+                    if(auto *retInstr = dynamic_cast<ExprReturn *>(& *node.fnBody->statements[node.fnBody->statements.size() - 1])){
+                        //
+                    }else{
+                        if(currentIRFunc->body->blockList.size() == 0){
+                            currentIRFunc->body->instrList.push_back(std::make_shared<IRReturn>(std::make_shared<IRVoidType>(),std::make_shared<IRVar>()));
+                        }else{
+                            currentIRFunc->body->blockList[currentIRFunc->body->blockList.size() - 1]->instrList.push_back(std::make_shared<IRReturn>(std::make_shared<IRVoidType>(),std::make_shared<IRVar>()));
+                        }
                     }
                 }
             }
@@ -2065,13 +2167,18 @@ public:
             if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
                 return processLetIf(node);
             }else{
-                auto exprInstrs = visit(*node.expression);
-                for(auto & instr : exprInstrs->instrList){
-                    block->instrList.push_back(instr);
+                if(auto *tp = dynamic_cast<IRStructType *>(& *varType)){
+                    node.expression->is_lvalue = true;
                 }
-                if(exprInstrs->blockList.size() >0){
-                    for(auto &blk: exprInstrs->blockList){
-                        block->blockList.push_back(blk);
+                auto exprInstrs = visit(*node.expression);
+                if(exprInstrs){
+                    for(auto & instr : exprInstrs->instrList){
+                        block->instrList.push_back(instr);
+                    }
+                    if(exprInstrs->blockList.size() >0){
+                        for(auto &blk: exprInstrs->blockList){
+                            block->blockList.push_back(blk);
+                        }
                     }
                 }
                 if(auto *intType = dynamic_cast<IRIntType *>(& *varType)){
