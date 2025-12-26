@@ -1,6 +1,7 @@
 # pragma once
 # include "IRNode.h"
 # include "IRVisitor.h"
+# include "IRValue.h"
 
 namespace JaneZ {
 enum IRLiteralType {
@@ -9,7 +10,7 @@ enum IRLiteralType {
     NULL_LITERAL,
 };
 
-class IRLiteral : public IRNode {
+class IRLiteral : public IRValue {
 public:
     IRLiteralType literalType;
     long long intValue;
@@ -17,7 +18,7 @@ public:
 
     IRLiteral() = default;
     IRLiteral(IRLiteralType lt, long long iv = 0, bool bv = false)
-        : IRNode(), literalType(lt), intValue(iv), boolValue(bv) {}
+        : IRValue(), literalType(lt), intValue(iv), boolValue(bv) {}
     ~IRLiteral() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);

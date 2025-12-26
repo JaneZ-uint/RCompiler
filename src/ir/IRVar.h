@@ -1,6 +1,7 @@
 # pragma once
 # include "IRNode.h"
 # include "IRVisitor.h"
+# include "IRValue.h"
 # include "IRType.h"
 # include <memory>
 # include <string>
@@ -8,7 +9,7 @@
 extern long long int ir_cnt;
 
 namespace JaneZ {
-class IRVar : public IRNode {
+class IRVar : public IRValue {
 public:
     std::shared_ptr<IRType> type;
     std::string varName;
@@ -24,7 +25,7 @@ public:
         : type(std::move(tp)), varName(vn), reName(irn) {
         serial = ir_cnt++;
     }
-    ~IRVar() = default; 
+    ~IRVar() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);
     }

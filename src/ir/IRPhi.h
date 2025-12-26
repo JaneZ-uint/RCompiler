@@ -1,25 +1,21 @@
 # pragma once
 # include "IRNode.h"
+#include "IRType.h"
 # include "IRVisitor.h"
+#include "IRValue.h"
 #include <memory>
+#include <vector>
 
 namespace JaneZ {
 class IRVar;
 class IRLiteral;
 class IRPhi : public IRNode {
 public:
-    std::shared_ptr<IRVar> condition;
-    std::shared_ptr<IRVar> left;
-    std::shared_ptr<IRLiteral> leftLiteral;
-    std::shared_ptr<IRVar> right;
-    std::shared_ptr<IRLiteral> rightLiteral;
+    std::shared_ptr<IRType> type;
+    std::vector<std::shared_ptr<IRValue>> valueTable;
+    std::vector<std::shared_ptr<IRBlock>> blockTable;
 
-    IRPhi(std::shared_ptr<IRVar> cond,
-        std::shared_ptr<IRVar> l,
-        std::shared_ptr<IRLiteral> lLit,
-        std::shared_ptr<IRVar> r,
-        std::shared_ptr<IRLiteral> rLit): condition(std::move(cond)),left(std::move(l)),
-        leftLiteral(std::move(lLit)),right(std::move(r)),rightLiteral(std::move(rLit)){}
+    IRPhi() = default;
     ~IRPhi() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);

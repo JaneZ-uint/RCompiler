@@ -1,6 +1,7 @@
 # pragma once
 # include "IRNode.h"
 # include "IRVisitor.h"
+# include "IRValue.h"
 #include <memory>
 #include <utility>
 #include <vector>
@@ -15,12 +16,14 @@ enum class BaseType {
     STRUCT,
 };    
 
-class IRType : public IRNode {
+class IRType : public IRValue {
 public:
     BaseType type;
+    int size = 0;
 
     IRType() = default;
     IRType(BaseType t) : type(t) {}
+    IRType(BaseType t, int s) : type(t), size(s) {}
     virtual ~IRType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
@@ -31,7 +34,7 @@ class IRIntType : public IRType {
 public:
     int bitWidth;
 
-    IRIntType(int bw) : IRType(BaseType::INT), bitWidth(bw) {}
+    IRIntType(int bw) : IRType(BaseType::INT,bw/8), bitWidth(bw) {}
     ~IRIntType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
@@ -62,10 +65,10 @@ public:
 class IRArrayType : public IRType {
 public:
     std::shared_ptr<IRType> elementType;
-    int size;
+    int length;
 
-    IRArrayType(): IRType(BaseType::ARRAY), elementType(nullptr), size(0) {}
-    IRArrayType(std::shared_ptr<IRType> et, int sz) : IRType(BaseType::ARRAY), elementType(std::move(et)), size(sz) {}
+    IRArrayType(): IRType(BaseType::ARRAY), elementType(nullptr) {}
+    IRArrayType(std::shared_ptr<IRType> et,int length) : IRType(BaseType::ARRAY), elementType(std::move(et)), length(length) {}
     ~IRArrayType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
@@ -80,7 +83,6 @@ public:
     // for impl
     std::vector<std::shared_ptr<IRFunction>> memberFunctions;
     std::vector<std::pair<std::string, long long int>> memberConstants;
-    int size = 0;
     
     IRStructType() : IRType(BaseType::STRUCT), name(""), true_name(""), memberTypes({}), memberFunctions({}), memberConstants({}) {}
     IRStructType(std::string n, std::string tn, std::vector<std::pair<std::string,std::shared_ptr<IRType>>> mts,

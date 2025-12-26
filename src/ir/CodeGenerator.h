@@ -18,6 +18,7 @@
 #include "IRStore.h"
 #include "IRTrunc.h"
 #include "IRType.h"
+#include "IRValue.h"
 #include "IRVar.h"
 #include "IRZext.h"
 #include "IRMem.h"
@@ -43,9 +44,17 @@ public:
         }
     }
 
+    std::string print_value(std::shared_ptr<IRValue> value){
+        if(auto *p = dynamic_cast<IRLiteral *>(value.get())){
+            return std::to_string(p->intValue);
+        }else if(auto *p = dynamic_cast<IRVar *>(value.get())){
+            return "%reg" + std::to_string(p->serial);
+        }
+        return "";
+    }
+
     void codeGen(IRNode &node){
         if(auto *p = dynamic_cast<IRFunction *>(& node)){
-            //print functions info here
             std::cout << "define ";
             if(!p->retType){
                 std::cout << "void ";
@@ -163,7 +172,6 @@ public:
         }else if(auto *p = dynamic_cast<IRImpl *>(& node)){
             auto type = p->mainStructType;
             for(auto &func: p->functions){
-                //print functions info here
                 std::cout << "define ";
                 if(func->retType->type == BaseType::INT){
                     if(auto *q = dynamic_cast<IRIntType *>(func->retType.get())){
@@ -359,24 +367,6 @@ public:
                                 std::cout << "i32";
                             }else if(r->bitWidth == 8){
                                 std::cout << "i8";
-                            }
-                        }else if(q->elementType->type == BaseType::ARRAY  ){
-                            if(auto *r = dynamic_cast<IRArrayType *>(q->elementType.get())){
-                                std::cout << "[" << r->size << " x ";
-                                if(r->elementType->type == BaseType::INT){
-                                    if(auto *s = dynamic_cast<IRIntType *>(r->elementType.get())){
-                                        if(s->bitWidth == 32){
-                                            std::cout << "i32";
-                                        }else if(s->bitWidth == 8){
-                                            std::cout << "i8";
-                                        }
-                                    }
-                                }
-                                std::cout << "]";
-                            }
-                        }else if(q->elementType->type == BaseType::STRUCT){
-                            if(auto *r = dynamic_cast<IRStructType *>(q->elementType.get())){
-                                std::cout << "%struct." << r->name;
                             }
                         }
                     }else if(q->elementType->type == BaseType::STRUCT){
@@ -575,512 +565,29 @@ public:
             }else{
                 std::cout << "br label %" << p->trueLabel->label << "\n";
             }
-        }else if(auto *p = dynamic_cast<IRAdd *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = add ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRSub *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = sub ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRMul *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = mul ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRDiv *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = sdiv "; 
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRMod *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = srem ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";     
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IREq *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp eq ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRNeq *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp ne ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRLt *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp slt ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";   
-                        }       
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){       
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }   
-        }else if(auto *p = dynamic_cast<IRLeq *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp sle ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }   
-        }else if(auto *p = dynamic_cast<IRGt *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp sgt ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){       
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){       
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRGeq *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = icmp sge ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }   
-        }else if(auto *p = dynamic_cast<IRLogicalAnd *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = and ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
-            }
-        }else if(auto *p = dynamic_cast<IRLogicalOr *>(& node)){
-            std::cout << "%reg" << p->result->serial << " = or ";
-            if(p->left && p->right){
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";  
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", %reg" << p->right->serial << "\n";
-            }else if(p->left && p->rightLiteral){   
-                if(p->left->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->left->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << "%reg" << p->left->serial << ", " << p->rightLiteral->intValue << "\n";
-            }else if(p->leftLiteral && p->right){
-                if(p->right->type->type == BaseType::INT){
-                    if(auto *q = dynamic_cast<IRIntType *>(p->right->type.get())){
-                        if(q->bitWidth == 32){  
-                            std::cout << "i32 ";    
-                        }else if(q->bitWidth == 8){ 
-                            std::cout << "i8 ";    
-                        }
-                    }
-                }
-                std::cout << p->leftLiteral->intValue << ", %reg" << p->right->serial << "\n";
-            }else{
-                std::cout << "i32 ";
-                std::cout << p->leftLiteral->intValue << ", " << p->rightLiteral->intValue << "\n";
+        }else if(auto *p = dynamic_cast<IRBinaryop *>(& node)){
+            if(p->op == ADD){
+                std::cout << "%reg" << p->result->serial << " = add " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == SUB){
+                std::cout << "%reg" << p->result->serial << " = sub " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == MUL){
+                std::cout << "%reg" << p->result->serial << " = mul " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == DIV){
+                std::cout << "%reg" << p->result->serial << " = sdiv " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == MOD){
+                std::cout << "%reg" << p->result->serial << " = srem " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == LT){
+                std::cout << "%reg" << p->result->serial << " = icmp slt " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == LEQ){
+                std::cout << "%reg" << p->result->serial << " = icmp sle " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == GT){
+                std::cout << "%reg" << p->result->serial << " = icmp sgt " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == GEQ){
+                std::cout << "%reg" << p->result->serial << " = icmp sge " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == EQ){
+                std::cout << "%reg" << p->result->serial << " = icmp eq " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == NEQ){
+                std::cout << "%reg" << p->result->serial << " = icmp ne " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
             }
         }else if(auto *p = dynamic_cast<IRTrunc *>(& node)){
             std::cout << "%reg" << p->result->serial << " = trunc ";
@@ -1352,11 +859,7 @@ public:
             std::cout << "call void @__builtin_exit(i32 0)\n";
         }else if(auto *p = dynamic_cast<IRPrint *>(& node)){
             std::cout << "call void @printlnInt(i32 ";
-            if(p->printLiteral){
-                std::cout << p->printLiteral->intValue;
-            }else if(p->printVar){
-                std::cout << "%reg" << p->printVar->serial;
-            }
+            std::cout << print_value(p->printVar);
             std::cout << ")\n";
         }else if(auto *p = dynamic_cast<IRGetint *>(& node)){
             std::cout << "%reg" << p->result->serial << " = call i32 @getInt()\n";

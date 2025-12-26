@@ -321,6 +321,7 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
                 }
             }
             currentPos ++;
+            firstExpr->is_lvalue = true;
             return std::make_shared<ExprIndex>(std::move(firstExpr),std::move(index));
         }
         case kL_BRACE: {
@@ -380,6 +381,12 @@ std::shared_ptr<Expression> Parser::parse_expr_infix(std::shared_ptr<Expression>
                 throw std::runtime_error("Wrong in expr infix parsing, invalid right expr.");
             }
         }
+    }
+    if(getBinaryOp(type) == ASSIGN || getBinaryOp(type) == PLUS_EQUAL || getBinaryOp(type) == MINUS_EQUAL ||
+       getBinaryOp(type) == MULTIPLY_EQUAL || getBinaryOp(type) == DIVIDE_EQUAL || getBinaryOp(type) == MODULO_EQUAL ||
+       getBinaryOp(type) == XOR_EQUAL || getBinaryOp(type) == AND_EQUAL || getBinaryOp(type) == OR_EQUAL ||
+       getBinaryOp(type) == LEFT_SHIFT_EQUAL || getBinaryOp(type) == RIGHT_SHIFT_EQUAL) {
+        firstExpr->is_lvalue = true;
     }
     return std::make_shared<ExprOpbinary>(std::move(firstExpr),getBinaryOp(type),std::move(right));
 }
@@ -738,6 +745,7 @@ std::shared_ptr<ExprField> Parser::parse_expr_field(std::shared_ptr<Expression> 
     }
     identifier = tokens[currentPos].value;
     currentPos ++;
+    expr->is_lvalue = true;
     return std::make_shared<ExprField>(std::move(expr),std::move(identifier));
 }
 
@@ -965,6 +973,7 @@ std::shared_ptr<ExprMethodcall> Parser::parse_expr_methodcall(std::shared_ptr<Ex
         callParams.push_back(std::move(tmp));
     }
     currentPos ++;
+    expr->is_lvalue = true;
     return std::make_shared<ExprMethodcall>(std::move(expr),std::move(PathExprSegment),std::move(callParams));
 }
 

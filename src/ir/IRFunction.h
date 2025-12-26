@@ -2,6 +2,7 @@
 # include "IRNode.h"
 # include "IRType.h"
 # include "IRVisitor.h"
+# include "IRValue.h"
 # include <memory>
 #include <utility>
 # include <string>
@@ -11,7 +12,7 @@ class IRAlloca;
 class IRStore;
 class IRBlock;
 class IRParam;
-class IRFunction : public IRNode {
+class IRFunction : public IRValue {
 public:
     std::shared_ptr<IRType> retType;
     std::string name;
