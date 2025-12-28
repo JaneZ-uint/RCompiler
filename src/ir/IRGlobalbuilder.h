@@ -96,6 +96,7 @@ public:
                 info.type = "usize";
             }
         }
+        info.value = node.value;
         globalScope->addConstantSymbol(node.identifier, info);
     }
 
@@ -139,6 +140,7 @@ public:
                 ptrVar->varName = "return_ptr";
                 ptrVar->reName = "return_ptr";
                 paramList->paramList.push_back(ptrVar);
+                typeList.push_back(ptrVar->type);
             }
         }
         auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
@@ -209,6 +211,7 @@ public:
                                     ptrVar->varName = "return_ptr";
                                     ptrVar->reName = "return_ptr";
                                     paramList->paramList.push_back(ptrVar);
+                                    typeList.push_back(ptrVar->type);
                                 }
                             }
                             auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
@@ -227,19 +230,7 @@ public:
     void caculateStructSize(std::shared_ptr<IRStructType> structType){
         int totalSize = 0;
         for(auto & member : structType->memberTypes){
-            if(auto *p = dynamic_cast<IRIntType *>(member.second.get())){
-                totalSize += p->bitWidth / 8;
-            }else if(auto *p = dynamic_cast<IRArrayType *>(member.second.get())){
-                if(auto *q = dynamic_cast<IRIntType *>(p->elementType.get())){
-                    totalSize += (p->size * q->bitWidth) / 8;
-                }else if(auto *q = dynamic_cast<IRArrayType *>(member.second.get())){
-                    if(auto *r = dynamic_cast<IRIntType *>(q->elementType.get())){
-                        totalSize += (p->size * q->size * r->bitWidth) /8;
-                    }
-                }
-            }else if(auto *p = dynamic_cast<IRStructType *>(member.second.get())){
-                totalSize += p->size;
-            }
+            totalSize += member.second->size;
         }
         structType->size = totalSize;
     }
@@ -294,15 +285,13 @@ public:
         throw std::runtime_error("Unknown primitive type");
     }
 
-    void calculateArraySize(std::shared_ptr<IRArrayType> arrayType){
-        int totalSize = 0;
-        if(auto *p = dynamic_cast<IRArrayType *>(arrayType->elementType.get())){
-            calculateArraySize(std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType));
-            totalSize = arrayType->size * p->size;
+    void caculateArraySize(std::shared_ptr<IRArrayType> arrayType){
+        if(auto *innerArray = dynamic_cast<IRArrayType *>(& *arrayType->elementType)){
+            caculateArraySize(std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType));
+            arrayType->size = innerArray->size * arrayType->length;
         }else{
-            totalSize = arrayType->size;
+            arrayType->size = arrayType->elementType->size * arrayType->length;
         }
-        arrayType->size = totalSize;
     }
 
     std::shared_ptr<IRArrayType> visit(TypeArray &node){
@@ -363,7 +352,7 @@ public:
             }
         }
         auto arrayType = std::make_shared<IRArrayType>(currentType, size);
-        calculateArraySize(arrayType);
+        caculateArraySize(arrayType);
         return arrayType;
     }
 

@@ -1,4 +1,5 @@
 # pragma once
+#include "IRBlock.h"
 # include "IRNode.h"
 #include "IRType.h"
 # include "IRVisitor.h"
@@ -11,9 +12,11 @@ class IRVar;
 class IRLiteral;
 class IRPhi : public IRNode {
 public:
-    std::shared_ptr<IRType> type;
-    std::vector<std::shared_ptr<IRValue>> valueTable;
-    std::vector<std::shared_ptr<IRBlock>> blockTable;
+    std::shared_ptr<IRVar> result;
+    bool firstState;
+    std::shared_ptr<IRBlock> firstBlock;
+    std::shared_ptr<IRVar> secondState;
+    std::shared_ptr<IRBlock> secondBlock;
 
     IRPhi() = default;
     ~IRPhi() = default;

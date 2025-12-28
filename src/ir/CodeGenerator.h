@@ -37,11 +37,19 @@ public:
         std::cout << "declare void @__builtin_exit(i32)\n";
         std::cout << "declare void @printlnInt(i32)\n";
         std::cout << "declare void @memset(ptr, i8, i32)\n";
-        std::cout << "declare i32 @getint()\n";
+        std::cout << "declare i32 @getInt()\n";
         std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
         irRoot = irBuilder.visit(root);
         for(auto &func : irRoot->children) {
             codeGen(*func);
+            if(auto *p = dynamic_cast<IRFunction *>(& *func)){
+                for(auto &childFunc: p->funcList){
+                    codeGen(*childFunc);
+                }
+                for(auto &childStruct : p->structTypeList){
+                    codeGen(*childStruct);
+                }
+            }
         }
     }
 
@@ -113,21 +121,19 @@ public:
             for(size_t i = 0; i < p->paramList->paramList.size(); ++i){
                 auto &param = p->paramList->paramList[i];
                 if(auto *var = dynamic_cast<IRVar *>(& *param)){
-                    if(var->type->type == BaseType::INT){
-                        if(auto *q = dynamic_cast<IRIntType *>(var->type.get())){
+                    if(p->typeList[i]->type == BaseType::INT){
+                        if(auto *q = dynamic_cast<IRIntType *>(p->typeList[i].get())){
                             if(q->bitWidth == 32){
                                 std::cout << "i32 ";
                             }else if(q->bitWidth == 8){
                                 std::cout << "i8 ";
                             }
                         }
-                    }else if(var->type->type == BaseType::ARRAY  ){
-                        if(auto *q = dynamic_cast<IRArrayType *>(var->type.get())){
-                            std::cout << "ptr ";
-                        }
-                    }else if(var->type->type == BaseType::STRUCT){
+                    }else if(p->typeList[i]->type == BaseType::ARRAY  ){
                         std::cout << "ptr ";
-                    }else if(var->type->type == BaseType::PTR){
+                    }else if(p->typeList[i]->type == BaseType::STRUCT){
+                        std::cout << "ptr ";
+                    }else if(p->typeList[i]->type == BaseType::PTR){
                         std::cout << "ptr ";
                     }
                     std::cout << "%reg" << var->serial ;
@@ -227,23 +233,23 @@ public:
                 for(size_t i = 0; i < func->paramList->paramList.size(); ++i){
                     auto &param = func->paramList->paramList[i];
                     if(auto *var = dynamic_cast<IRVar *>(& *param)){
-                        if(var->type->type == BaseType::INT){
-                            if(auto *q = dynamic_cast<IRIntType *>(var->type.get())){
+                        if(func->typeList[i]->type == BaseType::INT){
+                            if(auto *q = dynamic_cast<IRIntType *>(func->typeList[i].get())){
                                 if(q->bitWidth == 32){
                                     std::cout << "i32 ";
                                 }else if(q->bitWidth == 8){
                                     std::cout << "i8 ";
                                 }
                             }
-                        }else if(var->type->type == BaseType::ARRAY  ){
-                            if(auto *q = dynamic_cast<IRArrayType *>(var->type.get())){
+                        }else if(func->typeList[i]->type == BaseType::ARRAY  ){
+                            if(auto *q = dynamic_cast<IRArrayType *>(func->typeList[i].get())){
                                 std::cout << "ptr ";
                             }
-                        }else if(var->type->type == BaseType::STRUCT){
-                            if(auto *q = dynamic_cast<IRStructType *>(var->type.get())){
+                        }else if(func->typeList[i]->type == BaseType::STRUCT){
+                            if(auto *q = dynamic_cast<IRStructType *>(func->typeList[i].get())){
                                 std::cout << "ptr ";
                             }
-                        }else if(var->type->type == BaseType::PTR){
+                        }else if(func->typeList[i]->type == BaseType::PTR){
                             std::cout << "ptr ";
                         }
                         std::cout << "%reg" << var->serial;
@@ -717,30 +723,30 @@ public:
             }
             for(size_t i = 0; i < p->pList->paramList.size(); i++){
                 auto &arg = p->pList->paramList[i];
-                if(auto *p = dynamic_cast<IRVar *>(& *arg)){
-                    if(p->type->type == BaseType::INT){
-                        if(auto *q = dynamic_cast<IRIntType *>(p->type.get())){
+                if(auto *q = dynamic_cast<IRVar *>(& *arg)){
+                    if(p->function->typeList[i]->type == BaseType::INT){
+                        if(auto *q = dynamic_cast<IRIntType *>(p->function->typeList[i].get())){
                             if(q->bitWidth == 32){
                                 std::cout << "i32 ";
                             }else if(q->bitWidth == 8){
                                 std::cout << "i8 ";
                             }
                         }
-                    }else if(p->type->type == BaseType::ARRAY  ){
-                        if(auto *q = dynamic_cast<IRArrayType *>(p->type.get())){
+                    }else if(p->function->typeList[i]->type == BaseType::ARRAY  ){
+                        if(auto *q = dynamic_cast<IRArrayType *>(p->function->typeList[i].get())){
                             std::cout << "ptr ";
                         }
-                    }else if(p->type->type == BaseType::STRUCT){
-                        if(auto *q = dynamic_cast<IRStructType *>(p->type.get())){
+                    }else if(p->function->typeList[i]->type == BaseType::STRUCT){
+                        if(auto *q = dynamic_cast<IRStructType *>(p->function->typeList[i].get())){
                             std::cout << "ptr ";
                         }
-                    }else if(p->type->type == BaseType::PTR){
+                    }else if(p->function->typeList[i]->type == BaseType::PTR){
                         std::cout << "ptr ";
                     }
-                    std::cout << "%reg" << p->serial;
-                }else if(auto *p = dynamic_cast<IRLiteral *>(& *arg)){
+                    std::cout << "%reg" << q->serial;
+                }else if(auto *q = dynamic_cast<IRLiteral *>(& *arg)){
                     std::cout << "i32 ";
-                    std::cout << p->intValue;
+                    std::cout << q->intValue;
                 }
                 if(i != p->pList->paramList.size() -1){
                     std::cout << ", ";
@@ -845,6 +851,14 @@ public:
             std::cout << "%reg" << p->dest->serial << ", i32 " ;
             std::cout << p->value << ", i32 " ;
             std::cout << p->size << ")\n";
+        }else if(auto *p = dynamic_cast<IRPhi *>(& node)){
+            std::cout << "%reg" << p->result->serial << " = phi i1 [";
+            if(p->firstState){
+                std::cout << " true, %" << p->firstBlock->label << " ], [";
+            }else{
+                std::cout << " false, %" << p->firstBlock->label << " ], [";
+            }
+            std::cout  << " %reg" << p->secondState->serial << ", %" << p->secondBlock->label << " ]\n";
         }
     }
 };

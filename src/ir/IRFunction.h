@@ -4,6 +4,7 @@
 # include "IRVisitor.h"
 # include "IRValue.h"
 # include <memory>
+#include <system_error>
 #include <utility>
 # include <string>
 #include <vector>
@@ -21,6 +22,8 @@ public:
     std::shared_ptr<IRBlock> body;
     std::shared_ptr<IRStructType> parentStructType; // null if not a member function
     std::vector<std::shared_ptr<IRType>> typeList;
+    std::vector<std::shared_ptr<IRFunction>> funcList;
+    std::vector<std::shared_ptr<IRType>> structTypeList;
 
     IRFunction() = default;
     IRFunction(std::shared_ptr<IRType> retType, std::string name,
