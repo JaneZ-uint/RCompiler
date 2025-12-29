@@ -367,7 +367,7 @@ int main(){
     // 3. 重定向
     std::cout.rdbuf(out.rdbuf());
     std::cerr.rdbuf(out.rdbuf());
-    JaneZ::Simplifier simplifier("../tmp");
+    JaneZ::Simplifier simplifier("../tmp.rx");
     std::string source_code = simplifier.work();
 
     JaneZ::Lexer lexer(source_code);

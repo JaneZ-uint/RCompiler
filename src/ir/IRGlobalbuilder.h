@@ -141,6 +141,13 @@ public:
                 ptrVar->reName = "return_ptr";
                 paramList->paramList.push_back(ptrVar);
                 typeList.push_back(ptrVar->type);
+            }else if(auto *p = dynamic_cast<IRArrayType *>(& *retType)){
+                auto ptrVar = std::make_shared<IRVar>();
+                ptrVar->type = std::make_shared<IRPtrType>(retType);
+                ptrVar->varName = "return_ptr";
+                ptrVar->reName = "return_ptr";
+                paramList->paramList.push_back(ptrVar);
+                typeList.push_back(ptrVar->type);
             }
         }
         auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
@@ -212,6 +219,13 @@ public:
                                     ptrVar->reName = "return_ptr";
                                     paramList->paramList.push_back(ptrVar);
                                     typeList.push_back(ptrVar->type);
+                                }else if(auto *p = dynamic_cast<IRArrayType *>(& *retType)){
+                                    auto ptrVar = std::make_shared<IRVar>();
+                                    ptrVar->type = std::make_shared<IRPtrType>(retType);
+                                    ptrVar->varName = "return_ptr";
+                                    ptrVar->reName = "return_ptr";
+                                    paramList->paramList.push_back(ptrVar);
+                                    typeList.push_back(ptrVar->type);
                                 }
                             }
                             auto currentFunction = std::make_shared<IRFunction>(retType,funcName,paramList);
@@ -230,6 +244,12 @@ public:
     void caculateStructSize(std::shared_ptr<IRStructType> structType){
         int totalSize = 0;
         for(auto & member : structType->memberTypes){
+            if(auto *inttype = dynamic_cast<IRIntType *>(& *member.second)){
+                if(inttype->bitWidth == 8){
+                    totalSize += 4;
+                    continue;
+                }
+            }
             totalSize += member.second->size;
         }
         structType->size = totalSize;
@@ -289,8 +309,23 @@ public:
         if(auto *innerArray = dynamic_cast<IRArrayType *>(& *arrayType->elementType)){
             caculateArraySize(std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType));
             arrayType->size = innerArray->size * arrayType->length;
+            if(auto inttype = std::dynamic_pointer_cast<IRIntType>(innerArray->elementType)){
+                if(inttype->bitWidth == 8){
+                    arrayType->size = (innerArray->size / 4) * arrayType->length;
+                    if(arrayType->size % 4 != 0){
+                        arrayType->size += 4 - (arrayType->size % 4);
+                    }
+                }
+            }
         }else{
             arrayType->size = arrayType->elementType->size * arrayType->length;
+            if(auto inttype = std::dynamic_pointer_cast<IRIntType>(arrayType->elementType)){
+                if(inttype->bitWidth == 8){
+                    if(arrayType->size % 4 != 0){
+                        arrayType->size += 4 - (arrayType->size % 4);
+                    }
+                }
+            }
         }
     }
 

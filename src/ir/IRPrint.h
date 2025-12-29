@@ -9,6 +9,7 @@ namespace JaneZ {
 class IRPrint : public IRNode{
 public:
     std::shared_ptr<IRValue> printVar;
+    bool inttag = false;
 
     IRPrint() = default;
     IRPrint(std::shared_ptr<IRValue> printVar) : printVar(printVar) {}

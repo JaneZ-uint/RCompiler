@@ -430,6 +430,12 @@ public:
                                 }
                             }
                             
+                        }else if(auto *expr_lit = dynamic_cast<ExprOpunary *>(& *node.expr)){
+                            if(auto *right = dynamic_cast<ExprLiteral *>(& *expr_lit->right)){
+                                node.value = -right->integer;
+                                auto var_symbol = std::make_shared<VariableSymbol>(node.type, node.value, node.identifier);
+                                current_scope->addValueSymbol(node.identifier,var_symbol);
+                            }
                         }
                     }
                     //todo
