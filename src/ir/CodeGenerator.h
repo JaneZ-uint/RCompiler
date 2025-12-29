@@ -582,7 +582,21 @@ public:
             }else if(p->op == DIV){
                 std::cout << "%reg" << p->result->serial << " = sdiv " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
             }else if(p->op == MOD){
-                std::cout << "%reg" << p->result->serial << " = srem " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                if(p->utag){
+                    std::cout << "%reg" << p->result->serial << " = urem " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }else{
+                    std::cout << "%reg" << p->result->serial << " = srem " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }
+            }else if(p->op == XOROP){
+                std::cout << "%reg" << p->result->serial << " = xor " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == OROP){
+                std::cout << "%reg" << p->result->serial << " = or " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == ANDOP){
+                std::cout << "%reg" << p->result->serial << " = and " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == LEFTSHIFTOP){
+                std::cout << "%reg" << p->result->serial << " = shl " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+            }else if(p->op == RIGHTSHIFTOP){
+                std::cout << "%reg" << p->result->serial << " = ashr " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
             }else if(p->op == LT){
                 std::cout << "%reg" << p->result->serial << " = icmp slt " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
             }else if(p->op == LEQ){
@@ -592,9 +606,17 @@ public:
             }else if(p->op == GEQ){
                 std::cout << "%reg" << p->result->serial << " = icmp sge " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
             }else if(p->op == EQ){
-                std::cout << "%reg" << p->result->serial << " = icmp eq " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                if(p->i8tag){
+                    std::cout << "%reg" << p->result->serial << " = icmp eq " << "i8 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }else{
+                    std::cout << "%reg" << p->result->serial << " = icmp eq " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }
             }else if(p->op == NEQ){
-                std::cout << "%reg" << p->result->serial << " = icmp ne " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                if(p->i8tag){
+                    std::cout << "%reg" << p->result->serial << " = icmp ne " << "i8 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }else{
+                    std::cout << "%reg" << p->result->serial << " = icmp ne " << "i32 " << print_value(p->leftValue) << ", " << print_value(p->rightValue) << "\n";
+                }
             }
         }else if(auto *p = dynamic_cast<IRTrunc *>(& node)){
             std::cout << "%reg" << p->result->serial << " = trunc ";
@@ -859,6 +881,8 @@ public:
                 std::cout << " false, %" << p->firstBlock->label << " ], [";
             }
             std::cout  << " %reg" << p->secondState->serial << ", %" << p->secondBlock->label << " ]\n";
+        }else if(auto *p = dynamic_cast<IRPHI *>(& node)){
+            std::cout << "%reg" << p->result->serial << " = phi i32 [ " << print_value(p->firstState) << ", %" << p->firstBlock->label << " ], [ " << print_value(p->secondState) << ", %" << p->secondBlock->label << " ]\n";
         }
     }
 };

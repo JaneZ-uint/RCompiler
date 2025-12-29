@@ -34,7 +34,7 @@ public:
 
     void addValueSymbol(const std::string &name, std::shared_ptr<IRVar> var) {
         if(value_table.find(name) != value_table.end()) {
-            throw std::runtime_error("Variable " + name + " already defined in this scope.");
+            //
         }
         value_table[name] = var;
     }

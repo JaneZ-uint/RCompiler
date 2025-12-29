@@ -30,6 +30,14 @@ enum IROp{
     LOGICALOR,
     ASSIGNEQ,
     ASCAST,
+    XOROP,
+    XOROPEQ,
+    OROP,
+    ANDOP,
+    LEFTSHIFTOP,
+    RIGHTSHIFTOP,
+    LEFTSHIFTOPEQ,
+    RIGHTSHIFTOPEQ,
 };
 
 class IRBinaryop : public IRNode {
@@ -38,6 +46,8 @@ public:
     std::shared_ptr<IRValue> leftValue;
     std::shared_ptr<IRValue> rightValue;
     std::shared_ptr<IRVar> result;
+    bool utag = false; // unsigned tag
+    bool i8tag = false; // i8 tag
 
     IRBinaryop() = default;
     IRBinaryop(IROp operation,std::shared_ptr<IRVar> res) : IRNode(), op(operation), result(std::move(res)) {}

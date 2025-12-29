@@ -8,6 +8,6 @@ public:
 
     virtual ~IRValue() {}
 
-    virtual void accept(IRVisitor &visitor) = 0;
+    virtual void accept(IRVisitor &visitor){}
 };
 }
