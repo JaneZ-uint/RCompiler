@@ -2078,6 +2078,60 @@ public:
                         }
                     }
                 }
+            }else if(auto *q = dynamic_cast<ExprIndex *>(& *p->name)){
+                if(auto *r = dynamic_cast<ExprField *>(& *q->name)){
+                    if(auto *s = dynamic_cast<ExprPath *>(& *r->expr)){
+                        if(s->pathSecond == nullptr){
+                            if(s->pathFirst->pathSegments.type == IDENTIFIER) {
+                                auto symbol = current_scope->lookupValueSymbol(s->pathFirst->pathSegments.identifier);
+                                if(!symbol) {
+                                    throw std::runtime_error("Value symbol not found: " + s->pathFirst->pathSegments.identifier);
+                                }
+                                if(symbol->symbol_type != Variable) {
+                                    throw std::runtime_error("Value symbol is not a variable: " + s->pathFirst->pathSegments.identifier);
+                                }
+                                auto varSymbol = std::dynamic_pointer_cast<VariableSymbol>(symbol);
+                                if(auto *pathptr = dynamic_cast<TypeReference *>(& *varSymbol->type)){
+                                    if(auto *path = dynamic_cast<Path *>(& *pathptr->typeNoBounds)){
+                                        if(path->pathSegments.type == IDENTIFIER){
+                                            auto typeSymbol = current_scope->lookupTypeSymbol(path->pathSegments.identifier);
+                                            if(!typeSymbol) {
+                                                throw std::runtime_error("Type symbol not found: " + path->pathSegments.identifier);
+                                            }
+                                            if(typeSymbol->symbol_type != Struct) {
+                                                throw std::runtime_error("Type symbol is not a struct: " + path->pathSegments.identifier);
+                                            }
+                                            auto structSymbol = std::dynamic_pointer_cast<StructSymbol>(typeSymbol);
+                                            bool field_found = false;
+                                            for(auto &field : structSymbol->fields){
+                                                if(field.name == r->identifier){
+                                                    field_found = true;
+                                                    if(auto *t = dynamic_cast<TypeArray *>(& *field.type)){
+                                                        if(auto *u = dynamic_cast<ExprLiteral *>(& *t->expr)){
+                                                            if(u->type == INTEGER_LITERAL){
+                                                                if(auto *indexlit = dynamic_cast<ExprLiteral *>(& *p->index)){
+                                                                    if(indexlit->type == INTEGER_LITERAL){
+                                                                        if(indexlit->integer >= u->integer){
+                                                                            throw std::runtime_error("Array index out of bounds in let statement: " + s->pathFirst->pathSegments.identifier + "." + r->identifier);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }else{
+                                                                throw std::runtime_error("Array size is not an integer literal in let statement: " + s->pathFirst->pathSegments.identifier + "." + r->identifier);
+                                                            }
+                                                        }
+                                                    }else{
+                                                        throw std::runtime_error("Type is not an array in let statement: " + s->pathFirst->pathSegments.identifier + "." + r->identifier);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -2398,6 +2452,7 @@ public:
                 }
             }
         }
+
     }
 
 
