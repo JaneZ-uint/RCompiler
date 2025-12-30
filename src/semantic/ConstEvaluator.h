@@ -327,8 +327,8 @@ public:
                                     }else{
                                         throw std::runtime_error("ConstEvaluator: ConstDecl value type mismatch, expected IntLiteral");
                                     }
-                                }else if(auto *left_lit = dynamic_cast<Path *>(& *expr_lit->left)){
-                                    std::string left_name = left_lit->pathSegments.identifier;
+                                }else if(auto *left_lit = dynamic_cast<ExprPath *>(& *expr_lit->left)){
+                                    std::string left_name = left_lit->pathFirst->pathSegments.identifier;
                                     auto symbol = current_scope->lookupValueSymbol(left_name);
                                     if(symbol){
                                         if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(symbol)){
@@ -353,79 +353,185 @@ public:
                                     }else{
                                         throw std::runtime_error("ConstEvaluator: ConstDecl value type mismatch, unresolved symbol in expression");
                                     }
-                                }
-                            }else if(auto *left_lit = dynamic_cast<ExprOpbinary *>(& *expr_lit->left)){
-                                if(left_lit->op == PLUS){
-                                    if(auto *left_left_lit = dynamic_cast<Path *>(& *left_lit->left)){
-                                        std::string left_left_name = left_left_lit->pathSegments.identifier;
-                                        auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
-                                        if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
-                                            if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
-                                                if(left_right_lit->type== INTEGER_LITERAL){
-                                                    long long int val = var_symbol->value + left_right_lit->integer;
-                                                    left_lit->constValue = val;
-                                                }
+                                }else if(auto *group = dynamic_cast<ExprGroup *>(& *expr_lit->left)){
+                                    if(auto *left_lit = dynamic_cast<ExprOpbinary *>(& *group->expr)){
+                                        if(left_lit->op == PLUS){
+                                            if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                                std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                                auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                                if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                    if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                        if(left_right_lit->type== INTEGER_LITERAL){
+                                                            long long int val = var_symbol->value + left_right_lit->integer;
+                                                            left_lit->constValue = val;
+                                                        }
+                                                    }
+                                                }                            
                                             }
-                                        }                            
-                                    }
-                                }else if(left_lit->op == MINUS){
-                                    if(auto *left_left_lit = dynamic_cast<Path *>(& *left_lit->left)){
-                                        std::string left_left_name = left_left_lit->pathSegments.identifier;
-                                        auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
-                                        if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
-                                            if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
-                                                if(left_right_lit->type== INTEGER_LITERAL){
-                                                    long long int val = var_symbol->value - left_right_lit->integer;
-                                                    left_lit->constValue = val;
-                                                }
+                                        }else if(left_lit->op == MINUS){
+                                            if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                                std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                                auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                                if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                    if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                        if(left_right_lit->type== INTEGER_LITERAL){
+                                                            long long int val = var_symbol->value - left_right_lit->integer;
+                                                            left_lit->constValue = val;
+                                                        }
+                                                    }
+                                                }                                 
                                             }
-                                        }                                 
-                                    }
-                                }else if(left_lit->op == MULTIPLY){
-                                    if(auto *left_left_lit = dynamic_cast<Path *>(& *left_lit->left)){
-                                        std::string left_left_name = left_left_lit->pathSegments.identifier;
-                                        auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
-                                        if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
-                                            if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
-                                                if(left_right_lit->type== INTEGER_LITERAL){
-                                                    long long int val = var_symbol->value * left_right_lit->integer;
-                                                    left_lit->constValue = val;
-                                                }
+                                        }else if(left_lit->op == MULTIPLY){
+                                            if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                                std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                                auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                                if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                    if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                        if(left_right_lit->type== INTEGER_LITERAL){
+                                                            long long int val = var_symbol->value * left_right_lit->integer;
+                                                            left_lit->constValue = val;
+                                                        }
+                                                    }
+                                                }                                 
                                             }
-                                        }                                 
-                                    }
-                                }else if(left_lit->op == DIVIDE){
-                                    if(auto *left_left_lit = dynamic_cast<Path *>(& *left_lit->left)){
-                                        std::string left_left_name = left_left_lit->pathSegments.identifier;
-                                        auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
-                                        if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
-                                            if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
-                                                if(left_right_lit->type== INTEGER_LITERAL){
-                                                    long long int val = var_symbol->value / left_right_lit->integer;
-                                                    left_lit->constValue = val;
-                                                }
+                                        }else if(left_lit->op == DIVIDE){
+                                            if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                                std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                                auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                                if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                    if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                        if(left_right_lit->type== INTEGER_LITERAL){
+                                                            long long int val = var_symbol->value / left_right_lit->integer;
+                                                            left_lit->constValue = val;
+                                                        }
+                                                    }
+                                                }                                 
                                             }
-                                        }                                 
-                                    }
-                                }
-
-                                if(auto *right_lit = dynamic_cast<ExprLiteral *>(& *expr_lit->right)){
-                                    if(right_lit->type== INTEGER_LITERAL){
-                                        long long int val;
-                                        if(expr_lit->op == PLUS){
-                                            val = left_lit->constValue + right_lit->integer;
-                                        }else if(expr_lit->op == MINUS){
-                                            val = left_lit->constValue - right_lit->integer;
-                                        }else if(expr_lit->op == MULTIPLY){
-                                            val = left_lit->constValue * right_lit->integer;
-                                        }else if(expr_lit->op == DIVIDE){
-                                            val = left_lit->constValue / right_lit->integer;
                                         }
-                                        node.value = val;
-                                        auto var_symbol = std::make_shared<VariableSymbol>(node.type, val, node.identifier);
-                                        current_scope->addValueSymbol(node.identifier,var_symbol);
-                                    }else{
-                                        throw std::runtime_error("ConstEvaluator: ConstDecl value type mismatch, expected IntLiteral");
+
+                                        if(auto *right_lit = dynamic_cast<ExprLiteral *>(& *expr_lit->right)){
+                                            if(right_lit->type== INTEGER_LITERAL){
+                                                long long int val;
+                                                if(expr_lit->op == PLUS){
+                                                    val = left_lit->constValue + right_lit->integer;
+                                                }else if(expr_lit->op == MINUS){
+                                                    val = left_lit->constValue - right_lit->integer;
+                                                }else if(expr_lit->op == MULTIPLY){
+                                                    val = left_lit->constValue * right_lit->integer;
+                                                }else if(expr_lit->op == DIVIDE){
+                                                    val = left_lit->constValue / right_lit->integer;
+                                                }
+                                                node.value = val;
+                                                auto var_symbol = std::make_shared<VariableSymbol>(node.type, val, node.identifier);
+                                                current_scope->addValueSymbol(node.identifier,var_symbol);
+                                            }else{
+                                                throw std::runtime_error("ConstEvaluator: ConstDecl value type mismatch, expected IntLiteral");
+                                            }
+                                        }
+                                    }
+                                }
+                            }else if(auto *group = dynamic_cast<ExprGroup *>(& *expr_lit->left)){
+                                if(auto *left_lit = dynamic_cast<ExprOpbinary *>(& *group->expr)){
+                                    if(left_lit->op == PLUS){
+                                        if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                            std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                            auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                            if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                    if(left_right_lit->type== INTEGER_LITERAL){
+                                                        long long int val = var_symbol->value + left_right_lit->integer;
+                                                        left_lit->constValue = val;
+                                                    }
+                                                }
+                                            }                            
+                                        }
+                                    }else if(left_lit->op == MINUS){
+                                        if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                            std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                            auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                            if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                    if(left_right_lit->type== INTEGER_LITERAL){
+                                                        long long int val = var_symbol->value - left_right_lit->integer;
+                                                        left_lit->constValue = val;
+                                                    }
+                                                }
+                                            }                                 
+                                        }
+                                    }else if(left_lit->op == MULTIPLY){
+                                        if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                            std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                            auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                            if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                    if(left_right_lit->type== INTEGER_LITERAL){
+                                                        long long int val = var_symbol->value * left_right_lit->integer;
+                                                        left_lit->constValue = val;
+                                                    }
+                                                }
+                                            }                                 
+                                        }
+                                    }else if(left_lit->op == DIVIDE){
+                                        if(auto *left_left_lit = dynamic_cast<ExprPath *>(& *left_lit->left)){
+                                            std::string left_left_name = left_left_lit->pathFirst->pathSegments.identifier;
+                                            auto left_left_symbol = current_scope->lookupValueSymbol(left_left_name);
+                                            if(auto var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_left_symbol)){
+                                                if(auto *left_right_lit = dynamic_cast<ExprLiteral *>(& *left_lit->right)){
+                                                    if(left_right_lit->type== INTEGER_LITERAL){
+                                                        long long int val = var_symbol->value / left_right_lit->integer;
+                                                        left_lit->constValue = val;
+                                                    }
+                                                }
+                                            }                                 
+                                        }
+                                    }
+
+                                    if(auto *right_lit = dynamic_cast<ExprLiteral *>(& *expr_lit->right)){
+                                        if(right_lit->type== INTEGER_LITERAL){
+                                            long long int val;
+                                            if(expr_lit->op == PLUS){
+                                                val = left_lit->constValue + right_lit->integer;
+                                            }else if(expr_lit->op == MINUS){
+                                                val = left_lit->constValue - right_lit->integer;
+                                            }else if(expr_lit->op == MULTIPLY){
+                                                val = left_lit->constValue * right_lit->integer;
+                                            }else if(expr_lit->op == DIVIDE){
+                                                val = left_lit->constValue / right_lit->integer;
+                                            }
+                                            node.value = val;
+                                            auto var_symbol = std::make_shared<VariableSymbol>(node.type, val, node.identifier);
+                                            current_scope->addValueSymbol(node.identifier,var_symbol);
+                                        }else{
+                                            throw std::runtime_error("ConstEvaluator: ConstDecl value type mismatch, expected IntLiteral");
+                                        }
+                                    }
+                                }
+                            }else if(auto *left = dynamic_cast<ExprPath *>(& *expr_lit->left)){
+                                std::string left_name = left->pathFirst->pathSegments.identifier;
+                                auto left_symbol = current_scope->lookupValueSymbol(left_name);
+                                if(left_symbol){
+                                    if(auto *right = dynamic_cast<ExprPath *>(& *expr_lit->right)){
+                                        std::string right_name = right->pathFirst->pathSegments.identifier;
+                                        auto right_symbol = current_scope->lookupValueSymbol(right_name);
+                                        if(right_symbol){
+                                            if(auto left_var_symbol = std::dynamic_pointer_cast<VariableSymbol>(left_symbol)){
+                                                if(auto right_var_symbol = std::dynamic_pointer_cast<VariableSymbol>(right_symbol)){
+                                                    long long int val;
+                                                    if(expr_lit->op == PLUS){
+                                                        val = left_var_symbol->value + right_var_symbol->value;
+                                                    }else if(expr_lit->op == MINUS){
+                                                        val = left_var_symbol->value - right_var_symbol->value;
+                                                    }else if(expr_lit->op == MULTIPLY){
+                                                        val = left_var_symbol->value * right_var_symbol->value;
+                                                    }else if(expr_lit->op == DIVIDE){
+                                                        val = left_var_symbol->value / right_var_symbol->value;
+                                                    }
+                                                    node.value = val;
+                                                    auto var_symbol = std::make_shared<VariableSymbol>(node.type, val, node.identifier);
+                                                    current_scope->addValueSymbol(node.identifier,var_symbol);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

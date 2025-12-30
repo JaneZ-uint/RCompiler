@@ -42,15 +42,15 @@ public:
         std::cout << "declare void @printInt(i32)\n";
         irRoot = irBuilder.visit(root);
         for(auto &func : irRoot->children) {
-            codeGen(*func);
             if(auto *p = dynamic_cast<IRFunction *>(& *func)){
-                for(auto &childFunc: p->funcList){
-                    codeGen(*childFunc);
-                }
                 for(auto &childStruct : p->structTypeList){
                     codeGen(*childStruct);
                 }
+                for(auto &childFunc: p->funcList){
+                    codeGen(*childFunc);
+                }
             }
+            codeGen(*func);
         }
     }
 
@@ -304,6 +304,8 @@ public:
                         std::cout << "i32";
                     }else if(q->bitWidth == 8){
                         std::cout << "i8";
+                    }else if(q->bitWidth == 1){
+                        std::cout << "i1";
                     }
                 }
             }else if(p->allocatedType->type == BaseType::ARRAY  ){
@@ -354,6 +356,8 @@ public:
                         std::cout << "i32";
                     }else if(q->bitWidth == 8){
                         std::cout << "i8";
+                    }else if(q->bitWidth == 1){
+                        std::cout << "i1";
                     }
                 }
             }else if(p->type->type == BaseType::ARRAY  ){
@@ -404,6 +408,8 @@ public:
                         std::cout << "i32 ";
                     }else if(q->bitWidth == 8){
                         std::cout << "i8 ";
+                    }else if(q->bitWidth == 1){
+                        std::cout << "i1 ";
                     }
                 }
             }else if(p->valueType->type == BaseType::ARRAY  ){
