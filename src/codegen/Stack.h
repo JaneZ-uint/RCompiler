@@ -7,9 +7,14 @@ public:
     int stackSize = 0;
     std::unordered_map<int, int> stackMap;
 
-    int allocate(int size = 4) {
-        stackSize += size;
+    int allocate(int regId) {
+        stackSize += 4;
+        stackMap[regId] = -stackSize;
         return -stackSize;
+    }
+
+    int getOffset(int regId) {
+        return stackMap[regId];
     }
 };
 }
