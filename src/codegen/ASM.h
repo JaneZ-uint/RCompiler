@@ -11,6 +11,9 @@ enum class OperandType{
 struct Operand{
     OperandType type;
     int value;
+
+    Operand() : type(OperandType::IMM), value(0) {}
+    Operand(OperandType type, int value) : type(type), value(value) {}
 };
 
 enum class ASMOp{
@@ -59,5 +62,8 @@ enum class ASMOp{
 struct ASMInstr{
     ASMOp op;
     std::vector<Operand> operands;
+
+    ASMInstr() : op(ASMOp::ADD), operands() {}
+    ASMInstr(ASMOp op, std::vector<Operand> operands) : op(op), operands(operands) {}
 };
 }
