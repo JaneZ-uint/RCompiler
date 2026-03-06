@@ -3,219 +3,92 @@
 # include "../ir/IRNode.h"
 # include "../ir/IRBinaryop.h"
 # include "../ir/IRLiteral.h"
+# include "../ir/IRStore.h"
+# include "../ir/IRLoad.h"
+# include "../ir/IRBr.h"
+# include "../ir/IRReturn.h"
+# include "../ir/IRBlock.h"
+# include "../ir/IRFunction.h"
+# include "../ir/IRCall.h"
 #include <memory>
 #include <vector>
+#include <unordered_map>
 
 namespace JaneZ {
 class InstrSelect {
 public:
-    std::shared_ptr<IRNode> irInstr;
     std::vector<ASMInstr> instrs;
+    std::unordered_map<std::shared_ptr<IRValue>,int> regMap; // ir reg -> asm reg
 
-    int nextReg = 10;
+    int nextReg = 32;
+
+    int getReg(std::shared_ptr<IRValue> irVal){
+        if(regMap.find(irVal) != regMap.end()){
+            return regMap[irVal];
+        }else{
+            int reg = nextReg++;
+            regMap[irVal] = reg;
+            return reg;
+        }
+    }
 
     int newReg(){
         return nextReg++;
+    }
+
+    void selectFunc(std::shared_ptr<IRFunction> irInstr){
+        for(auto &func: irInstr->funcList){
+            selectFunc(func);
+        }
+        if(irInstr->body){
+            for(auto &instr: irInstr->body->instrList){
+                selectInstr(instr);
+            }
+            for(auto &block: irInstr->body->blockList){
+                for(auto &instr: block->instrList){
+                    selectInstr(instr);
+                }
+            }
+        }
+    }
+
+    void selectInstr(std::shared_ptr<IRNode> irInstr){
+        if(auto *binaryOp = dynamic_cast<IRBinaryop *>(irInstr.get())){
+            selectBinaryOp(std::make_shared<IRBinaryop>(*binaryOp));
+        }else if(auto *storeOp = dynamic_cast<IRStore *>(irInstr.get())){
+            selectStore(std::make_shared<IRStore>(*storeOp));
+        }else if(auto *loadOp = dynamic_cast<IRLoad *>(irInstr.get())){
+            selectLoad(std::make_shared<IRLoad>(*loadOp));
+        }else if(auto *brOp = dynamic_cast<IRBr *>(irInstr.get())){
+            selectBr(std::make_shared<IRBr>(*brOp));
+        }else if(auto *retOp = dynamic_cast<IRReturn *>(irInstr.get())){
+            selectReturn(std::make_shared<IRReturn>(*retOp));
+        }else if(auto *callOp = dynamic_cast<IRCall *>(irInstr.get())){
+            selectCall(std::make_shared<IRCall>(*callOp));
+        }
     }
 
     void selectBinaryOp(std::shared_ptr<IRBinaryop> binaryOp){
         bool isImm = false;
         if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
             isImm = true;
-            swap(binaryOp->leftValue, binaryOp->rightValue);
         }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
             isImm = true;
         }
-        //imm >= 2048 TODO!!!
-        if(binaryOp->op == ADD){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // addi rd, rs1, imm
-                instr.op = ASMOp::ADDI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // add rd, rs1, rs2
-                instr.op = ASMOp::ADD;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
+        //imm >= 2048 
+        // TODO!!!
+        if(binaryOp->op == ADD || binaryOp->op == XOROP || binaryOp->op == OROP || binaryOp->op == ANDOP){
+            //
         }else if(binaryOp->op == SUB){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // addi rd, rs1, -imm
-                instr.op = ASMOp::ADDI;
-                Operand imm(OperandType::IMM, -dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // sub rd, rs1, rs2
-                instr.op = ASMOp::SUB;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
+            //
         }else if(binaryOp->op == MUL){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // mul rd, rs1, imm todo
-            }else{
-                // mul rd, rs1, rs2
-                instr.op = ASMOp::MUL;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == DIV){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // div rd, rs1, imm todo
-            }else{
-                // div rd, rs1, rs2
-                instr.op = ASMOp::DIV;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == MOD){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // rem rd, rs1, imm todo
-            }else{
-                // rem rd, rs1, rs2
-                instr.op = ASMOp::REM;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == XOROP){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // xori rd, rs1, imm
-                instr.op = ASMOp::XORI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // xor rd, rs1, rs2
-                instr.op = ASMOp::XOR;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == OROP){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // ori rd, rs1, imm
-                instr.op = ASMOp::ORI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // or rd, rs1, rs2
-                instr.op = ASMOp::OR;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == ANDOP){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // andi rd, rs1, imm
-                instr.op = ASMOp::ANDI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // and rd, rs1, rs2
-                instr.op = ASMOp::AND;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == LEFTSHIFTOP){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // slli rd, rs1, imm
-                instr.op = ASMOp::SLLI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // sll rd, rs1, rs2
-                instr.op = ASMOp::SLL;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
-        }else if(binaryOp->op == RIGHTSHIFTOP){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // srli rd, rs1, imm
-                instr.op = ASMOp::SRLI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // srl rd, rs1, rs2
-                instr.op = ASMOp::SRL;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
+            //
+        }else if(binaryOp->op == DIV || binaryOp->op == MOD){
+            //
+        }else if(binaryOp->op == LEFTSHIFTOP || binaryOp->op == RIGHTSHIFTOP){
+            //
         }else if(binaryOp->op == LT){
-            ASMInstr instr;
-            Operand rd(OperandType::REG, newReg());
-            Operand rs1(OperandType::REG, newReg());
-            instr.operands.push_back(rd);
-            instr.operands.push_back(rs1);
-            if(isImm){
-                // slti rd, rs1, imm
-                instr.op = ASMOp::SLTI;
-                Operand imm(OperandType::IMM, dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())->intValue);
-                instr.operands.push_back(imm);
-            }else{
-                // slt rd, rs1, rs2
-                instr.op = ASMOp::SLT;
-                Operand rs2(OperandType::REG, newReg());
-                instr.operands.push_back(rs2);
-            }
-            instrs.push_back(instr);
+            //
         }else if(binaryOp->op == LEQ){
             //
         }else if(binaryOp->op == GT){
@@ -228,5 +101,59 @@ public:
             //
         }
     }
+   
+    void selectStore(std::shared_ptr<IRStore> storeOp){
+        ASMInstr instr;
+        instr.op = ASMOp::SW;
+        if(storeOp->storeLiteral){
+            ASMInstr liInstr;
+            liInstr.op = ASMOp::LI;
+            liInstr.rd.type = OperandType::REG;
+            liInstr.rd.value = newReg();
+            liInstr.imm.type = OperandType::IMM;
+            liInstr.imm.value = storeOp->storeLiteral->intValue;
+            instr.rs1 = liInstr.rd;
+            instr.imm.type = OperandType::IMM;
+            instr.imm.value = 0;
+            instr.rs2.type = OperandType::REG;
+            instr.rs2.value = getReg(storeOp->address);
+            instrs.push_back(liInstr);
+            instrs.push_back(instr);
+        }else{
+            instr.rs1.type = OperandType::REG;
+            instr.rs1.value = getReg(storeOp->storeValue);
+            instr.imm.type = OperandType::IMM;
+            instr.imm.value = 0;
+            instr.rs2.type = OperandType::REG;
+            instr.rs2.value = getReg(storeOp->address);
+            instrs.push_back(instr);
+        }
+    }
+
+    void selectLoad(std::shared_ptr<IRLoad> loadOp){
+        ASMInstr instr;
+        instr.op = ASMOp::LW;
+        instr.rd.type = OperandType::REG;
+        instr.rd.value = getReg(loadOp->tmp);
+        instr.rs1.type = OperandType::REG;
+        instr.rs1.value = getReg(loadOp->addressVar);
+        instr.imm.type = OperandType::IMM;
+        instr.imm.value = 0;
+        instrs.push_back(instr);
+    }
+
+    void selectBr(std::shared_ptr<IRBr> brOp){
+        // TODO
+    }
+
+    void selectReturn(std::shared_ptr<IRReturn> retOp){
+        // TODO
+    }
+
+    void selectCall(std::shared_ptr<IRCall> callOp){
+        // TODO
+    }
+
+    
 };
 }

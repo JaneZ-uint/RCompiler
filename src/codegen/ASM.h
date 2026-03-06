@@ -1,11 +1,11 @@
 # pragma once
 
-#include <vector>
 namespace JaneZ {
 enum class OperandType{
     REG,
     IMM,
-    MEM
+    LABEL,
+    PHYSICAL_REG,
 };
 
 struct Operand{
@@ -56,14 +56,17 @@ enum class ASMOp{
     JAL,
     JALR,
     AUIPC,
-    LUI
+    LUI,
+    LI,
 };
 
 struct ASMInstr{
     ASMOp op;
-    std::vector<Operand> operands;
+    Operand rd;
+    Operand rs1;
+    Operand rs2;
+    Operand imm;
 
-    ASMInstr() : op(ASMOp::ADD), operands() {}
-    ASMInstr(ASMOp op, std::vector<Operand> operands) : op(op), operands(operands) {}
+    ASMInstr() : op(ASMOp::ADD) {}
 };
 }
