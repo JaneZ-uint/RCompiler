@@ -57,7 +57,11 @@ enum class ASMOp{
     JALR,
     AUIPC,
     LUI,
+    
     LI,
+    J,
+    BNEZ,
+    MV,
 };
 
 struct ASMInstr{
@@ -66,6 +70,7 @@ struct ASMInstr{
     Operand rs1;
     Operand rs2;
     Operand imm;
+    Operand label;
 
     ASMInstr() : op(ASMOp::ADD) {}
 };
