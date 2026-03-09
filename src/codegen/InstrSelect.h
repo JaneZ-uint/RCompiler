@@ -11,6 +11,7 @@
 # include "../ir/IRFunction.h"
 # include "../ir/IRCall.h"
 # include "../ir/IRBr.h"
+# include "../ir/IRParam.h"
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -75,16 +76,120 @@ public:
     }
 
     void selectBinaryOp(std::shared_ptr<IRBinaryop> binaryOp){
-        bool isImm = false;
-        if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
-            isImm = true;
-        }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
-            isImm = true;
-        }
-        //imm >= 2048 
-        // TODO!!!
         if(binaryOp->op == ADD || binaryOp->op == XOROP || binaryOp->op == OROP || binaryOp->op == ANDOP){
-            //
+            if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
+                if(imm->intValue >= -2048 && imm->intValue <= 2047){
+                    ASMInstr instr;
+                    if(binaryOp->op == ADD){
+                        instr.op = ASMOp::ADDI;
+                    }else if(binaryOp->op == XOROP){
+                        instr.op = ASMOp::XORI;
+                    }else if(binaryOp->op == OROP){
+                        instr.op = ASMOp::ORI;
+                    }else if(binaryOp->op == ANDOP){
+                        instr.op = ASMOp::ANDI;
+                    }
+                    instr.rd.type = OperandType::REG;
+                    instr.rd.value = getReg(binaryOp->result);
+                    instr.rs1.type = OperandType::REG;
+                    instr.rs1.value = getReg(binaryOp->leftValue);
+                    instr.imm.type = OperandType::IMM;
+                    instr.imm.value = imm->intValue;
+                    instrs.push_back(instr);
+                }else{
+                    // li tmp, imm
+                    // add tmp, left, tmp
+                    ASMInstr liInstr;
+                    if(binaryOp->op == ADD){
+                        liInstr.op = ASMOp::ADDI;
+                    }else if(binaryOp->op == XOROP){
+                        liInstr.op = ASMOp::XORI;
+                    }else if(binaryOp->op == OROP){
+                        liInstr.op = ASMOp::ORI;
+                    }else if(binaryOp->op == ANDOP){
+                        liInstr.op = ASMOp::ANDI;
+                    }
+                    liInstr.rd.type = OperandType::REG;
+                    int tmpReg = newReg();
+                    liInstr.rd.value = tmpReg;
+                    liInstr.imm.type = OperandType::IMM;
+                    liInstr.imm.value = imm->intValue;
+                    instrs.push_back(liInstr);
+                    ASMInstr instr;
+                    instr.rd.type = OperandType::REG;
+                    instr.rd.value = getReg(binaryOp);
+                    instr.rs1.type = OperandType::REG;
+                    instr.rs1.value = getReg(binaryOp->leftValue);
+                    instr.rs2.type = OperandType::REG;
+                    instr.rs2.value = tmpReg;
+                    instrs.push_back(instr);
+                }
+            }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
+                if(imm->intValue >= -2048 && imm->intValue <= 2047){
+                    ASMInstr instr;
+                    if(binaryOp->op == ADD){
+                        instr.op = ASMOp::ADDI;
+                    }else if(binaryOp->op == XOROP){
+                        instr.op = ASMOp::XORI;
+                    }else if(binaryOp->op == OROP){
+                        instr.op = ASMOp::ORI;
+                    }else if(binaryOp->op == ANDOP){
+                        instr.op = ASMOp::ANDI;
+                    }
+                    instr.rd.type = OperandType::REG;
+                    instr.rd.value = getReg(binaryOp->result);
+                    instr.rs1.type = OperandType::REG;
+                    instr.rs1.value = getReg(binaryOp->rightValue);
+                    instr.imm.type = OperandType::IMM;
+                    instr.imm.value = imm->intValue;
+                    instrs.push_back(instr);
+                }else{
+                    // li tmp, imm
+                    // add tmp, right, tmp
+                    ASMInstr liInstr;
+                    if(binaryOp->op == ADD){
+                        liInstr.op = ASMOp::ADDI;
+                    }else if(binaryOp->op == XOROP){
+                        liInstr.op = ASMOp::XORI;
+                    }else if(binaryOp->op == OROP){
+                        liInstr.op = ASMOp::ORI;
+                    }else if(binaryOp->op == ANDOP){
+                        liInstr.op = ASMOp::ANDI;
+                    }
+                    liInstr.rd.type = OperandType::REG;
+                    int tmpReg = newReg();
+                    liInstr.rd.value = tmpReg;
+                    liInstr.imm.type = OperandType::IMM;
+                    liInstr.imm.value = imm->intValue;
+                    instrs.push_back(liInstr);
+                    ASMInstr instr;
+                    instr.rd.type = OperandType::REG;
+                    instr.rd.value = getReg(binaryOp);
+                    instr.rs1.type = OperandType::REG;
+                    instr.rs1.value = getReg(binaryOp->rightValue);
+                    instr.rs2.type = OperandType::REG;
+                    instr.rs2.value = tmpReg;
+                    instrs.push_back(instr);
+                }
+            }else{
+                ASMInstr instr;
+                if(binaryOp->op == ADD){
+                    instr.op = ASMOp::ADD;
+                }else if(binaryOp->op == XOROP){
+                    instr.op = ASMOp::XOR;
+                }else if(binaryOp->op == OROP){
+                    instr.op = ASMOp::OR;
+                }else if(binaryOp->op == ANDOP){
+                    instr.op = ASMOp::AND;
+                }
+                instr.rd.type = OperandType::REG;
+                instr.rd.value = getReg(binaryOp);
+                instr.rs1.type = OperandType::REG;
+                instr.rs1.value = getReg(binaryOp->leftValue);
+                instr.rs2.type = OperandType::REG;
+                instr.rs2.value = getReg(binaryOp->rightValue);
+                instrs.push_back(instr);
+            }
         }else if(binaryOp->op == SUB){
             //
         }else if(binaryOp->op == MUL){
@@ -196,7 +301,39 @@ public:
     }
 
     void selectCall(std::shared_ptr<IRCall> callOp){
-        // TODO
+        for(int i = 0;i < callOp->pList->paramList.size();i ++){
+            Operand arg;
+            arg.type = OperandType::REG;
+            if(auto *imm = dynamic_cast<IRLiteral *>(callOp->pList->paramList[i].get())){
+                ASMInstr liInstr;
+                liInstr.op = ASMOp::LI;
+                liInstr.rd.type = OperandType::REG;
+                liInstr.rd.value = newReg();
+                liInstr.imm.type = OperandType::IMM;
+                liInstr.imm.value = imm->intValue;
+                instrs.push_back(liInstr);
+                arg.value = liInstr.rd.value;
+            }else{
+                arg.value = getReg(callOp->pList->paramList[i]);
+            }
+            ASMInstr mvInstr;
+            mvInstr.op = ASMOp::MV;
+            mvInstr.rd.type = OperandType::REG;
+            mvInstr.rd.value = 10 + i;
+            mvInstr.rs1 = arg;
+            instrs.push_back(mvInstr);
+        }
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = callOp->function->name;
+        instrs.push_back(callInstr);
+        ASMInstr mvInstr;
+        mvInstr.op = ASMOp::MV;
+        mvInstr.rd.type = OperandType::REG;
+        mvInstr.rd.value = getReg(callOp->retVar);
+        mvInstr.rs1.type = OperandType::REG;
+        mvInstr.rs1.value = 10; // a0
+        instrs.push_back(mvInstr);
     }
 
     

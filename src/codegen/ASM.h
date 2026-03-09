@@ -1,11 +1,11 @@
 # pragma once
 
+#include <string>
 namespace JaneZ {
 enum class OperandType{
     REG,
     IMM,
     LABEL,
-    PHYSICAL_REG,
 };
 
 struct Operand{
@@ -62,6 +62,7 @@ enum class ASMOp{
     J,
     BNEZ,
     MV,
+    CALL,
 };
 
 struct ASMInstr{
@@ -71,6 +72,7 @@ struct ASMInstr{
     Operand rs2;
     Operand imm;
     Operand label;
+    std::string funcName;
 
     ASMInstr() : op(ASMOp::ADD) {}
 };
