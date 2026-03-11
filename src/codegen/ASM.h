@@ -63,6 +63,10 @@ enum class ASMOp{
     BNEZ,
     MV,
     CALL,
+    SLE,
+    SGE,
+    SEQZ,
+    SNEZ,
 };
 
 struct ASMInstr{
