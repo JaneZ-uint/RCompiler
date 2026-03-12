@@ -12,6 +12,7 @@
 # include "../ir/IRCall.h"
 # include "../ir/IRBr.h"
 # include "../ir/IRParam.h"
+# include "CodegenFunction.h"
 #include <memory>
 #include <vector>
 #include <unordered_map>
@@ -21,10 +22,18 @@ class InstrSelect {
 public:
     std::vector<ASMInstr> instrs;
     std::unordered_map<std::shared_ptr<IRNode>,int> regMap; // ir reg -> asm reg
+
     int exitblock = 1;
     int currenctExitBlock = 1;
 
     int nextReg = 32;
+
+    std::string currentFuncExitLabel;
+
+    std::vector<std::shared_ptr<ASMBlock>> asmBlocks;
+    std::shared_ptr<ASMBlock> currentBlock;
+
+    int currentStackSize = 0;
 
     int getReg(std::shared_ptr<IRNode> irVal){
         if(regMap.find(irVal) != regMap.end()){
@@ -41,6 +50,13 @@ public:
     }
 
     void selectFunc(std::shared_ptr<IRFunction> irInstr){
+        std::shared_ptr<CodegenFunction> codegenFunc = std::make_shared<CodegenFunction>(irInstr);
+        asmBlocks.clear();
+        currentFuncExitLabel = ".L" + irInstr->name + "_exit";
+        //entry block
+        std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(irInstr->name);
+        asmBlocks.push_back(entryBlock);
+        //wait for stack allocation
         regMap[irInstr] = exitblock++;
         for(auto &func: irInstr->funcList){
             selectFunc(func);
@@ -56,7 +72,71 @@ public:
                 }
             }
         }
+        //caculate stack size
+        currentStackSize = (nextReg - 32) * 4;
+        //entry block!
+        ASMInstr addiInstr;
+        addiInstr.op = ASMOp::ADDI;
+        addiInstr.rd.type = OperandType::REG;
+        addiInstr.rd.value = 2; // sp
+        addiInstr.rs1.type = OperandType::REG;
+        addiInstr.rs1.value = 2; // sp
+        addiInstr.imm.type = OperandType::IMM;
+        addiInstr.imm.value = -currentStackSize;
+        entryBlock->instrs.push_back(addiInstr);
+        ASMInstr swRaInstr;
+        swRaInstr.op = ASMOp::SW;
+        swRaInstr.rs1.type = OperandType::REG;
+        swRaInstr.rs1.value = 1; // ra
+        swRaInstr.imm.type = OperandType::IMM;
+        swRaInstr.imm.value = currentStackSize - 4;
+        swRaInstr.rs2.type = OperandType::REG;
+        swRaInstr.rs2.value = 2; // sp
+        entryBlock->instrs.push_back(swRaInstr);
+        ASMInstr s0Instr;
+        s0Instr.op = ASMOp::SW;
+        s0Instr.rs1.type = OperandType::REG;
+        s0Instr.rs1.value = 8; // s0
+        s0Instr.imm.type = OperandType::IMM;
+        s0Instr.imm.value = currentStackSize - 8;
+        s0Instr.rs2.type = OperandType::REG;
+        s0Instr.rs2.value = 2; // sp
+        entryBlock->instrs.push_back(s0Instr);
         //exitBlock!
+        std::shared_ptr<ASMBlock> exitBlock = std::make_shared<ASMBlock>(currentFuncExitLabel);
+        ASMInstr lwRaInstr;
+        lwRaInstr.op = ASMOp::LW;
+        lwRaInstr.rs1.type = OperandType::REG;
+        lwRaInstr.rs1.value = 2; // sp
+        lwRaInstr.imm.type = OperandType::IMM;
+        lwRaInstr.imm.value = currentStackSize - 4;
+        lwRaInstr.rs2.type = OperandType::REG;
+        lwRaInstr.rs2.value = 1; // ra
+        exitBlock->instrs.push_back(lwRaInstr);
+        ASMInstr lwS0Instr;
+        lwS0Instr.op = ASMOp::LW;
+        lwS0Instr.rs1.type = OperandType::REG;
+        lwS0Instr.rs1.value = 2; // sp
+        lwS0Instr.imm.type = OperandType::IMM;
+        lwS0Instr.imm.value = currentStackSize - 8;
+        lwS0Instr.rs2.type = OperandType::REG;
+        lwS0Instr.rs2.value = 8; // s0
+        exitBlock->instrs.push_back(lwS0Instr);
+        ASMInstr addiSpInstr;
+        addiSpInstr.op = ASMOp::ADDI;
+        addiSpInstr.rd.type = OperandType::REG;
+        addiSpInstr.rd.value = 2; // sp
+        addiSpInstr.rs1.type = OperandType::REG;
+        addiSpInstr.rs1.value = 2; // sp
+        addiSpInstr.imm.type = OperandType::IMM;
+        addiSpInstr.imm.value = currentStackSize;
+        exitBlock->instrs.push_back(addiSpInstr);
+        ASMInstr jrInstr;
+        jrInstr.op = ASMOp::JR;
+        jrInstr.rs1.type = OperandType::REG;
+        jrInstr.rs1.value = 1; // ra
+        exitBlock->instrs.push_back(jrInstr);
+        asmBlocks.push_back(exitBlock);
     }
 
     void selectInstr(std::shared_ptr<IRNode> irInstr){

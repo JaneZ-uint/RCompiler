@@ -1,6 +1,8 @@
 # pragma once
 
-#include <string>
+# include <string>
+# include <vector>
+
 namespace JaneZ {
 enum class OperandType{
     REG,
@@ -60,6 +62,7 @@ enum class ASMOp{
     
     LI,
     J,
+    JR,
     BNEZ,
     MV,
     CALL,
@@ -79,5 +82,14 @@ struct ASMInstr{
     std::string funcName;
 
     ASMInstr() : op(ASMOp::ADD) {}
+};
+
+class ASMBlock{
+public:
+    std::string label;
+    std::vector<ASMInstr> instrs;
+
+    ASMBlock() : label("") {}
+    ASMBlock(const std::string& label) : label(label) {}
 };
 }
