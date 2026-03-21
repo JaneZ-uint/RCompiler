@@ -11,7 +11,9 @@
 # include "../ir/IRFunction.h"
 # include "../ir/IRCall.h"
 # include "../ir/IRBr.h"
+# include "../ir/IRType.h"
 # include "../ir/IRParam.h"
+# include "../ir/IRGetptr.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -152,6 +154,10 @@ public:
             selectReturn(std::make_shared<IRReturn>(*retOp));
         }else if(auto *callOp = dynamic_cast<IRCall *>(irInstr.get())){
             selectCall(std::make_shared<IRCall>(*callOp));
+        }else if(auto *getptrOp = dynamic_cast<IRGetptr *>(irInstr.get())){
+            selectGetptr(std::make_shared<IRGetptr>(*getptrOp));
+        }else{
+            // other instructions
         }
     }
 
@@ -175,7 +181,7 @@ public:
                     instr.rs1.value = getReg(binaryOp->leftValue);
                     instr.imm.type = OperandType::IMM;
                     instr.imm.value = imm->intValue;
-                    instrs.push_back(instr);
+                    currentBlock->instrs.push_back(instr);
                 }else{
                     // li tmp, imm
                     // add tmp, left, tmp
@@ -186,7 +192,7 @@ public:
                     liInstr.rd.value = tmpReg;
                     liInstr.imm.type = OperandType::IMM;
                     liInstr.imm.value = imm->intValue;
-                    instrs.push_back(liInstr);
+                    currentBlock->instrs.push_back(liInstr);
                     ASMInstr instr;
                     instr.rd.type = OperandType::REG;
                     instr.rd.value = getReg(binaryOp->result);
@@ -203,7 +209,7 @@ public:
                     }else if(binaryOp->op == ANDOP){
                         instr.op = ASMOp::AND;
                     }
-                    instrs.push_back(instr);
+                    currentBlock->instrs.push_back(instr);
                 }
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 if(imm->intValue >= -2048 && imm->intValue <= 2047){
@@ -223,7 +229,7 @@ public:
                     instr.rs1.value = getReg(binaryOp->rightValue);
                     instr.imm.type = OperandType::IMM;
                     instr.imm.value = imm->intValue;
-                    instrs.push_back(instr);
+                    currentBlock->instrs.push_back(instr);
                 }else{
                     // li tmp, imm
                     // add tmp, right, tmp
@@ -234,7 +240,7 @@ public:
                     liInstr.rd.value = tmpReg;
                     liInstr.imm.type = OperandType::IMM;
                     liInstr.imm.value = imm->intValue;
-                    instrs.push_back(liInstr);
+                    currentBlock->instrs.push_back(liInstr);
                     ASMInstr instr;
                     instr.rd.type = OperandType::REG;
                     instr.rd.value = getReg(binaryOp->result);
@@ -251,7 +257,7 @@ public:
                     }else if(binaryOp->op == ANDOP){
                         instr.op = ASMOp::AND;
                     }
-                    instrs.push_back(instr);
+                    currentBlock->instrs.push_back(instr);
                 }
             }else{
                 ASMInstr instr;
@@ -270,7 +276,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == SUB){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -283,7 +289,7 @@ public:
                     instr.rs1.value = getReg(binaryOp->leftValue);
                     instr.imm.type = OperandType::IMM;
                     instr.imm.value = -imm->intValue;
-                    instrs.push_back(instr);    
+                    currentBlock->instrs.push_back(instr);    
                 }else{
                     // li tmp, imm
                     // sub tmp, left, tmp
@@ -294,7 +300,7 @@ public:
                     liInstr.rd.value = tmpReg;
                     liInstr.imm.type = OperandType::IMM;
                     liInstr.imm.value = imm->intValue;
-                    instrs.push_back(liInstr);
+                    currentBlock->instrs.push_back(liInstr);
                     ASMInstr instr;
                     instr.op = ASMOp::SUB;
                     instr.rd.type = OperandType::REG;
@@ -303,7 +309,7 @@ public:
                     instr.rs1.value = getReg(binaryOp->leftValue);
                     instr.rs2.type = OperandType::REG;
                     instr.rs2.value = tmpReg;
-                    instrs.push_back(instr);
+                    currentBlock->instrs.push_back(instr);
                 }
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 ASMInstr liInstr;
@@ -313,7 +319,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SUB;
                 instr.rd.type = OperandType::REG;
@@ -322,7 +328,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 ASMInstr instr;
                 instr.op = ASMOp::SUB;
@@ -332,7 +338,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == MUL || binaryOp->op == DIV || binaryOp->op == MOD){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -345,7 +351,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 if(binaryOp->op == MUL){
                     instr.op = ASMOp::MUL;
@@ -360,7 +366,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = tmpReg;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li tmp, imm
                 // mul tmp, right, tmp
@@ -371,7 +377,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 if(binaryOp->op == MUL){
                     instr.op = ASMOp::MUL;
@@ -386,7 +392,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 ASMInstr instr;
                 if(binaryOp->op == MUL){
@@ -402,7 +408,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == LEFTSHIFTOP || binaryOp->op == RIGHTSHIFTOP){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -418,7 +424,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.imm.type = OperandType::IMM;
                 instr.imm.value = imm->intValue;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 ASMInstr instr;
                 if(binaryOp->op == LEFTSHIFTOP){
@@ -432,7 +438,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == LT ){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -445,7 +451,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.imm.type = OperandType::IMM;
                 instr.imm.value = imm->intValue;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li + slti
                 ASMInstr liInstr;
@@ -455,7 +461,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SLTI;
                 instr.rd.type = OperandType::REG;
@@ -464,7 +470,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;  
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);    
+                currentBlock->instrs.push_back(instr);    
             }else{
                 // slt rd, rs1, rs2
                 ASMInstr instr;
@@ -475,7 +481,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == LEQ){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -487,7 +493,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SLE;
                 instr.rd.type = OperandType::REG;
@@ -496,7 +502,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = tmpReg;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li + sle
                 ASMInstr liInstr;
@@ -506,7 +512,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SLE;
                 instr.rd.type = OperandType::REG;
@@ -515,7 +521,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 // sle rd, rs1, rs2
                 ASMInstr instr;
@@ -526,7 +532,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == GT){
             if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->rightValue.get())){
@@ -538,7 +544,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SLT;
                 instr.rd.type = OperandType::REG;
@@ -547,7 +553,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->leftValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // slt rd, right, left
                 ASMInstr liInstr;
@@ -557,7 +563,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SLT;
                 instr.rd.type = OperandType::REG;
@@ -566,7 +572,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->rightValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = tmpReg;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 // slt rd, right, left
                 ASMInstr instr;
@@ -577,7 +583,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->rightValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->leftValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == GEQ){
             // sge
@@ -590,7 +596,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SGE;
                 instr.rd.type = OperandType::REG;
@@ -599,7 +605,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = tmpReg;
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li + sge
                 ASMInstr liInstr;
@@ -609,7 +615,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr instr;
                 instr.op = ASMOp::SGE;
                 instr.rd.type = OperandType::REG;
@@ -618,7 +624,7 @@ public:
                 instr.rs1.value = tmpReg;
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }else{
                 // sge rd, left, right
                 ASMInstr instr;
@@ -629,7 +635,7 @@ public:
                 instr.rs1.value = getReg(binaryOp->leftValue);
                 instr.rs2.type = OperandType::REG;
                 instr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(instr);
+                currentBlock->instrs.push_back(instr);
             }
         }else if(binaryOp->op == EQ){
             // sub + seqz
@@ -644,7 +650,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr subInstr;
                 subInstr.op = ASMOp::SUB;
                 subInstr.rd.type = OperandType::REG;
@@ -653,13 +659,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->leftValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = tmpReg;
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr seqzInstr;
                 seqzInstr.op = ASMOp::SEQZ;
                 seqzInstr.rd.type = OperandType::REG;
                 seqzInstr.rd.value = getReg(binaryOp->result);
                 seqzInstr.rs1 = subInstr.rd;
-                instrs.push_back(seqzInstr);
+                currentBlock->instrs.push_back(seqzInstr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li tmp, imm
                 // sub tmp, right, tmp
@@ -671,7 +677,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr subInstr;
                 subInstr.op = ASMOp::SUB;
                 subInstr.rd.type = OperandType::REG;
@@ -680,13 +686,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->rightValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = tmpReg;
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr seqzInstr;
                 seqzInstr.op = ASMOp::SEQZ;
                 seqzInstr.rd.type = OperandType::REG;
                 seqzInstr.rd.value = getReg(binaryOp->result);
                 seqzInstr.rs1 = subInstr.rd;
-                instrs.push_back(seqzInstr);
+                currentBlock->instrs.push_back(seqzInstr);
             }else{
                 // sub tmp, left, right
                 // seqz rd, tmp
@@ -698,13 +704,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->leftValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr seqzInstr;
                 seqzInstr.op = ASMOp::SEQZ;
                 seqzInstr.rd.type = OperandType::REG;
                 seqzInstr.rd.value = getReg(binaryOp->result);
                 seqzInstr.rs1 = subInstr.rd;
-                instrs.push_back(seqzInstr);
+                currentBlock->instrs.push_back(seqzInstr);
             }
         }else if(binaryOp->op == NEQ){
             // sub + snez
@@ -719,7 +725,7 @@ public:
                 liInstr.rd.value = tmpReg;  
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr subInstr;
                 subInstr.op = ASMOp::SUB;
                 subInstr.rd.type = OperandType::REG;
@@ -728,13 +734,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->leftValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = tmpReg;
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr snezInstr;
                 snezInstr.op = ASMOp::SNEZ;
                 snezInstr.rd.type = OperandType::REG;
                 snezInstr.rd.value = getReg(binaryOp->result);
                 snezInstr.rs1 = subInstr.rd;
-                instrs.push_back(snezInstr);
+                currentBlock->instrs.push_back(snezInstr);
             }else if(auto *imm = dynamic_cast<IRLiteral *>(binaryOp->leftValue.get())){
                 // li tmp, imm
                 // sub tmp, right, tmp
@@ -746,7 +752,7 @@ public:
                 liInstr.rd.value = tmpReg;
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 ASMInstr subInstr;
                 subInstr.op = ASMOp::SUB;
                 subInstr.rd.type = OperandType::REG;
@@ -755,13 +761,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->rightValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = tmpReg;
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr snezInstr;
                 snezInstr.op = ASMOp::SNEZ;
                 snezInstr.rd.type = OperandType::REG;
                 snezInstr.rd.value = getReg(binaryOp->result);
                 snezInstr.rs1 = subInstr.rd;
-                instrs.push_back(snezInstr);
+                currentBlock->instrs.push_back(snezInstr);
             }else{
                 // sub tmp, left, right
                 // snez rd, tmp
@@ -773,13 +779,13 @@ public:
                 subInstr.rs1.value = getReg(binaryOp->leftValue);
                 subInstr.rs2.type = OperandType::REG;
                 subInstr.rs2.value = getReg(binaryOp->rightValue);
-                instrs.push_back(subInstr);
+                currentBlock->instrs.push_back(subInstr);
                 ASMInstr snezInstr;
                 snezInstr.op = ASMOp::SNEZ;
                 snezInstr.rd.type = OperandType::REG;
                 snezInstr.rd.value = getReg(binaryOp->result);
                 snezInstr.rs1 = subInstr.rd;
-                instrs.push_back(snezInstr);    
+                currentBlock->instrs.push_back(snezInstr);    
             }
         }
     }
@@ -799,8 +805,8 @@ public:
             instr.imm.value = 0;
             instr.rs2.type = OperandType::REG;
             instr.rs2.value = getReg(storeOp->address);
-            instrs.push_back(liInstr);
-            instrs.push_back(instr);
+            currentBlock->instrs.push_back(liInstr);
+            currentBlock->instrs.push_back(instr);
         }else{
             instr.rs1.type = OperandType::REG;
             instr.rs1.value = getReg(storeOp->storeValue);
@@ -808,7 +814,7 @@ public:
             instr.imm.value = 0;
             instr.rs2.type = OperandType::REG;
             instr.rs2.value = getReg(storeOp->address);
-            instrs.push_back(instr);
+            currentBlock->instrs.push_back(instr);
         }
     }
 
@@ -821,7 +827,7 @@ public:
         instr.rs1.value = getReg(loadOp->addressVar);
         instr.imm.type = OperandType::IMM;
         instr.imm.value = 0;
-        instrs.push_back(instr);
+        currentBlock->instrs.push_back(instr);
     }
 
     void selectBr(std::shared_ptr<IRBr> brOp){
@@ -831,12 +837,12 @@ public:
         brInstr.rs1.value = getReg(brOp->condition);
         brInstr.label.type = OperandType::LABEL;
         brInstr.label.value = getReg(brOp->trueLabel);
-        instrs.push_back(brInstr);
+        currentBlock->instrs.push_back(brInstr);
         if(brOp->falseLabel){
             ASMInstr jInstr;
             jInstr.op = ASMOp::J;
             jInstr.label.value = getReg(brOp->falseLabel);
-            instrs.push_back(jInstr);
+            currentBlock->instrs.push_back(jInstr);
         }
     }
 
@@ -853,8 +859,8 @@ public:
             mvInstr.rd.type = OperandType::REG;
             mvInstr.rd.value = 10; // a0
             mvInstr.rs1 = liInstr.rd;
-            instrs.push_back(liInstr);
-            instrs.push_back(mvInstr);
+            currentBlock->instrs.push_back(liInstr);
+            currentBlock->instrs.push_back(mvInstr);
         }else if(retOp->returnValue){
             ASMInstr mvInstr;
             mvInstr.op = ASMOp::MV;
@@ -862,13 +868,13 @@ public:
             mvInstr.rd.value = 10; // a0
             mvInstr.rs1.type = OperandType::REG;
             mvInstr.rs1.value = getReg(retOp->returnValue);
-            instrs.push_back(mvInstr);
+            currentBlock->instrs.push_back(mvInstr);
         }
         ASMInstr retInstr;
         retInstr.op = ASMOp::J;
         retInstr.label.value = currenctExitBlock;
         retInstr.label.type = OperandType::LABEL;
-        instrs.push_back(retInstr);
+        currentBlock->instrs.push_back(retInstr);
     }
 
     void selectCall(std::shared_ptr<IRCall> callOp){
@@ -882,7 +888,7 @@ public:
                 liInstr.rd.value = newReg();
                 liInstr.imm.type = OperandType::IMM;
                 liInstr.imm.value = imm->intValue;
-                instrs.push_back(liInstr);
+                currentBlock->instrs.push_back(liInstr);
                 arg.value = liInstr.rd.value;
             }else{
                 arg.value = getReg(callOp->pList->paramList[i]);
@@ -892,21 +898,78 @@ public:
             mvInstr.rd.type = OperandType::REG;
             mvInstr.rd.value = 10 + i;
             mvInstr.rs1 = arg;
-            instrs.push_back(mvInstr);
+            currentBlock->instrs.push_back(mvInstr);
         }
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
         callInstr.funcName = callOp->function->name;
-        instrs.push_back(callInstr);
+        currentBlock->instrs.push_back(callInstr);
         ASMInstr mvInstr;
         mvInstr.op = ASMOp::MV;
         mvInstr.rd.type = OperandType::REG;
         mvInstr.rd.value = getReg(callOp->retVar);
         mvInstr.rs1.type = OperandType::REG;
         mvInstr.rs1.value = 10; // a0
-        instrs.push_back(mvInstr);
+        currentBlock->instrs.push_back(mvInstr);
     }
 
-    
+    int caculateStructOffset(std::shared_ptr<IRStructType> structType, int fieldIndex){
+        int offset = 0;
+        for(int i = 0;i < fieldIndex;i ++){
+            offset += structType->memberTypes[i].second->size;
+        }
+        return offset;
+    }
+
+    void selectGetptr(std::shared_ptr<IRGetptr> getptrOp){
+        // 1. array  2. struct
+        int base = getReg(getptrOp->base);
+        if(auto array = std::dynamic_pointer_cast<IRArrayType>(getptrOp->base->type)){
+            int elemSize = array->elementType->size;
+            int index = getptrOp->offset;
+            if(getptrOp->index){
+                index = getReg(getptrOp->index);
+                ASMInstr mulInstr;
+                mulInstr.op = ASMOp::MUL;
+                mulInstr.rd.type = OperandType::REG;
+                mulInstr.rd.value = newReg();
+                mulInstr.rs1.type = OperandType::REG;
+                mulInstr.rs1.value = index;
+                mulInstr.rs2.type = OperandType::IMM;
+                mulInstr.rs2.value = elemSize;
+                currentBlock->instrs.push_back(mulInstr);
+                ASMInstr addInstr;
+                addInstr.op = ASMOp::ADD;
+                addInstr.rd.type = OperandType::REG;
+                addInstr.rd.value = getReg(getptrOp->res);
+                addInstr.rs1.type = OperandType::REG;
+                addInstr.rs1.value = base;
+                addInstr.rs2.type = OperandType::REG;
+                addInstr.rs2.value = mulInstr.rd.value;
+                currentBlock->instrs.push_back(addInstr);
+            }else{
+                ASMInstr addInstr;
+                addInstr.op = ASMOp::ADDI;
+                addInstr.rd.type = OperandType::REG;
+                addInstr.rd.value = getReg(getptrOp->res);
+                addInstr.rs1.type = OperandType::REG;
+                addInstr.rs1.value = base;
+                addInstr.imm.type = OperandType::IMM;
+                addInstr.imm.value = index * elemSize;
+                currentBlock->instrs.push_back(addInstr);
+            }
+        }else if(auto structType = std::dynamic_pointer_cast<IRStructType>(getptrOp->base->type)){
+            int offset = caculateStructOffset(structType, getptrOp->offset);
+            ASMInstr addInstr;
+            addInstr.op = ASMOp::ADDI;
+            addInstr.rd.type = OperandType::REG;
+            addInstr.rd.value = getReg(getptrOp->res);
+            addInstr.rs1.type = OperandType::REG;
+            addInstr.rs1.value = base;
+            addInstr.imm.type = OperandType::IMM;
+            addInstr.imm.value = offset;
+            currentBlock->instrs.push_back(addInstr);
+        }
+    }
 };
 }
