@@ -13,5 +13,8 @@ public:
     std::vector<ASMBlock> asmBlocks;
     
     Stack stack;
+    
+    CodegenFunction() = default;
+    CodegenFunction(std::shared_ptr<IRFunction> func) : irFunc(func) {}
 };
 }

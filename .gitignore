@@ -9,3 +9,5 @@ AGENTS.md
 test.ll
 simple
 a.out
+test_codegen.cpp
+test_codegen
