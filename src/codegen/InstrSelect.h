@@ -60,15 +60,19 @@ public:
     void select(std::shared_ptr<IRRoot> irRoot){
         regMap.clear();
         stackMap.clear();
+        asmBlocks.clear();
         for(auto &func: irRoot->children){
             if(auto *irFunc = dynamic_cast<IRFunction *>(func.get())){
-                asmBlocks.clear();
                 selectFunc(std::make_shared<IRFunction>(*irFunc));
             }
         }
     }
 
     void selectFunc(std::shared_ptr<IRFunction> irInstr){
+        // Reset function-local state
+        stackOffset = 0;
+        // nextReg = 32; // Optional: Reset virtual register counter if desired for per-function numbering
+
         std::shared_ptr<CodegenFunction> codegenFunc = std::make_shared<CodegenFunction>(irInstr);
         //asmBlocks.clear();
         currentFuncExitLabel = ".L" + irInstr->name + "_exit";
@@ -98,6 +102,10 @@ public:
         }
         //caculate stack size
         currentStackSize = stackOffset + 8;
+        // Make sure stack is 16-byte aligned
+        if (currentStackSize % 16 != 0) {
+            currentStackSize = ((currentStackSize / 16) + 1) * 16;
+        }
         //entry block!
         ASMInstr addiInstr;
         addiInstr.op = ASMOp::ADDI;
@@ -110,21 +118,21 @@ public:
         entryBlock->instrs.push_back(addiInstr);
         ASMInstr swRaInstr;
         swRaInstr.op = ASMOp::SW;
-        swRaInstr.rs1.type = OperandType::REG;
-        swRaInstr.rs1.value = 1; // ra
+        swRaInstr.rs2.type = OperandType::REG;
+        swRaInstr.rs2.value = 1; // ra - rs2 is source value
         swRaInstr.imm.type = OperandType::IMM;
         swRaInstr.imm.value = currentStackSize - 4;
-        swRaInstr.rs2.type = OperandType::REG;
-        swRaInstr.rs2.value = 2; // sp
+        swRaInstr.rs1.type = OperandType::REG;
+        swRaInstr.rs1.value = 2; // sp - rs1 is base address
         entryBlock->instrs.push_back(swRaInstr);
         ASMInstr s0Instr;
         s0Instr.op = ASMOp::SW;
-        s0Instr.rs1.type = OperandType::REG;
-        s0Instr.rs1.value = 8; // s0
+        s0Instr.rs2.type = OperandType::REG;
+        s0Instr.rs2.value = 8; // s0 - rs2 is source value
         s0Instr.imm.type = OperandType::IMM;
         s0Instr.imm.value = currentStackSize - 8;
-        s0Instr.rs2.type = OperandType::REG;
-        s0Instr.rs2.value = 2; // sp
+        s0Instr.rs1.type = OperandType::REG;
+        s0Instr.rs1.value = 2; // sp - rs1 is base address
         entryBlock->instrs.push_back(s0Instr);
         //exitBlock!
         std::shared_ptr<ASMBlock> exitBlock = std::make_shared<ASMBlock>(currentFuncExitLabel);
@@ -186,7 +194,6 @@ public:
     }
 
     void selectAlloca(std::shared_ptr<IRAlloca> allocaOp){
-        getReg(allocaOp);
         int offest = 0;
         if(allocaOp->allocatedType->size % 4 != 0){
             offest = ((allocaOp->allocatedType->size / 4) + 1) * 4;
@@ -194,6 +201,18 @@ public:
             offest = allocaOp->allocatedType->size;
         }
         stackMap[allocaOp->var] = stackOffset;
+        // generate address calculation instruction
+        // addi rd, sp, offset
+        ASMInstr addrInstr;
+        addrInstr.op = ASMOp::ADDI;
+        addrInstr.rd.type = OperandType::REG;
+        addrInstr.rd.value = getReg(allocaOp->var);
+        addrInstr.rs1.type = OperandType::REG;
+        addrInstr.rs1.value = 2; // sp
+        addrInstr.imm.type = OperandType::IMM;
+        addrInstr.imm.value = stackOffset;
+        currentBlock->instrs.push_back(addrInstr);
+
         stackOffset += offest;
     }
 
@@ -836,20 +855,24 @@ public:
             liInstr.rd.value = newReg();
             liInstr.imm.type = OperandType::IMM;
             liInstr.imm.value = storeOp->storeLiteral->intValue;
-            instr.rs1 = liInstr.rd;
+            
+            instr.rs2.type = OperandType::REG;      // rs2 is source value for SW
+            instr.rs2.value = liInstr.rd.value;
             instr.imm.type = OperandType::IMM;
             instr.imm.value = 0;
-            instr.rs2.type = OperandType::REG;
-            instr.rs2.value = getReg(storeOp->address);
+            instr.rs1.type = OperandType::REG;      // rs1 is base address for SW
+            instr.rs1.value = getReg(storeOp->address);
+            
             currentBlock->instrs.push_back(liInstr);
             currentBlock->instrs.push_back(instr);
         }else{
-            instr.rs1.type = OperandType::REG;
-            instr.rs1.value = getReg(storeOp->storeValue);
+            instr.rs2.type = OperandType::REG;      // rs2 is source value for SW
+            instr.rs2.value = getReg(storeOp->storeValue);
             instr.imm.type = OperandType::IMM;
             instr.imm.value = 0;
-            instr.rs2.type = OperandType::REG;
-            instr.rs2.value = getReg(storeOp->address);
+            instr.rs1.type = OperandType::REG;      // rs1 is base address for SW
+            instr.rs1.value = getReg(storeOp->address);
+            
             currentBlock->instrs.push_back(instr);
         }
     }
@@ -914,7 +937,11 @@ public:
     }
 
     void selectCall(std::shared_ptr<IRCall> callOp){
-        for(int i = 0;i < callOp->pList->paramList.size();i ++){
+        // Only handle first 8 arguments for now (naive implementation)
+        int paramCount = callOp->pList->paramList.size();
+        if (paramCount > 8) paramCount = 8; 
+
+        for(int i = 0; i < paramCount; i ++){
             Operand arg;
             arg.type = OperandType::REG;
             if(auto *imm = dynamic_cast<IRLiteral *>(callOp->pList->paramList[i].get())){
@@ -940,13 +967,16 @@ public:
         callInstr.op = ASMOp::CALL;
         callInstr.funcName = callOp->function->name;
         currentBlock->instrs.push_back(callInstr);
-        ASMInstr mvInstr;
-        mvInstr.op = ASMOp::MV;
-        mvInstr.rd.type = OperandType::REG;
-        mvInstr.rd.value = getReg(callOp->retVar);
-        mvInstr.rs1.type = OperandType::REG;
-        mvInstr.rs1.value = 10; // a0
-        currentBlock->instrs.push_back(mvInstr);
+        
+        if (callOp->retVar) { // Check if retVar is not null
+            ASMInstr mvInstr;
+            mvInstr.op = ASMOp::MV;
+            mvInstr.rd.type = OperandType::REG;
+            mvInstr.rd.value = getReg(callOp->retVar);
+            mvInstr.rs1.type = OperandType::REG;
+            mvInstr.rs1.value = 10; // a0
+            currentBlock->instrs.push_back(mvInstr);
+        }
     }
 
     int caculateStructOffset(std::shared_ptr<IRStructType> structType, int fieldIndex){
