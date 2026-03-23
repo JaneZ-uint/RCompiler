@@ -14,6 +14,8 @@
 # include "../ir/IRType.h"
 # include "../ir/IRParam.h"
 # include "../ir/IRGetptr.h"
+# include "../ir/IRAlloca.h"
+# include "../ir/IRRoot.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -37,6 +39,10 @@ public:
 
     int currentStackSize = 0;
 
+    int stackOffset = 0;
+
+    std::unordered_map<std::shared_ptr<IRNode>, int> stackMap;
+
     int getReg(std::shared_ptr<IRNode> irVal){
         if(regMap.find(irVal) != regMap.end()){
             return regMap[irVal];
@@ -51,12 +57,24 @@ public:
         return nextReg++;
     }
 
+    void select(std::shared_ptr<IRRoot> irRoot){
+        regMap.clear();
+        stackMap.clear();
+        for(auto &func: irRoot->children){
+            if(auto *irFunc = dynamic_cast<IRFunction *>(func.get())){
+                asmBlocks.clear();
+                selectFunc(std::make_shared<IRFunction>(*irFunc));
+            }
+        }
+    }
+
     void selectFunc(std::shared_ptr<IRFunction> irInstr){
         std::shared_ptr<CodegenFunction> codegenFunc = std::make_shared<CodegenFunction>(irInstr);
-        asmBlocks.clear();
+        //asmBlocks.clear();
         currentFuncExitLabel = ".L" + irInstr->name + "_exit";
         //entry block
         std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(irInstr->name);
+        currentBlock = entryBlock;
         asmBlocks.push_back(entryBlock);
         //wait for stack allocation
         regMap[irInstr] = exitblock++;
@@ -65,17 +83,21 @@ public:
         }
         currenctExitBlock = regMap[irInstr];
         if(irInstr->body){
+            currentBlock = std::make_shared<ASMBlock>();
             for(auto &instr: irInstr->body->instrList){
                 selectInstr(instr);
             }
+            asmBlocks.push_back(currentBlock);
             for(auto &block: irInstr->body->blockList){
+                currentBlock = std::make_shared<ASMBlock>();
                 for(auto &instr: block->instrList){
                     selectInstr(instr);
                 }
+                asmBlocks.push_back(currentBlock);
             }
         }
         //caculate stack size
-        currentStackSize = (nextReg - 32) * 4;
+        currentStackSize = stackOffset + 8;
         //entry block!
         ASMInstr addiInstr;
         addiInstr.op = ASMOp::ADDI;
@@ -156,9 +178,23 @@ public:
             selectCall(std::make_shared<IRCall>(*callOp));
         }else if(auto *getptrOp = dynamic_cast<IRGetptr *>(irInstr.get())){
             selectGetptr(std::make_shared<IRGetptr>(*getptrOp));
+        }else if(auto *allocaOp = dynamic_cast<IRAlloca *>(irInstr.get())){
+            selectAlloca(std::make_shared<IRAlloca>(*allocaOp));
         }else{
             // other instructions
         }
+    }
+
+    void selectAlloca(std::shared_ptr<IRAlloca> allocaOp){
+        getReg(allocaOp);
+        int offest = 0;
+        if(allocaOp->allocatedType->size % 4 != 0){
+            offest = ((allocaOp->allocatedType->size / 4) + 1) * 4;
+        }else{
+            offest = allocaOp->allocatedType->size;
+        }
+        stackMap[allocaOp->var] = stackOffset;
+        stackOffset += offest;
     }
 
     void selectBinaryOp(std::shared_ptr<IRBinaryop> binaryOp){
