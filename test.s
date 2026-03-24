@@ -1,4 +1,113 @@
     .text
+    .globl Food_better
+    .type Food_better, @function
+Food_better:
+    addi sp, sp, -112
+    sw ra, 108(sp)
+    sw s0, 104(sp)
+    addi s0, sp, 112
+    sw a0, 0(sp)
+    sw a1, 4(sp)
+    sw a2, 8(sp)
+    addi t0, sp, 12
+    sw t0, 12(sp)
+    lw t0, 12(sp)
+    lw t1, 0(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 16
+    sw t0, 16(sp)
+    lw t0, 16(sp)
+    lw t1, 4(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 20
+    sw t0, 20(sp)
+    lw t0, 20(sp)
+    lw t1, 8(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 0
+    sw t0, 24(sp)
+    lw t0, 24(sp)
+    lw t1, 0(t0)
+    sw t1, 28(sp)
+    lw t0, 4(sp)
+    addi t0, t0, 0
+    sw t0, 32(sp)
+    lw t0, 32(sp)
+    lw t1, 0(t0)
+    sw t1, 36(sp)
+    lw t0, 28(sp)
+    lw t1, 36(sp)
+    sub t2, t0, t1
+    seqz t2, t2
+    sw t2, 40(sp)
+    lw t0, 40(sp)
+    bnez t0, .L73
+    j .L96
+.L73:
+    lw t0, 0(sp)
+    addi t0, t0, 4
+    sw t0, 44(sp)
+    lw t0, 44(sp)
+    lw t1, 0(t0)
+    sw t1, 48(sp)
+    lw t0, 4(sp)
+    addi t0, t0, 4
+    sw t0, 52(sp)
+    lw t0, 52(sp)
+    lw t1, 0(t0)
+    sw t1, 56(sp)
+    lw t0, 48(sp)
+    lw t1, 56(sp)
+    slt t2, t0, t1
+    sw t2, 60(sp)
+    lw t0, 60(sp)
+    bnez t0, .L89
+    j .L92
+.L89:
+    lw a0, 64(sp)
+    j .L1
+.L92:
+    lw a0, 68(sp)
+    j .L1
+.L95:
+    j .L118
+.L96:
+    lw t0, 0(sp)
+    addi t0, t0, 0
+    sw t0, 72(sp)
+    lw t0, 72(sp)
+    lw t1, 0(t0)
+    sw t1, 76(sp)
+    lw t0, 4(sp)
+    addi t0, t0, 0
+    sw t0, 80(sp)
+    lw t0, 80(sp)
+    lw t1, 0(t0)
+    sw t1, 84(sp)
+    lw t0, 76(sp)
+    lw t1, 84(sp)
+    slt t2, t1, t0
+    sw t2, 88(sp)
+    lw t0, 88(sp)
+    bnez t0, .L111
+    j .L114
+.L111:
+    lw a0, 92(sp)
+    j .L1
+.L114:
+    lw a0, 96(sp)
+    j .L1
+.L117:
+    j .L118
+.L118:
+    li a0, 0
+    j .L1
+.L1:
+    lw ra, 108(sp)
+    lw s0, 104(sp)
+    addi sp, sp, 112
+    jr ra
     .globl new_segt
     .type new_segt, @function
 new_segt:
@@ -94,8 +203,8 @@ new_segt:
     lw t1, 0(t0)
     sw t1, 120(sp)
     lw a0, 120(sp)
-    j .L1
-.L1:
+    j .L2
+.L2:
     lw ra, 140(sp)
     lw s0, 136(sp)
     addi sp, sp, 144
@@ -146,7 +255,7 @@ build:
     j .L174
 .L172:
     li a0, 0
-    j .L2
+    j .L3
 .L174:
     lw t0, 28(sp)
     lw t1, 0(t0)
@@ -194,7 +303,7 @@ build:
     call new_segt
     sw a0, 96(sp)
     lw a0, 96(sp)
-    j .L2
+    j .L3
 .L221:
     lw t0, 28(sp)
     lw t1, 0(t0)
@@ -224,8 +333,8 @@ build:
     call new_segt
     sw a0, 128(sp)
     lw a0, 128(sp)
-    j .L2
-.L2:
+    j .L3
+.L3:
     lw ra, 140(sp)
     lw s0, 136(sp)
     addi sp, sp, 144
@@ -280,7 +389,7 @@ update:
     j .L254
 .L251:
     lw a0, 60(sp)
-    j .L3
+    j .L4
 .L254:
     addi t0, sp, 64
     sw t0, 68(sp)
@@ -359,7 +468,7 @@ update:
     j .L309
 .L306:
     lw a0, 140(sp)
-    j .L3
+    j .L4
 .L309:
     lw t0, 68(sp)
     lw t1, 0(t0)
@@ -405,7 +514,7 @@ update:
     lw t1, 180(sp)
     sw t1, 0(t0)
     lw a0, 184(sp)
-    j .L3
+    j .L4
 .L341:
     addi t0, sp, 188
     sw t0, 192(sp)
@@ -663,7 +772,7 @@ update:
     lw a0, 420(sp)
     lw a1, 0(sp)
     lw a2, 432(sp)
-    call lc_val
+    call SegT_lc_val
     sw a0, 432(sp)
     addi t0, sp, 436
     sw t0, 444(sp)
@@ -674,7 +783,7 @@ update:
     lw a0, 444(sp)
     lw a1, 456(sp)
     lw a2, 468(sp)
-    call better
+    call Food_better
     sw a0, 468(sp)
     j .L523
 .L523:
@@ -716,7 +825,7 @@ update:
     lw a0, 496(sp)
     lw a1, 0(sp)
     lw a2, 508(sp)
-    call rc_val
+    call SegT_rc_val
     sw a0, 508(sp)
     addi t0, sp, 512
     sw t0, 520(sp)
@@ -727,7 +836,7 @@ update:
     lw a0, 520(sp)
     lw a1, 532(sp)
     lw a2, 544(sp)
-    call better
+    call Food_better
     sw a0, 544(sp)
     j .L558
 .L558:
@@ -746,11 +855,105 @@ update:
     addi t0, sp, 560
     sw t0, 568(sp)
     lw a0, 572(sp)
-    j .L3
-.L3:
+    j .L4
+.L4:
     lw ra, 588(sp)
     lw s0, 584(sp)
     addi sp, sp, 592
+    jr ra
+    .globl SegT_lc_val
+    .type SegT_lc_val, @function
+SegT_lc_val:
+    addi sp, sp, -64
+    sw ra, 60(sp)
+    sw s0, 56(sp)
+    addi s0, sp, 64
+    sw a0, 0(sp)
+    sw a1, 4(sp)
+    sw a2, 8(sp)
+    addi t0, sp, 12
+    sw t0, 12(sp)
+    lw t0, 12(sp)
+    lw t1, 0(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 16
+    sw t0, 16(sp)
+    lw t0, 16(sp)
+    lw t1, 4(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 20
+    sw t0, 20(sp)
+    lw t0, 20(sp)
+    lw t1, 8(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 8
+    sw t0, 24(sp)
+    lw t0, 24(sp)
+    lw t1, 0(t0)
+    sw t1, 28(sp)
+    lw t0, 4(sp)
+    lw t1, 28(sp)
+    li t2, 24
+    mul t1, t1, t2
+    add t0, t0, t1
+    sw t0, 32(sp)
+    lw t0, 32(sp)
+    addi t0, t0, 16
+    sw t0, 36(sp)
+    lw a0, 40(sp)
+    j .L5
+.L5:
+    lw ra, 60(sp)
+    lw s0, 56(sp)
+    addi sp, sp, 64
+    jr ra
+    .globl SegT_rc_val
+    .type SegT_rc_val, @function
+SegT_rc_val:
+    addi sp, sp, -64
+    sw ra, 60(sp)
+    sw s0, 56(sp)
+    addi s0, sp, 64
+    sw a0, 0(sp)
+    sw a1, 4(sp)
+    sw a2, 8(sp)
+    addi t0, sp, 12
+    sw t0, 12(sp)
+    lw t0, 12(sp)
+    lw t1, 0(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 16
+    sw t0, 16(sp)
+    lw t0, 16(sp)
+    lw t1, 4(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 20
+    sw t0, 20(sp)
+    lw t0, 20(sp)
+    lw t1, 8(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 12
+    sw t0, 24(sp)
+    lw t0, 24(sp)
+    lw t1, 0(t0)
+    sw t1, 28(sp)
+    lw t0, 4(sp)
+    lw t1, 28(sp)
+    li t2, 24
+    mul t1, t1, t2
+    add t0, t0, t1
+    sw t0, 32(sp)
+    lw t0, 32(sp)
+    addi t0, t0, 16
+    sw t0, 36(sp)
+    lw a0, 40(sp)
+    j .L6
+.L6:
+    lw ra, 60(sp)
+    lw s0, 56(sp)
+    addi sp, sp, 64
     jr ra
     .globl merge
     .type merge, @function
@@ -799,7 +1002,7 @@ merge:
     lw t1, 0(t0)
     sw t1, 48(sp)
     lw a0, 48(sp)
-    j .L4
+    j .L7
 .L618:
     lw t0, 36(sp)
     lw t1, 0(t0)
@@ -817,7 +1020,7 @@ merge:
     lw t1, 0(t0)
     sw t1, 60(sp)
     lw a0, 60(sp)
-    j .L4
+    j .L7
 .L635:
     lw t0, 28(sp)
     lw t1, 0(t0)
@@ -905,7 +1108,7 @@ merge:
     lw t1, 0(t0)
     sw t1, 144(sp)
     lw a0, 144(sp)
-    j .L4
+    j .L7
 .L690:
     lw t0, 28(sp)
     lw t1, 0(t0)
@@ -1063,7 +1266,7 @@ merge:
     lw a0, 300(sp)
     lw a1, 0(sp)
     lw a2, 312(sp)
-    call lc_val
+    call SegT_lc_val
     sw a0, 312(sp)
     addi t0, sp, 316
     sw t0, 324(sp)
@@ -1074,7 +1277,7 @@ merge:
     lw a0, 324(sp)
     lw a1, 336(sp)
     lw a2, 348(sp)
-    call better
+    call Food_better
     sw a0, 348(sp)
     j .L796
 .L796:
@@ -1116,7 +1319,7 @@ merge:
     lw a0, 376(sp)
     lw a1, 0(sp)
     lw a2, 388(sp)
-    call rc_val
+    call SegT_rc_val
     sw a0, 388(sp)
     addi t0, sp, 392
     sw t0, 400(sp)
@@ -1127,7 +1330,7 @@ merge:
     lw a0, 400(sp)
     lw a1, 412(sp)
     lw a2, 424(sp)
-    call better
+    call Food_better
     sw a0, 424(sp)
     j .L831
 .L831:
@@ -1149,11 +1352,97 @@ merge:
     lw t1, 0(t0)
     sw t1, 452(sp)
     lw a0, 452(sp)
-    j .L4
-.L4:
+    j .L7
+.L7:
     lw ra, 460(sp)
     lw s0, 456(sp)
     addi sp, sp, 464
+    jr ra
+    .globl Node_push
+    .type Node_push, @function
+Node_push:
+    addi sp, sp, -64
+    sw ra, 60(sp)
+    sw s0, 56(sp)
+    addi s0, sp, 64
+    sw a0, 0(sp)
+    sw a1, 4(sp)
+    addi t0, sp, 8
+    sw t0, 8(sp)
+    lw t0, 8(sp)
+    lw t1, 0(sp)
+    sw t1, 0(t0)
+    addi t0, sp, 12
+    sw t0, 16(sp)
+    lw t0, 16(sp)
+    lw t1, 4(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 0
+    sw t0, 20(sp)
+    lw t0, 0(sp)
+    addi t0, t0, 804
+    sw t0, 24(sp)
+    lw t0, 24(sp)
+    lw t1, 0(t0)
+    sw t1, 28(sp)
+    lw t0, 20(sp)
+    lw t1, 28(sp)
+    li t2, 4
+    mul t1, t1, t2
+    add t0, t0, t1
+    sw t0, 32(sp)
+    lw t0, 16(sp)
+    lw t1, 0(t0)
+    sw t1, 36(sp)
+    lw t0, 32(sp)
+    lw t1, 36(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 804
+    sw t0, 40(sp)
+    lw t0, 40(sp)
+    lw t1, 0(t0)
+    sw t1, 44(sp)
+    lw t0, 44(sp)
+    li t1, 1
+    add t2, t0, t1
+    sw t2, 48(sp)
+    lw t0, 40(sp)
+    lw t1, 48(sp)
+    sw t1, 0(t0)
+    lw a0, 52(sp)
+    j .L8
+.L8:
+    lw ra, 60(sp)
+    lw s0, 56(sp)
+    addi sp, sp, 64
+    jr ra
+    .globl Node_clear
+    .type Node_clear, @function
+Node_clear:
+    addi sp, sp, -32
+    sw ra, 28(sp)
+    sw s0, 24(sp)
+    addi s0, sp, 32
+    sw a0, 0(sp)
+    addi t0, sp, 4
+    sw t0, 4(sp)
+    lw t0, 4(sp)
+    lw t1, 0(sp)
+    sw t1, 0(t0)
+    lw t0, 0(sp)
+    addi t0, t0, 804
+    sw t0, 8(sp)
+    lw t0, 8(sp)
+    li t1, 0
+    sw t1, 0(t0)
+    lw a0, 12(sp)
+    j .L9
+.L9:
+    lw ra, 28(sp)
+    lw s0, 24(sp)
+    addi sp, sp, 32
     jr ra
     .globl prepare
     .type prepare, @function
@@ -1484,8 +1773,8 @@ prepare:
     j .L1015
 .L1073:
     lw a0, 292(sp)
-    j .L5
-.L5:
+    j .L10
+.L10:
     lw ra, 300(sp)
     lw s0, 296(sp)
     addi sp, sp, 304
@@ -1721,7 +2010,7 @@ lca:
     lw t1, 0(t0)
     sw t1, 208(sp)
     lw a0, 208(sp)
-    j .L6
+    j .L11
 .L1227:
     lw t0, 92(sp)
     li t1, 10
@@ -1884,8 +2173,8 @@ lca:
     lw t1, 0(t0)
     sw t1, 344(sp)
     lw a0, 344(sp)
-    j .L6
-.L6:
+    j .L11
+.L11:
     lw ra, 364(sp)
     lw s0, 360(sp)
     addi sp, sp, 368
@@ -2141,8 +2430,8 @@ dfs:
     j .L1477
 .L1477:
     lw a0, 240(sp)
-    j .L7
-.L7:
+    j .L12
+.L12:
     lw ra, 252(sp)
     lw s0, 248(sp)
     addi sp, sp, 256
@@ -2758,7 +3047,7 @@ main:
     li t3, 445344
     add t3, t3, sp
     lw a0, 0(t3)
-    call clear
+    call Node_clear
     li t3, 445324
     add t3, t3, sp
     lw t0, 0(t3)
@@ -2929,7 +3218,7 @@ main:
     li t3, 445420
     add t3, t3, sp
     lw a1, 0(t3)
-    call push
+    call Node_push
     li t3, 445404
     add t3, t3, sp
     lw t0, 0(t3)
@@ -2962,7 +3251,7 @@ main:
     li t3, 445432
     add t3, t3, sp
     lw a1, 0(t3)
-    call push
+    call Node_push
     li t3, 445324
     add t3, t3, sp
     lw t0, 0(t3)
@@ -3518,6 +3807,10 @@ main:
     li t3, 445664
     add t3, t3, sp
     sw t1, 0(t3)
+    li t3, 445664
+    add t3, t3, sp
+    lw a0, 0(t3)
+    call print
     li t3, 445324
     add t3, t3, sp
     lw t0, 0(t3)
@@ -3543,8 +3836,10 @@ main:
     j .L1834
 .L1860:
     li a0, 0
-    j .L8
-.L8:
+    call __builtin_exit
+    li a0, 0
+    j .L13
+.L13:
     li t0, 445692
     add t0, t0, sp
     lw ra, 0(t0)

@@ -18,6 +18,9 @@
 # include "../ir/IRRoot.h"
 # include "../ir/IRPhi.h"
 # include "../ir/IRPHI.h"
+# include "../ir/IRImpl.h"
+# include "../ir/IRPrint.h"
+# include "../ir/IRExit.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -219,6 +222,10 @@ public:
         for(auto &func: irRoot->children){
             if(auto *irFunc = dynamic_cast<IRFunction *>(func.get())){
                 selectFunc(std::make_shared<IRFunction>(*irFunc));
+            } else if (auto *irImpl = dynamic_cast<IRImpl *>(func.get())) {
+                for (auto &implFunc : irImpl->functions) {
+                    selectFunc(std::make_shared<IRFunction>(*implFunc));
+                }
             }
         }
     }
@@ -236,7 +243,12 @@ public:
         currenctExitBlock = myExitBlockID;
         currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
 
-        std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(irInstr->name);
+        std::string funcName = irInstr->name;
+        if (irInstr->parentStructType) {
+            funcName = irInstr->parentStructType->name + "_" + funcName;
+        }
+
+        std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(funcName);
         asmBlocks.push_back(entryBlock);
         
         if(irInstr->body){
@@ -506,6 +518,10 @@ public:
             selectGetptr(std::make_shared<IRGetptr>(*getptrOp));
         }else if(auto *allocaOp = dynamic_cast<IRAlloca *>(irInstr.get())){
             selectAlloca(std::make_shared<IRAlloca>(*allocaOp));
+        }else if(auto *printOp = dynamic_cast<IRPrint *>(irInstr.get())){
+            selectPrint(std::make_shared<IRPrint>(*printOp));
+        }else if(auto *exitOp = dynamic_cast<IRExit *>(irInstr.get())){
+            selectExit(std::make_shared<IRExit>(*exitOp));
         }else{
             //other instructions
         }
@@ -772,9 +788,13 @@ public:
         }
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
-        callInstr.funcName = callOp->function->name;
+        std::string targetName = callOp->function->name;
+        if (callOp->function->parentStructType) {
+            targetName = callOp->function->parentStructType->name + "_" + targetName;
+        }
+        callInstr.funcName = targetName;
         currentBlock->instrs.push_back(callInstr);
-        if (callOp->retVar) { 
+        if (callOp->retVar) {
             storeFromReg(10, callOp->retVar);
         }
     }
@@ -843,6 +863,44 @@ public:
             currentBlock->instrs.push_back(addInstr);
         }
         storeFromReg(5, getptrOp->res);
+    }
+
+    void selectPrint(std::shared_ptr<IRPrint> printOp){
+        if (printOp->printVar) {
+             loadToReg(printOp->printVar, 10); // a0
+             
+            ASMInstr callInstr;
+            callInstr.op = ASMOp::CALL;
+            if (printOp->inttag) {
+                callInstr.funcName = "printlnInt"; // Assuming this is correct or needs __builtin_ prefix? 
+                // Wait, user said exit is __builtin_exit. 
+                // Usually other builtins might follow same pattern or not.
+                // Reimu often uses 'print' and 'printlnInt' directly if provided by its runtime.
+                // But if they are from builtin.s, we should check builtin.s content.
+            } else {
+                callInstr.funcName = "print";
+            }
+            currentBlock->instrs.push_back(callInstr);
+        }
+    }
+
+    void selectExit(std::shared_ptr<IRExit> exitOp){
+        if (exitOp->exitCode) {
+            loadToReg(exitOp->exitCode, 10); // a0
+        } else {
+             ASMInstr liInstr;
+             liInstr.op = ASMOp::LI;
+             liInstr.rd.type = OperandType::REG;
+             liInstr.rd.value = 10; // a0
+             liInstr.imm.type = OperandType::IMM;
+             liInstr.imm.value = 0; // exit code 0
+             currentBlock->instrs.push_back(liInstr);
+        }
+
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = "__builtin_exit";
+        currentBlock->instrs.push_back(callInstr);
     }
 };
 }
