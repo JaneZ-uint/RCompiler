@@ -479,6 +479,12 @@ public:
             addInstr.rs2 = Operand(OperandType::REG, tempReg);
             currentBlock->instrs.push_back(addInstr);
         }
+
+        //jr ra
+        ASMInstr jrRa;
+        jrRa.op = ASMOp::JR;
+        jrRa.rs1 = Operand(OperandType::REG, 1);
+        currentBlock->instrs.push_back(jrRa);
     }
 
     void selectInstr(std::shared_ptr<IRNode> instr){
