@@ -9,6 +9,7 @@
 #include "src/semantic/NameResolver.h"
 #include "src/semantic/checker.h"
 #include "src/semantic/ConstEvaluator.h"
+#include "src/codegen/codegen.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -41,26 +42,29 @@ int main(){
     JaneZ::Simplifier simplifier("../tmp.rx");
     std::string source_code = simplifier.work();
 
+    //lexer
     JaneZ::Lexer lexer(source_code);
     auto tokens = lexer.work();
 
+    //parser
     JaneZ::Parser parser(tokens);
     auto root = parser.parse();
     
-    // JaneZ::PrintVisitor print_visitor;
-    // print_visitor.visit(*root);
-
+    //semantic check
     JaneZ::GlobalScopeBuilder global_scope_builder;
     JaneZ::NameResolver name_resolver;
     JaneZ::Checker checker;
-    
     checker.semantic_check(global_scope_builder, name_resolver, *root);
-    
     JaneZ::ConstEvaluator const_evaluator;
     const_evaluator.visit(*root);
 
+    //IR generation
     JaneZ::CodeGenerator code_generator;
     code_generator.generateCode(*root);
+
+    //codegen
+    JaneZ::codegen cg;
+    cg.generate(code_generator.irRoot);
 
     std::cout.rdbuf(cout_buf);
     std::cerr.rdbuf(cerr_buf);
