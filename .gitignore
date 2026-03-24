@@ -6,8 +6,8 @@ RCompiler-Testcases
 Test.md
 plan.md
 AGENTS.md
+test_codegen.cpp
+test_codegen
 test.ll
 simple
 a.out
-test_codegen.cpp
-test_codegen

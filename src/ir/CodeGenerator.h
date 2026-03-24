@@ -41,17 +41,17 @@ public:
         std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
         std::cout << "declare void @printInt(i32)\n";
         irRoot = irBuilder.visit(root);
-        for(auto &func : irRoot->children) {
-            if(auto *p = dynamic_cast<IRFunction *>(& *func)){
-                for(auto &childStruct : p->structTypeList){
-                    codeGen(*childStruct);
-                }
-                for(auto &childFunc: p->funcList){
-                    codeGen(*childFunc);
-                }
-            }
-            codeGen(*func);
-        }
+        // for(auto &func : irRoot->children) {
+        //     if(auto *p = dynamic_cast<IRFunction *>(& *func)){
+        //         for(auto &childStruct : p->structTypeList){
+        //             codeGen(*childStruct);
+        //         }
+        //         for(auto &childFunc: p->funcList){
+        //             codeGen(*childFunc);
+        //         }
+        //     }
+        //     codeGen(*func);
+        // }
     }
 
     std::string print_value(std::shared_ptr<IRValue> value){

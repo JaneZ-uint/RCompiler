@@ -17,6 +17,7 @@
 # include "../ir/IRAlloca.h"
 # include "../ir/IRRoot.h"
 # include "../ir/IRPhi.h"
+# include "../ir/IRPHI.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -28,6 +29,8 @@ class InstrSelect {
 public:
     std::vector<ASMInstr> instrs;
     std::unordered_map<std::shared_ptr<IRNode>,int> regMap; // ir reg -> asm reg
+    std::unordered_map<std::shared_ptr<IRBlock>, std::shared_ptr<ASMBlock>> blockMap;
+    std::shared_ptr<IRBlock> currentIRBlock;
 
     int exitblock = 1;
     int currenctExitBlock = 1;
@@ -94,6 +97,56 @@ public:
         currentBlock->instrs.push_back(swInstr);
     }
 
+    void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
+        if (!targetBlock) {
+            return;
+        }
+        for (auto &instr : targetBlock->instrList) {
+            if (auto *phi = dynamic_cast<IRPhi *>(instr.get())) { //IRPhi 是有true false指示的
+                bool useImm = false;
+                int immVal = 0;
+                std::shared_ptr<IRNode> sourceNode = nullptr;
+                
+                if (phi->firstBlock == currentIRBlock) {
+                    useImm = true;
+                    immVal = phi->firstState ? 1 : 0;
+                } else if (phi->secondBlock == currentIRBlock) {
+                    sourceNode = phi->secondState;
+                } else {
+                    continue;
+                }
+                if (useImm) {
+                    ASMInstr liInstr;
+                    liInstr.op = ASMOp::LI;
+                    liInstr.rd.type = OperandType::REG; 
+                    liInstr.rd.value = 6; // t1
+                    liInstr.imm.type = OperandType::IMM; 
+                    liInstr.imm.value = immVal;
+                    currentBlock->instrs.push_back(liInstr);
+                } else if (sourceNode) {
+                    loadToReg(sourceNode, 6); // t1
+                }
+                storeFromReg(6, phi->result);
+
+            } else if (auto *phi = dynamic_cast<IRPHI *>(instr.get())) {  //IRPHI 是没有true false指示的，直接两个都是变量
+                std::shared_ptr<IRNode> sourceNode = nullptr;
+                if (phi->firstBlock == currentIRBlock) {
+                    sourceNode = phi->firstState;
+                } else if (phi->secondBlock == currentIRBlock) {
+                    sourceNode = phi->secondState;
+                } else {
+                    continue;
+                }
+                if (sourceNode) {
+                    loadToReg(sourceNode, 6); // t1
+                    storeFromReg(6, phi->result);
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
     // Deprecated: Reg allocation logic (kept for compatibility if needed, but unused in new scheme)
     int getRegInternal(std::shared_ptr<IRNode> irVal){
         if(regMap.find(irVal) != regMap.end()){
@@ -136,108 +189,109 @@ public:
     }
 
     void selectFunc(std::shared_ptr<IRFunction> irInstr){
-        // Reset function-local state
+        blockMap.clear();
         stackOffset = 0;
         varStackOffset.clear();
 
-        std::shared_ptr<CodegenFunction> codegenFunc = std::make_shared<CodegenFunction>(irInstr);
-        //asmBlocks.clear();
-        int myExitBlockID = exitblock++;
-        currenctExitBlock = myExitBlockID;
-        currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
-        //entry block
-        std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(irInstr->name);
-        currentBlock = entryBlock;
-        asmBlocks.push_back(entryBlock);
-        //wait for stack allocation
-        // regMap[irInstr] = exitblock++;
         for(auto &func: irInstr->funcList){
             selectFunc(func);
         }
+
+        int myExitBlockID = exitblock++;
         currenctExitBlock = myExitBlockID;
         currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
+
+        std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(irInstr->name);
+        asmBlocks.push_back(entryBlock);
+        
         if(irInstr->body){
-            currentBlock = std::make_shared<ASMBlock>();
+            blockMap[irInstr->body] = entryBlock;
+            for(auto &block: irInstr->body->blockList){
+                int id = getRegInternal(block);
+                std::shared_ptr<ASMBlock> ab = std::make_shared<ASMBlock>(".L" + std::to_string(id));
+                blockMap[block] = ab;
+                asmBlocks.push_back(ab);
+            }
+            currentBlock = entryBlock;
+            currentIRBlock = irInstr->body;
             for(auto &instr: irInstr->body->instrList){
                 selectInstr(instr);
             }
-            asmBlocks.push_back(currentBlock);
             for(auto &block: irInstr->body->blockList){
-                currentBlock = std::make_shared<ASMBlock>();
+                currentBlock = blockMap[block];
+                currentIRBlock = block;
                 for(auto &instr: block->instrList){
                     selectInstr(instr);
                 }
-                asmBlocks.push_back(currentBlock);
             }
         }
-        //caculate stack size
+        
         currentStackSize = stackOffset + 8;
-        // Make sure stack is 16-byte aligned
         if (currentStackSize % 16 != 0) {
             currentStackSize = ((currentStackSize / 16) + 1) * 16;
         }
-        //entry block!
+
+        std::vector<ASMInstr> prologue;
+        
         ASMInstr addiInstr;
         addiInstr.op = ASMOp::ADDI;
-        addiInstr.rd.type = OperandType::REG;
-        addiInstr.rd.value = 2; // sp
-        addiInstr.rs1.type = OperandType::REG;
-        addiInstr.rs1.value = 2; // sp
-        addiInstr.imm.type = OperandType::IMM;
-        addiInstr.imm.value = -currentStackSize;
-        entryBlock->instrs.push_back(addiInstr);
-        ASMInstr swRaInstr;
-        swRaInstr.op = ASMOp::SW;
-        swRaInstr.rs2.type = OperandType::REG;
-        swRaInstr.rs2.value = 1; // ra - rs2 is source value
-        swRaInstr.imm.type = OperandType::IMM;
-        swRaInstr.imm.value = currentStackSize - 4;
-        swRaInstr.rs1.type = OperandType::REG;
-        swRaInstr.rs1.value = 2; // sp - rs1 is base address
-        entryBlock->instrs.push_back(swRaInstr);
-        ASMInstr s0Instr;
-        s0Instr.op = ASMOp::SW;
-        s0Instr.rs2.type = OperandType::REG;
-        s0Instr.rs2.value = 8; // s0 - rs2 is source value
-        s0Instr.imm.type = OperandType::IMM;
-        s0Instr.imm.value = currentStackSize - 8;
-        s0Instr.rs1.type = OperandType::REG;
-        s0Instr.rs1.value = 2; // sp - rs1 is base address
-        entryBlock->instrs.push_back(s0Instr);
-        //exitBlock!
+        addiInstr.rd = Operand(OperandType::REG, 2);
+        addiInstr.rs1 = Operand(OperandType::REG, 2);
+        addiInstr.imm = Operand(OperandType::IMM, -currentStackSize);
+        prologue.push_back(addiInstr);
+
+        ASMInstr swRa;
+        swRa.op = ASMOp::SW;
+        swRa.rs2 = Operand(OperandType::REG, 1);
+        swRa.rs1 = Operand(OperandType::REG, 2);
+        swRa.imm = Operand(OperandType::IMM, currentStackSize - 4);
+        prologue.push_back(swRa);
+
+        ASMInstr swS0;
+        swS0.op = ASMOp::SW;
+        swS0.rs2 = Operand(OperandType::REG, 8);
+        swS0.rs1 = Operand(OperandType::REG, 2);
+        swS0.imm = Operand(OperandType::IMM, currentStackSize - 8);
+        prologue.push_back(swS0);
+
+        ASMInstr addiS0;
+        addiS0.op = ASMOp::ADDI;
+        addiS0.rd = Operand(OperandType::REG, 8);
+        addiS0.rs1 = Operand(OperandType::REG, 2);
+        addiS0.imm = Operand(OperandType::IMM, currentStackSize);
+        prologue.push_back(addiS0);
+
+        entryBlock->instrs.insert(entryBlock->instrs.begin(), prologue.begin(), prologue.end());
+
+        // Epilogue
         std::shared_ptr<ASMBlock> exitBlock = std::make_shared<ASMBlock>(currentFuncExitLabel);
-        ASMInstr lwRaInstr;
-        lwRaInstr.op = ASMOp::LW;
-        lwRaInstr.rs1.type = OperandType::REG;
-        lwRaInstr.rs1.value = 2; // sp
-        lwRaInstr.imm.type = OperandType::IMM;
-        lwRaInstr.imm.value = currentStackSize - 4;
-        lwRaInstr.rd.type = OperandType::REG;
-        lwRaInstr.rd.value = 1; // ra
-        exitBlock->instrs.push_back(lwRaInstr);
-        ASMInstr lwS0Instr;
-        lwS0Instr.op = ASMOp::LW;
-        lwS0Instr.rs1.type = OperandType::REG;
-        lwS0Instr.rs1.value = 2; // sp
-        lwS0Instr.imm.type = OperandType::IMM;
-        lwS0Instr.imm.value = currentStackSize - 8;
-        lwS0Instr.rd.type = OperandType::REG;
-        lwS0Instr.rd.value = 8; // s0
-        exitBlock->instrs.push_back(lwS0Instr);
-        ASMInstr addiSpInstr;
-        addiSpInstr.op = ASMOp::ADDI;
-        addiSpInstr.rd.type = OperandType::REG;
-        addiSpInstr.rd.value = 2; // sp
-        addiSpInstr.rs1.type = OperandType::REG;
-        addiSpInstr.rs1.value = 2; // sp
-        addiSpInstr.imm.type = OperandType::IMM;
-        addiSpInstr.imm.value = currentStackSize;
-        exitBlock->instrs.push_back(addiSpInstr);
-        ASMInstr jrInstr;
-        jrInstr.op = ASMOp::JR;
-        jrInstr.rs1.type = OperandType::REG;
-        jrInstr.rs1.value = 1; // ra
-        exitBlock->instrs.push_back(jrInstr);
+        
+        ASMInstr lwRa;
+        lwRa.op = ASMOp::LW;
+        lwRa.rd = Operand(OperandType::REG, 1);
+        lwRa.rs1 = Operand(OperandType::REG, 2);
+        lwRa.imm = Operand(OperandType::IMM, currentStackSize - 4);
+        exitBlock->instrs.push_back(lwRa);
+
+        ASMInstr lwS0;
+        lwS0.op = ASMOp::LW;
+        lwS0.rd = Operand(OperandType::REG, 8);
+        lwS0.rs1 = Operand(OperandType::REG, 2);
+        lwS0.imm = Operand(OperandType::IMM, currentStackSize - 8);
+        exitBlock->instrs.push_back(lwS0);
+
+        ASMInstr addiSp;
+        addiSp.op = ASMOp::ADDI;
+        addiSp.rd = Operand(OperandType::REG, 2);
+        addiSp.rs1 = Operand(OperandType::REG, 2);
+        addiSp.imm = Operand(OperandType::IMM, currentStackSize);
+        exitBlock->instrs.push_back(addiSp);
+
+        ASMInstr retInstr;
+        retInstr.op = ASMOp::JR;
+        retInstr.rs1 = Operand(OperandType::REG, 1); // ra
+        exitBlock->instrs.push_back(retInstr);
+
         asmBlocks.push_back(exitBlock);
     }
 
@@ -258,279 +312,268 @@ public:
             selectGetptr(std::make_shared<IRGetptr>(*getptrOp));
         }else if(auto *allocaOp = dynamic_cast<IRAlloca *>(irInstr.get())){
             selectAlloca(std::make_shared<IRAlloca>(*allocaOp));
-        }else if(auto *phiOp = dynamic_cast<IRPhi *>(irInstr.get())){
-            //TODO
         }else{
-            //
+            //other instructions
         }
     }
 
-        void selectAlloca(std::shared_ptr<IRAlloca> allocaOp){
-            int offest = 0;
-            if(allocaOp->allocatedType->size % 4 != 0){
-                offest = ((allocaOp->allocatedType->size / 4) + 1) * 4;
-            }else{
-                offest = allocaOp->allocatedType->size;
-            }
-            int dataOffset = stackOffset;
-            stackOffset += offest;
-            ASMInstr addrInstr;
-            addrInstr.op = ASMOp::ADDI;
-            addrInstr.rd.type = OperandType::REG;
-            addrInstr.rd.value = 5; // t0
-            addrInstr.rs1.type = OperandType::REG;
-            addrInstr.rs1.value = 2; // sp
-            addrInstr.imm.type = OperandType::IMM;
-            addrInstr.imm.value = dataOffset;
-            currentBlock->instrs.push_back(addrInstr);
-
-            //wait and see whether necessary
-            storeFromReg(5, allocaOp->var);
+    void selectAlloca(std::shared_ptr<IRAlloca> allocaOp){
+        int offest = 0;
+        if(allocaOp->allocatedType->size % 4 != 0){
+            offest = ((allocaOp->allocatedType->size / 4) + 1) * 4;
+        }else{
+            offest = allocaOp->allocatedType->size;
         }
+        int dataOffset = stackOffset;
+        stackOffset += offest;
+        ASMInstr addrInstr;
+        addrInstr.op = ASMOp::ADDI;
+        addrInstr.rd.type = OperandType::REG;
+        addrInstr.rd.value = 5; // t0
+        addrInstr.rs1.type = OperandType::REG;
+        addrInstr.rs1.value = 2; // sp
+        addrInstr.imm.type = OperandType::IMM;
+        addrInstr.imm.value = dataOffset;
+        currentBlock->instrs.push_back(addrInstr);
 
-        void selectBinaryOp(std::shared_ptr<IRBinaryop> binaryOp){
-            loadToReg(binaryOp->leftValue, 5); // t0
-            loadToReg(binaryOp->rightValue, 6); // t1
+        //wait and see whether necessary
+        storeFromReg(5, allocaOp->var);
+    }
 
-            ASMInstr instr;
-            instr.rd.type = OperandType::REG; 
-            instr.rd.value = 7; // t2
-            instr.rs1.type = OperandType::REG; 
-            instr.rs1.value = 5; // t0
-            instr.rs2.type = OperandType::REG; 
-            instr.rs2.value = 6; // t1
-            bool handled = true;
-            switch (binaryOp->op) {
-                case ADD: 
-                    instr.op = ASMOp::ADD; 
-                    break;
-                case SUB: 
-                    instr.op = ASMOp::SUB; 
-                    break;
-                case MUL: 
-                    instr.op = ASMOp::MUL; 
-                    break;
-                case DIV: 
-                    instr.op = ASMOp::DIV; 
-                    break;
-                case MOD: 
-                    instr.op = ASMOp::REM; 
-                    break;
-                case XOROP: 
-                    instr.op = ASMOp::XOR; 
-                    break;
-                case OROP: 
-                    instr.op = ASMOp::OR; 
-                    break;
-                case ANDOP: 
-                    instr.op = ASMOp::AND; 
-                    break;
-                case LEFTSHIFTOP: 
-                    instr.op = ASMOp::SLL; 
-                    break;
-                case RIGHTSHIFTOP: 
-                    instr.op = ASMOp::SRL; 
-                    break;
-                case LT: 
-                    instr.op = ASMOp::SLT; 
-                    break;
-                case GT: 
-                    instr.op = ASMOp::SLT;
-                    instr.rs1.value = 6; // t1
-                    instr.rs2.value = 5; // t0
-                    break;
-                case LEQ: 
-                    instr.op = ASMOp::SLE; 
-                    break;
-                case GEQ: 
-                    instr.op = ASMOp::SGE; 
-                    break;
-                case EQ:{
-                    ASMInstr subInstr;
-                    subInstr.op = ASMOp::SUB;
-                    subInstr.rd.type = OperandType::REG; 
-                    subInstr.rd.value = 7;
-                    subInstr.rs1.type = OperandType::REG; 
-                    subInstr.rs1.value = 5;
-                    subInstr.rs2.type = OperandType::REG; 
-                    subInstr.rs2.value = 6;
-                    currentBlock->instrs.push_back(subInstr);
-                    instr.op = ASMOp::SEQZ;
-                    instr.rs1.value = 7;
-                    instr.rs2.type = OperandType::IMM;
-                    break;
-                }
-                case NEQ:{
-                    ASMInstr subInstr;
-                    subInstr.op = ASMOp::SUB;
-                    subInstr.rd.type = OperandType::REG; subInstr.rd.value = 7;
-                    subInstr.rs1.type = OperandType::REG; subInstr.rs1.value = 5;
-                    subInstr.rs2.type = OperandType::REG; subInstr.rs2.value = 6;
-                    currentBlock->instrs.push_back(subInstr);
+    void selectBinaryOp(std::shared_ptr<IRBinaryop> binaryOp){
+        loadToReg(binaryOp->leftValue, 5); // t0
+        loadToReg(binaryOp->rightValue, 6); // t1
 
-                    instr.op = ASMOp::SNEZ;
-                    instr.rs1.value = 7;
-                    instr.rs2.type = OperandType::IMM;
-                    break;
-                }
-                default:
-                    handled = false;
-                    break;
+        ASMInstr instr;
+        instr.rd.type = OperandType::REG; 
+        instr.rd.value = 7; // t2
+        instr.rs1.type = OperandType::REG; 
+        instr.rs1.value = 5; // t0
+        instr.rs2.type = OperandType::REG; 
+        instr.rs2.value = 6; // t1
+        bool handled = true;
+        switch (binaryOp->op) {
+            case ADD: 
+                instr.op = ASMOp::ADD; 
+                break;
+            case SUB: 
+                instr.op = ASMOp::SUB; 
+                break;
+            case MUL: 
+                instr.op = ASMOp::MUL; 
+                break;
+            case DIV: 
+                instr.op = ASMOp::DIV; 
+                break;
+            case MOD: 
+                instr.op = ASMOp::REM; 
+                break;
+            case XOROP: 
+                instr.op = ASMOp::XOR; 
+                break;
+            case OROP: 
+                instr.op = ASMOp::OR; 
+                break;
+            case ANDOP: 
+                instr.op = ASMOp::AND; 
+                break;
+            case LEFTSHIFTOP: 
+                instr.op = ASMOp::SLL; 
+                break;
+            case RIGHTSHIFTOP: 
+                instr.op = ASMOp::SRL; 
+                break;
+            case LT: 
+                instr.op = ASMOp::SLT; 
+                break;
+            case GT: 
+                instr.op = ASMOp::SLT;
+                instr.rs1.value = 6; // t1
+                instr.rs2.value = 5; // t0
+                break;
+            case LEQ: 
+                instr.op = ASMOp::SLE; 
+                break;
+            case GEQ: 
+                instr.op = ASMOp::SGE; 
+                break;
+            case EQ:{
+                ASMInstr subInstr;
+                subInstr.op = ASMOp::SUB;
+                subInstr.rd.type = OperandType::REG; 
+                subInstr.rd.value = 7;
+                subInstr.rs1.type = OperandType::REG; 
+                subInstr.rs1.value = 5;
+                subInstr.rs2.type = OperandType::REG; 
+                subInstr.rs2.value = 6;
+                currentBlock->instrs.push_back(subInstr);
+                instr.op = ASMOp::SEQZ;
+                instr.rs1.value = 7;
+                instr.rs2.type = OperandType::IMM;
+                break;
             }
-            if (handled) {
-                currentBlock->instrs.push_back(instr);
-                storeFromReg(7, binaryOp->result);
-            }
-        }
-   
-        void selectStore(std::shared_ptr<IRStore> storeOp){
-            loadToReg(storeOp->address, 5); // t0 address
-            if(storeOp->storeLiteral){
-                ASMInstr liInstr;
-                liInstr.op = ASMOp::LI;
-                liInstr.rd.type = OperandType::REG; liInstr.rd.value = 6; // t1
-                liInstr.imm.type = OperandType::IMM; liInstr.imm.value = storeOp->storeLiteral->intValue;
-                currentBlock->instrs.push_back(liInstr);
-            } else {
-                loadToReg(storeOp->storeValue, 6); // t1 value
-            }
-            ASMInstr swInstr;
-            swInstr.op = ASMOp::SW;
-            swInstr.rs2.type = OperandType::REG; swInstr.rs2.value = 6; // t1 value
-            swInstr.rs1.type = OperandType::REG; swInstr.rs1.value = 5; // t0 base
-            swInstr.imm.type = OperandType::IMM; swInstr.imm.value = 0;
-            currentBlock->instrs.push_back(swInstr);
-        }
+            case NEQ:{
+                ASMInstr subInstr;
+                subInstr.op = ASMOp::SUB;
+                subInstr.rd.type = OperandType::REG; subInstr.rd.value = 7;
+                subInstr.rs1.type = OperandType::REG; subInstr.rs1.value = 5;
+                subInstr.rs2.type = OperandType::REG; subInstr.rs2.value = 6;
+                currentBlock->instrs.push_back(subInstr);
 
-        void selectLoad(std::shared_ptr<IRLoad> loadOp){
-            loadToReg(loadOp->addressVar, 5); // t0 address
-            ASMInstr lwInstr;
-            lwInstr.op = ASMOp::LW;
-            lwInstr.rd.type = OperandType::REG; 
-            lwInstr.rd.value = 6; // t1 dest
-            lwInstr.rs1.type = OperandType::REG; 
-            lwInstr.rs1.value = 5; // t0 base
-            lwInstr.imm.type = OperandType::IMM; 
-            lwInstr.imm.value = 0;
-            currentBlock->instrs.push_back(lwInstr);
-            storeFromReg(6, loadOp->tmp);
+                instr.op = ASMOp::SNEZ;
+                instr.rs1.value = 7;
+                instr.rs2.type = OperandType::IMM;
+                break;
+            }
+            default:
+                handled = false;
+                break;
         }
+        if (handled) {
+            currentBlock->instrs.push_back(instr);
+            storeFromReg(7, binaryOp->result);
+        }
+    }
 
-        void selectBr(std::shared_ptr<IRBr> brOp){
-            if (brOp->condition) {
-                loadToReg(brOp->condition, 5); // t0
-                ASMInstr brInstr;
-                brInstr.op = ASMOp::BNEZ;
-                brInstr.rs1.type = OperandType::REG;
-                brInstr.rs1.value = 5; // t0
-                brInstr.label.type = OperandType::LABEL;
-                brInstr.label.value = getRegInternal(brOp->trueLabel);
-                currentBlock->instrs.push_back(brInstr);
-                if(brOp->falseLabel){
-                    ASMInstr jInstr;
-                    jInstr.op = ASMOp::J;
-                    jInstr.label.type = OperandType::LABEL;
-                    jInstr.label.value = getRegInternal(brOp->falseLabel);
-                    currentBlock->instrs.push_back(jInstr);
-                }
-            }else {
+    void selectStore(std::shared_ptr<IRStore> storeOp){
+        loadToReg(storeOp->address, 5); // t0 address
+        if(storeOp->storeLiteral){
+            ASMInstr liInstr;
+            liInstr.op = ASMOp::LI;
+            liInstr.rd.type = OperandType::REG; liInstr.rd.value = 6; // t1
+            liInstr.imm.type = OperandType::IMM; liInstr.imm.value = storeOp->storeLiteral->intValue;
+            currentBlock->instrs.push_back(liInstr);
+        } else {
+            loadToReg(storeOp->storeValue, 6); // t1 value
+        }
+        ASMInstr swInstr;
+        swInstr.op = ASMOp::SW;
+        swInstr.rs2.type = OperandType::REG; swInstr.rs2.value = 6; // t1 value
+        swInstr.rs1.type = OperandType::REG; swInstr.rs1.value = 5; // t0 base
+        swInstr.imm.type = OperandType::IMM; swInstr.imm.value = 0;
+        currentBlock->instrs.push_back(swInstr);
+    }
+
+    void selectLoad(std::shared_ptr<IRLoad> loadOp){
+        loadToReg(loadOp->addressVar, 5); // t0 address
+        ASMInstr lwInstr;
+        lwInstr.op = ASMOp::LW;
+        lwInstr.rd.type = OperandType::REG; 
+        lwInstr.rd.value = 6; // t1 dest
+        lwInstr.rs1.type = OperandType::REG; 
+        lwInstr.rs1.value = 5; // t0 base
+        lwInstr.imm.type = OperandType::IMM; 
+        lwInstr.imm.value = 0;
+        currentBlock->instrs.push_back(lwInstr);
+        storeFromReg(6, loadOp->tmp);
+    }
+
+    void selectBr(std::shared_ptr<IRBr> brOp){
+        if (brOp->condition) {
+            handlePhiCopies(brOp->trueLabel);
+            loadToReg(brOp->condition, 5); // t0
+            ASMInstr brInstr;
+            brInstr.op = ASMOp::BNEZ;
+            brInstr.rs1.type = OperandType::REG;
+            brInstr.rs1.value = 5; // t0
+            brInstr.label.type = OperandType::LABEL;
+            brInstr.label.value = getRegInternal(brOp->trueLabel);
+            currentBlock->instrs.push_back(brInstr);
+            if(brOp->falseLabel){
+                handlePhiCopies(brOp->falseLabel);
                 ASMInstr jInstr;
                 jInstr.op = ASMOp::J;
                 jInstr.label.type = OperandType::LABEL;
-                jInstr.label.value = getRegInternal(brOp->trueLabel);
+                jInstr.label.value = getRegInternal(brOp->falseLabel);
                 currentBlock->instrs.push_back(jInstr);
             }
-        }
-
-        void selectReturn(std::shared_ptr<IRReturn> retOp){
-            if(retOp->returnLiteral){
-                ASMInstr liInstr;
-                liInstr.op = ASMOp::LI;
-                liInstr.rd.type = OperandType::REG;
-                liInstr.rd.value = 10; // a0
-                liInstr.imm.type = OperandType::IMM;
-                liInstr.imm.value = retOp->returnLiteral->intValue;
-                currentBlock->instrs.push_back(liInstr);
-            } else if(retOp->returnValue){
-                loadToReg(retOp->returnValue, 10);
-            }
+        } else {
+            handlePhiCopies(brOp->trueLabel);
             ASMInstr jInstr;
             jInstr.op = ASMOp::J;
             jInstr.label.type = OperandType::LABEL;
-            jInstr.label.value = currenctExitBlock;
+            jInstr.label.value = getRegInternal(brOp->trueLabel);
             currentBlock->instrs.push_back(jInstr);
         }
+    }
 
-        void selectCall(std::shared_ptr<IRCall> callOp){
-            int paramCount = callOp->pList->paramList.size();
-            if (paramCount > 8) {
-                paramCount = 8; 
-            }
-            for(int i = 0; i < paramCount; i ++){
-                loadToReg(callOp->pList->paramList[i], 10 + i);
-            }
-            ASMInstr callInstr;
-            callInstr.op = ASMOp::CALL;
-            callInstr.funcName = callOp->function->name;
-            currentBlock->instrs.push_back(callInstr);
-            if (callOp->retVar) { 
-                storeFromReg(10, callOp->retVar);
-            }
+    void selectReturn(std::shared_ptr<IRReturn> retOp){
+        if(retOp->returnLiteral){
+            ASMInstr liInstr;
+            liInstr.op = ASMOp::LI;
+            liInstr.rd.type = OperandType::REG;
+            liInstr.rd.value = 10; // a0
+            liInstr.imm.type = OperandType::IMM;
+            liInstr.imm.value = retOp->returnLiteral->intValue;
+            currentBlock->instrs.push_back(liInstr);
+        } else if(retOp->returnValue){
+            loadToReg(retOp->returnValue, 10);
         }
+        ASMInstr jInstr;
+        jInstr.op = ASMOp::J;
+        jInstr.label.type = OperandType::LABEL;
+        jInstr.label.value = currenctExitBlock;
+        currentBlock->instrs.push_back(jInstr);
+    }
 
-        int caculateStructOffset(std::shared_ptr<IRStructType> structType, int fieldIndex){
-            int offset = 0;
-            for(int i = 0;i < fieldIndex;i ++){
-                offset += structType->memberTypes[i].second->size;
-            }
-            return offset;
+    void selectCall(std::shared_ptr<IRCall> callOp){
+        int paramCount = callOp->pList->paramList.size();
+        if (paramCount > 8) {
+            paramCount = 8; 
         }
+        for(int i = 0; i < paramCount; i ++){
+            loadToReg(callOp->pList->paramList[i], 10 + i);
+        }
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = callOp->function->name;
+        currentBlock->instrs.push_back(callInstr);
+        if (callOp->retVar) { 
+            storeFromReg(10, callOp->retVar);
+        }
+    }
 
-        void selectGetptr(std::shared_ptr<IRGetptr> getptrOp){
-            loadToReg(getptrOp->base, 5); // t0 base
-            if(auto array = std::dynamic_pointer_cast<IRArrayType>(getptrOp->base->type)){
-                int elemSize = array->elementType->size;
-                int index = getptrOp->offset;
-                if(getptrOp->index){
-                    loadToReg(getptrOp->index, 6); // t1 index
-                    ASMInstr liInstr;
-                    liInstr.op = ASMOp::LI;
-                    liInstr.rd.type = OperandType::REG; 
-                    liInstr.rd.value = 7; // t2 size
-                    liInstr.imm.type = OperandType::IMM; 
-                    liInstr.imm.value = elemSize;
-                    currentBlock->instrs.push_back(liInstr);
-                    ASMInstr mulInstr;
-                    mulInstr.op = ASMOp::MUL;
-                    mulInstr.rd.type = OperandType::REG; 
-                    mulInstr.rd.value = 6; // t1 = index * size
-                    mulInstr.rs1.type = OperandType::REG; 
-                    mulInstr.rs1.value = 6;
-                    mulInstr.rs2.type = OperandType::REG; 
-                    mulInstr.rs2.value = 7;
-                    currentBlock->instrs.push_back(mulInstr);
-                    ASMInstr addInstr;
-                    addInstr.op = ASMOp::ADD;
-                    addInstr.rd.type = OperandType::REG; 
-                    addInstr.rd.value = 5; // t0 = base + offset
-                    addInstr.rs1.type = OperandType::REG; 
-                    addInstr.rs1.value = 5;
-                    addInstr.rs2.type = OperandType::REG; 
-                    addInstr.rs2.value = 6;
-                    currentBlock->instrs.push_back(addInstr);
-                }else{
-                    ASMInstr addInstr;
-                    addInstr.op = ASMOp::ADDI;
-                    addInstr.rd.type = OperandType::REG; 
-                    addInstr.rd.value = 5; // t0
-                    addInstr.rs1.type = OperandType::REG; 
-                    addInstr.rs1.value = 5;
-                    addInstr.imm.type = OperandType::IMM; 
-                    addInstr.imm.value = index * elemSize;
-                    currentBlock->instrs.push_back(addInstr);
-                }
-            }else if(auto structType = std::dynamic_pointer_cast<IRStructType>(getptrOp->base->type)){
-                int offset = caculateStructOffset(structType, getptrOp->offset);
+    int caculateStructOffset(std::shared_ptr<IRStructType> structType, int fieldIndex){
+        int offset = 0;
+        for(int i = 0;i < fieldIndex;i ++){
+            offset += structType->memberTypes[i].second->size;
+        }
+        return offset;
+    }
+
+    void selectGetptr(std::shared_ptr<IRGetptr> getptrOp){
+        loadToReg(getptrOp->base, 5); // t0 base
+        if(auto array = std::dynamic_pointer_cast<IRArrayType>(getptrOp->base->type)){
+            int elemSize = array->elementType->size;
+            int index = getptrOp->offset;
+            if(getptrOp->index){
+                loadToReg(getptrOp->index, 6); // t1 index
+                ASMInstr liInstr;
+                liInstr.op = ASMOp::LI;
+                liInstr.rd.type = OperandType::REG; 
+                liInstr.rd.value = 7; // t2 size
+                liInstr.imm.type = OperandType::IMM; 
+                liInstr.imm.value = elemSize;
+                currentBlock->instrs.push_back(liInstr);
+                ASMInstr mulInstr;
+                mulInstr.op = ASMOp::MUL;
+                mulInstr.rd.type = OperandType::REG; 
+                mulInstr.rd.value = 6; // t1 = index * size
+                mulInstr.rs1.type = OperandType::REG; 
+                mulInstr.rs1.value = 6;
+                mulInstr.rs2.type = OperandType::REG; 
+                mulInstr.rs2.value = 7;
+                currentBlock->instrs.push_back(mulInstr);
+                ASMInstr addInstr;
+                addInstr.op = ASMOp::ADD;
+                addInstr.rd.type = OperandType::REG; 
+                addInstr.rd.value = 5; // t0 = base + offset
+                addInstr.rs1.type = OperandType::REG; 
+                addInstr.rs1.value = 5;
+                addInstr.rs2.type = OperandType::REG; 
+                addInstr.rs2.value = 6;
+                currentBlock->instrs.push_back(addInstr);
+            }else{
                 ASMInstr addInstr;
                 addInstr.op = ASMOp::ADDI;
                 addInstr.rd.type = OperandType::REG; 
@@ -538,10 +581,22 @@ public:
                 addInstr.rs1.type = OperandType::REG; 
                 addInstr.rs1.value = 5;
                 addInstr.imm.type = OperandType::IMM; 
-                addInstr.imm.value = offset;
+                addInstr.imm.value = index * elemSize;
                 currentBlock->instrs.push_back(addInstr);
             }
-            storeFromReg(5, getptrOp->res);
+        }else if(auto structType = std::dynamic_pointer_cast<IRStructType>(getptrOp->base->type)){
+            int offset = caculateStructOffset(structType, getptrOp->offset);
+            ASMInstr addInstr;
+            addInstr.op = ASMOp::ADDI;
+            addInstr.rd.type = OperandType::REG; 
+            addInstr.rd.value = 5; // t0
+            addInstr.rs1.type = OperandType::REG; 
+            addInstr.rs1.value = 5;
+            addInstr.imm.type = OperandType::IMM; 
+            addInstr.imm.value = offset;
+            currentBlock->instrs.push_back(addInstr);
         }
+        storeFromReg(5, getptrOp->res);
+    }
 };
 }
