@@ -34,13 +34,13 @@ public:
     std::shared_ptr<IRRoot> irRoot;
 
     void generateCode(ASTRootNode &root) {
-        std::cout << "declare void @__builtin_exit(i32)\n";
-        std::cout << "declare void @printlnInt(i32)\n";
-        std::cout << "declare void @memset(ptr, i8, i32)\n";
-        std::cout << "declare i32 @getInt()\n";
-        std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
-        std::cout << "declare void @printInt(i32)\n";
         irRoot = irBuilder.visit(root);
+        // std::cout << "declare void @__builtin_exit(i32)\n";
+        // std::cout << "declare void @printlnInt(i32)\n";
+        // std::cout << "declare void @memset(ptr, i8, i32)\n";
+        // std::cout << "declare i32 @getInt()\n";
+        // std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
+        // std::cout << "declare void @printInt(i32)\n";
         // for(auto &func : irRoot->children) {
         //     if(auto *p = dynamic_cast<IRFunction *>(& *func)){
         //         for(auto &childStruct : p->structTypeList){

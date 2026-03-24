@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 
 long long int ir_cnt = 0;
 int main(){
-    std::ofstream out("../test.ll");
+    std::ofstream out("test.s");
     if (!out.is_open()) {
         std::cerr << "Failed to open log file\n";
         return 1;
@@ -39,7 +39,7 @@ int main(){
     // 3. 重定向
     std::cout.rdbuf(out.rdbuf());
     std::cerr.rdbuf(out.rdbuf());
-    JaneZ::Simplifier simplifier("../tmp.rx");
+    JaneZ::Simplifier simplifier("tmp.rx");
     std::string source_code = simplifier.work();
 
     //lexer
