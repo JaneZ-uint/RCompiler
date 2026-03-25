@@ -26,19 +26,19 @@ namespace fs = std::filesystem;
 
 long long int ir_cnt = 0;
 int main(){
-    /*std::ofstream out("test.s");
+    std::ofstream out("../test.s");
     if (!out.is_open()) {
         std::cerr << "Failed to open log file\n";
         return 1;
-    }*/
+    }
 
     // 2. 备份原来的 streambuf
-    // auto *cout_buf = std::cout.rdbuf();
-    // auto *cerr_buf = std::cerr.rdbuf();
+    auto *cout_buf = std::cout.rdbuf();
+    auto *cerr_buf = std::cerr.rdbuf();
 
     // 3. 重定向
-    // std::cout.rdbuf(out.rdbuf());
-    // std::cerr.rdbuf(out.rdbuf());
+    std::cout.rdbuf(out.rdbuf());
+    std::cerr.rdbuf(out.rdbuf());
     JaneZ::Simplifier simplifier("../tmp.rx");
     std::string source_code = simplifier.work();
 
@@ -66,6 +66,6 @@ int main(){
     JaneZ::codegen cg;
     cg.generate(code_generator.irRoot);
 
-    // std::cout.rdbuf(cout_buf);
-    // std::cerr.rdbuf(cerr_buf);
+    std::cout.rdbuf(cout_buf);
+    std::cerr.rdbuf(cerr_buf);
 }

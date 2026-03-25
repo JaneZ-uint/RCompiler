@@ -42,15 +42,15 @@ public:
         // std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
         // std::cout << "declare void @printInt(i32)\n";
         // for(auto &func : irRoot->children) {
-        //     if(auto *p = dynamic_cast<IRFunction *>(& *func)){
-        //         for(auto &childStruct : p->structTypeList){
-        //             codeGen(*childStruct);
-        //         }
-        //         for(auto &childFunc: p->funcList){
-        //             codeGen(*childFunc);
-        //         }
-        //     }
-        //     codeGen(*func);
+            // if(auto *p = dynamic_cast<IRFunction *>(& *func)){
+                // for(auto &childStruct : p->structTypeList){
+                    // codeGen(*childStruct);
+                // }
+                // for(auto &childFunc: p->funcList){
+                    // codeGen(*childFunc);
+                // }
+            // }
+            // codeGen(*func);
         // }
     }
 

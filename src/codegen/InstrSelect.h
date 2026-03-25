@@ -21,6 +21,8 @@
 # include "../ir/IRImpl.h"
 # include "../ir/IRPrint.h"
 # include "../ir/IRExit.h"
+# include "../ir/IRGetint.h"
+# include "../ir/IRMem.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -258,12 +260,32 @@ public:
             }
 
             for(auto &instr: irInstr->body->instrList){
+                if(auto allocaOp = std::dynamic_pointer_cast<IRAlloca>(instr)){
+                    selectAlloca(allocaOp);
+                }
+            }
+
+            for(auto &block: irInstr->body->blockList){
+                for(auto &instr: block->instrList){
+                    if(auto allocaOp = std::dynamic_pointer_cast<IRAlloca>(instr)){
+                        selectAlloca(allocaOp);
+                    }
+                }
+             }
+
+            for(auto &instr: irInstr->body->instrList){
+                if(auto allocaOp = std::dynamic_pointer_cast<IRAlloca>(instr)){
+                    continue;
+                }
                 selectInstr(instr);
             }
             for(auto &block: irInstr->body->blockList){
                 currentBlock = blockMap[block];
                 currentIRBlock = block;
                 for(auto &instr: block->instrList){
+                    if(auto allocaOp = std::dynamic_pointer_cast<IRAlloca>(instr)){
+                        continue;
+                    }
                     selectInstr(instr);
                 }
             }
@@ -508,6 +530,12 @@ public:
             selectPrint(printOp);
         } else if(auto exitOp = std::dynamic_pointer_cast<IRExit>(instr)){
             selectExit(exitOp);
+        } else if(auto getintOp = std::dynamic_pointer_cast<IRGetint>(instr)){
+            selectGetint(getintOp);
+        } else if(auto memOp = std::dynamic_pointer_cast<IRMemcpy>(instr)){
+            selectMemcpy(memOp);
+        } else if(auto memSet = std::dynamic_pointer_cast<IRMemset>(instr)){
+            selectMemset(memSet);
         }
     }
 
@@ -838,9 +866,9 @@ public:
             ASMInstr callInstr;
             callInstr.op = ASMOp::CALL;
             if (printOp->inttag) {
-                callInstr.funcName = "printlnInt";
+                callInstr.funcName = "printInt";
             } else {
-                callInstr.funcName = "print";
+                callInstr.funcName = "printlnInt";
             }
             currentBlock->instrs.push_back(callInstr);
         }
@@ -862,6 +890,36 @@ public:
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
         callInstr.funcName = "__builtin_exit";
+        currentBlock->instrs.push_back(callInstr);
+    }
+
+    void selectGetint(std::shared_ptr<IRGetint> getintOp){
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = "getInt";
+        currentBlock->instrs.push_back(callInstr);
+        storeFromReg(10, getintOp->result);
+    }
+
+    void selectMemcpy(std::shared_ptr<IRMemcpy> memcpyOp){
+        loadToReg(memcpyOp->dest, 5);
+        loadToReg(memcpyOp->value, 6); 
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memcpyOp->size), 7); // t2 = size
+
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = "memcpy";
+        currentBlock->instrs.push_back(callInstr);
+    }
+
+    void selectMemset(std::shared_ptr<IRMemset> memsetOp){
+        loadToReg(memsetOp->dest, 5);
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->value), 6); 
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->size), 7); // t2 = size
+
+        ASMInstr callInstr;
+        callInstr.op = ASMOp::CALL;
+        callInstr.funcName = "memset";
         currentBlock->instrs.push_back(callInstr);
     }
 };
