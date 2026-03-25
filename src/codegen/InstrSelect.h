@@ -676,7 +676,7 @@ public:
 
     void selectLoad(std::shared_ptr<IRLoad> loadOp){
         loadToReg(loadOp->addressVar, 5); // t0 = address
-        // lw t0, 0(t0)
+        //lw t0, 0(t0)
         ASMInstr lwInstr;
         lwInstr.op = ASMOp::LW;
         lwInstr.rd = Operand(OperandType::REG, 5);
@@ -902,9 +902,9 @@ public:
     }
 
     void selectMemcpy(std::shared_ptr<IRMemcpy> memcpyOp){
-        loadToReg(memcpyOp->dest, 5);
-        loadToReg(memcpyOp->value, 6); 
-        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memcpyOp->size), 7); // t2 = size
+        loadToReg(memcpyOp->dest, 10);
+        loadToReg(memcpyOp->value, 11); 
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memcpyOp->size), 12); // t2 = size
 
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
@@ -913,9 +913,9 @@ public:
     }
 
     void selectMemset(std::shared_ptr<IRMemset> memsetOp){
-        loadToReg(memsetOp->dest, 5);
-        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->value), 6); 
-        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->size), 7); // t2 = size
+        loadToReg(memsetOp->dest, 10);
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->value), 11); 
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->size), 12); // t2 = size
 
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;

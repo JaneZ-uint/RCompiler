@@ -34,7 +34,7 @@ class IRIntType : public IRType {
 public:
     int bitWidth;
 
-    IRIntType(int bw) : IRType(BaseType::INT,bw/8), bitWidth(bw) {}
+    IRIntType(int bw) : IRType(BaseType::INT,4), bitWidth(bw) {}
     ~IRIntType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   
