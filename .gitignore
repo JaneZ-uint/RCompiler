@@ -12,3 +12,9 @@ test.ll
 simple
 a.out
 REIMU
+test.s
+test.ll
+builtin.ll
+run_one.sh
+test.in
+test.out
