@@ -23,6 +23,9 @@
 # include "../ir/IRExit.h"
 # include "../ir/IRGetint.h"
 # include "../ir/IRMem.h"
+# include "../ir/IRTrunc.h"
+# include "../ir/IRZext.h"
+# include "../ir/IRSext.h"
 # include "CodegenFunction.h"
 #include <memory>
 #include <vector>
@@ -536,6 +539,12 @@ public:
             selectMemcpy(memOp);
         } else if(auto memSet = std::dynamic_pointer_cast<IRMemset>(instr)){
             selectMemset(memSet);
+        }else if(auto truncOp = std::dynamic_pointer_cast<IRTrunc>(instr)){
+            selectTrunc(truncOp);
+        }else if(auto zextOp = std::dynamic_pointer_cast<IRZext>(instr)){
+            selectZext(zextOp);
+        }else if(auto sextOp = std::dynamic_pointer_cast<IRSext>(instr)){
+            selectSext(sextOp);
         }
     }
 
@@ -921,6 +930,21 @@ public:
         callInstr.op = ASMOp::CALL;
         callInstr.funcName = "memset";
         currentBlock->instrs.push_back(callInstr);
+    }
+
+    void selectTrunc(std::shared_ptr<IRTrunc> truncOp){
+        loadToReg(truncOp->value, 5); 
+        storeFromReg(5, truncOp->result);
+    }
+
+    void selectZext(std::shared_ptr<IRZext> zextOp){
+        loadToReg(zextOp->value, 5); 
+        storeFromReg(5, zextOp->result);
+    }
+
+    void selectSext(std::shared_ptr<IRSext> sextOp){
+        loadToReg(sextOp->value, 5); 
+        storeFromReg(5, sextOp->result);
     }
 };
 }
