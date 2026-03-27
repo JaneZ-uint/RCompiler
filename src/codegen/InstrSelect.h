@@ -419,6 +419,26 @@ public:
         currentBlock = exitBlock;
         asmBlocks.push_back(exitBlock);
 
+        if(auto retType = std::dynamic_pointer_cast<IRStructType>(irInstr->retType)){
+            //lw to a0
+            auto lastParam = irInstr->paramList->paramList.back();
+            loadToReg(lastParam, 5); // t0
+            ASMInstr mvA0;
+            mvA0.op = ASMOp::MV;
+            mvA0.rd = Operand(OperandType::REG, 10); // a0
+            mvA0.rs1 = Operand(OperandType::REG, 5); // t0
+            currentBlock->instrs.push_back(mvA0);
+        }else if(auto retType = std::dynamic_pointer_cast<IRArrayType>(irInstr->retType)){
+            //lw to a0
+            auto lastParam = irInstr->paramList->paramList.back();
+            loadToReg(lastParam, 5); // t0
+            ASMInstr mvA0;
+            mvA0.op = ASMOp::MV;
+            mvA0.rd = Operand(OperandType::REG, 10); // a0
+            mvA0.rs1 = Operand(OperandType::REG, 5); // t0
+            currentBlock->instrs.push_back(mvA0);
+        }
+
         // lw ra, offset(sp)
         if (raOffset >= -2048 and raOffset <= 2047) {
             ASMInstr lwRa;
@@ -913,7 +933,7 @@ public:
     void selectMemcpy(std::shared_ptr<IRMemcpy> memcpyOp){
         loadToReg(memcpyOp->dest, 10);
         loadToReg(memcpyOp->value, 11); 
-        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memcpyOp->size), 12); // t2 = size
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memcpyOp->size), 12);
 
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
@@ -924,7 +944,7 @@ public:
     void selectMemset(std::shared_ptr<IRMemset> memsetOp){
         loadToReg(memsetOp->dest, 10);
         loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->value), 11); 
-        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->size), 12); // t2 = size
+        loadToReg(std::make_shared<IRLiteral>(INT_LITERAL,memsetOp->size), 12);
 
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
