@@ -581,8 +581,20 @@ public:
             case IROp::ADD: instr.op = ASMOp::ADD; break;
             case IROp::SUB: instr.op = ASMOp::SUB; break;
             case IROp::MUL: instr.op = ASMOp::MUL; break;
-            case IROp::DIV: instr.op = ASMOp::DIV; break;
-            case IROp::MOD: instr.op = ASMOp::REM; break;
+            case IROp::DIV: {
+                instr.op = ASMOp::DIV;
+                if(binaryOp->utag){
+                    instr.op = ASMOp::DIVU;
+                }
+                break;
+            }
+            case IROp::MOD: {
+                instr.op = ASMOp::REM; 
+                if(binaryOp->utag){
+                    instr.op = ASMOp::REMU;
+                }
+                break;
+            }
             case IROp::LT:  instr.op = ASMOp::SLT; break;
             case IROp::GT:
                 // a > b  <=>  b < a

@@ -65,7 +65,9 @@ private:
             case ASMOp::SUB:  std::cout << "sub"; break;
             case ASMOp::MUL:  std::cout << "mul"; break;
             case ASMOp::DIV:  std::cout << "div"; break;
+            case ASMOp::DIVU: std::cout << "divu"; break;
             case ASMOp::REM:  std::cout << "rem"; break;
+            case ASMOp::REMU: std::cout << "remu"; break;
             
             case ASMOp::AND:  std::cout << "and"; break;
             case ASMOp::OR:   std::cout << "or"; break;

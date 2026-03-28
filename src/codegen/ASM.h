@@ -12,7 +12,7 @@ enum class OperandType{
 
 struct Operand{
     OperandType type;
-    int value;
+    long long int value;
 
     Operand() : type(OperandType::IMM), value(0) {}
     Operand(OperandType type, int value) : type(type), value(value) {}
@@ -31,7 +31,9 @@ enum class ASMOp{
     SLTU,
     MUL,
     DIV,
+    DIVU,
     REM,
+    REMU,
     ADDI,
     ANDI,
     ORI,
