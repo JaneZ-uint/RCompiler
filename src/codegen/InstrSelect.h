@@ -62,7 +62,7 @@ public:
     }
 
     // Load value from stack (or immediate) into a physical register
-    void loadToReg(std::shared_ptr<IRNode> val, int physReg) {
+    void loadToReg(std::shared_ptr<IRNode> val, int physReg,bool tag = false,int newOffest = 0) {
         if (auto *lit = dynamic_cast<IRLiteral *>(val.get())) {
             ASMInstr liInstr;
             liInstr.op = ASMOp::LI;
@@ -73,6 +73,9 @@ public:
             currentBlock->instrs.push_back(liInstr);
         } else {
             int offset = getStackSlot(val);
+            if(tag){
+                offset += newOffest;
+            }
             if (offset >= -2048 and offset <= 2047) {
                 ASMInstr lwInstr;
                 lwInstr.op = ASMOp::LW;
@@ -259,6 +262,18 @@ public:
             for(int i = 0; i < argCount; i++){
                 if(i < 8){
                     storeFromReg(10 + i, irInstr->paramList->paramList[i]);
+                }else{
+                    int stackParamOffset = (i - 8) * 4;
+                    ASMInstr lwInstr;
+                    lwInstr.op = ASMOp::LW;
+                    lwInstr.rd.type = OperandType::REG;
+                    lwInstr.rd.value = 5;
+                    lwInstr.rs1.type = OperandType::REG;
+                    lwInstr.rs1.value = 8; 
+                    lwInstr.imm.type = OperandType::IMM;
+                    lwInstr.imm.value = stackParamOffset;
+                    currentBlock->instrs.push_back(lwInstr);
+                    storeFromReg(5, irInstr->paramList->paramList[i]);
                 }
             }
 
@@ -880,13 +895,33 @@ public:
     }
 
     void selectCall(std::shared_ptr<IRCall> callOp){
-        int paramCount = callOp->pList->paramList.size();
-        if (paramCount > 8) {
-            paramCount = 8; 
-        }
-        for(int i = 0; i < paramCount; i ++){
+        int totalParamCount = callOp->pList->paramList.size();
+
+        int regParamCount = totalParamCount > 8 ? 8 : totalParamCount;
+        for(int i = 0; i < regParamCount; i++){
             loadToReg(callOp->pList->paramList[i], 10 + i);
         }
+        
+        if (totalParamCount > 8) {
+            int stackBytesNeeded = (totalParamCount - 8) * 4;
+            ASMInstr addiSp;
+            addiSp.op = ASMOp::ADDI;
+            addiSp.rd = Operand(OperandType::REG, 2);
+            addiSp.rs1 = Operand(OperandType::REG, 2);
+            addiSp.imm = Operand(OperandType::IMM, -stackBytesNeeded);
+            currentBlock->instrs.push_back(addiSp);
+
+            for(int i = 8; i < totalParamCount; i++){
+                loadToReg(callOp->pList->paramList[i], 5,true, stackBytesNeeded);
+                ASMInstr swInstr;
+                swInstr.op = ASMOp::SW;
+                swInstr.rs2 = Operand(OperandType::REG, 5); 
+                swInstr.rs1 = Operand(OperandType::REG, 2); 
+                swInstr.imm = Operand(OperandType::IMM, (i - 8) * 4);
+                currentBlock->instrs.push_back(swInstr);
+            }
+        }
+        
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
         std::string targetName = callOp->function->name;
@@ -895,6 +930,18 @@ public:
         }
         callInstr.funcName = targetName;
         currentBlock->instrs.push_back(callInstr);
+
+        // Clean up stack space for parameters
+        if (totalParamCount > 8) {
+            int stackBytesToClean = (totalParamCount - 8) * 4;
+            ASMInstr addiSp;
+            addiSp.op = ASMOp::ADDI;
+            addiSp.rd = Operand(OperandType::REG, 2);
+            addiSp.rs1 = Operand(OperandType::REG, 2);
+            addiSp.imm = Operand(OperandType::IMM, stackBytesToClean);
+            currentBlock->instrs.push_back(addiSp);
+        }
+        
         if (callOp->retVar) {
             storeFromReg(10, callOp->retVar);
         }
