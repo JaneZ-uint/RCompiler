@@ -35,23 +35,23 @@ public:
 
     void generateCode(ASTRootNode &root) {
         irRoot = irBuilder.visit(root);
-        // std::cout << "declare void @__builtin_exit(i32)\n";
-        // std::cout << "declare void @printlnInt(i32)\n";
-        // std::cout << "declare void @memset(ptr, i8, i32)\n";
-        // std::cout << "declare i32 @getInt()\n";
-        // std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
-        // std::cout << "declare void @printInt(i32)\n";
-        //for(auto &func : irRoot->children) {
-        //    if(auto *p = dynamic_cast<IRFunction *>(& *func)){
-        //        for(auto &childStruct : p->structTypeList){
-        //            codeGen(*childStruct);
-        //        }
-        //        for(auto &childFunc: p->funcList){
-        //            codeGen(*childFunc);
-        //        }
-        //    }
-        //    codeGen(*func);
-        //}
+        //std::cout << "declare void @__builtin_exit(i32)\n";
+        //std::cout << "declare void @printlnInt(i32)\n";
+        //std::cout << "declare void @memset(ptr, i8, i32)\n";
+        //std::cout << "declare i32 @getInt()\n";
+        //std::cout << "declare void @memcpy(ptr, ptr, i32)\n";
+        //std::cout << "declare void @printInt(i32)\n";
+        // for(auto &func : irRoot->children) {
+            // if(auto *p = dynamic_cast<IRFunction *>(& *func)){
+                // for(auto &childStruct : p->structTypeList){
+                    // codeGen(*childStruct);
+                // }
+                // for(auto &childFunc: p->funcList){
+                    // codeGen(*childFunc);
+                // }
+            // }
+            // codeGen(*func);
+        // }
     }
 
     std::string print_value(std::shared_ptr<IRValue> value){

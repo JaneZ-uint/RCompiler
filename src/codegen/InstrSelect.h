@@ -733,6 +733,10 @@ public:
     void selectLoad(std::shared_ptr<IRLoad> loadOp){
         loadToReg(loadOp->addressVar, 5); // t0 = address
         //lw t0, 0(t0)
+        if(loadOp->type->type == BaseType::PTR){
+            storeFromReg(5, loadOp->tmp);
+            return;
+        }
         ASMInstr lwInstr;
         lwInstr.op = ASMOp::LW;
         lwInstr.rd = Operand(OperandType::REG, 5);
@@ -744,6 +748,11 @@ public:
     }
 
     void selectStore(std::shared_ptr<IRStore> storeOp){
+        if(storeOp->valueType->type == BaseType::PTR){
+            loadToReg(storeOp->storeValue, 5); // t0 = value
+            storeFromReg(5, storeOp->address);
+            return;
+        }
         if(storeOp->storeLiteral){
             loadToReg(storeOp->storeLiteral, 5); // t0 = value
         } else {
