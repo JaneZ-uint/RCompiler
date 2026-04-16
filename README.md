@@ -48,6 +48,16 @@ cd build
 - IRTree build
 - LLVM-IR Generation (Text format)
 
+### Code Generation
+- Instruction Selection (from LLVM-IR to RV32I assembly)
+- Register Allocation
+- Stack Management
+- Assembly Code Generation (RV32I target)
+- Builtin Functions Support (builtin.s)
+
+### Register Allocation
+- Linear Scan Register Allocation Algorithm
+
 ## RxLanguage Reference
 The project is based on [RLanguage Reference](https://github.com/peterzheng98/RCompiler-Spec/).
 

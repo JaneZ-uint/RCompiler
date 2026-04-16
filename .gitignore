@@ -18,3 +18,4 @@ builtin.ll
 run_one.sh
 test.in
 test.out
+regalloc.md
