@@ -3,7 +3,9 @@
 # include "ASM.h"
 # include <algorithm>
 # include <memory>
+# include <string>
 # include <unordered_map>
+# include <unordered_set>
 # include <utility>
 # include <vector>
 
@@ -99,37 +101,154 @@ private:
         std::unordered_map<int, Interval> &intervals,
         std::vector<int> &callSites
     ) {
+        intervals.clear();
+        callSites.clear();
+        if (l >= r) return;
+
+        const int n = r - l;
+        std::vector<std::vector<int>> blockInstrIdx(n);
+        std::vector<std::vector<std::vector<int>>> blockDefs(n), blockUses(n);
+        std::vector<std::unordered_set<int>> blockDefSet(n), blockUseSet(n);
+        std::vector<int> blockBegin(n, -1), blockEnd(n, -1);
+
+        auto touchInterval = [&](int v, int pos) {
+            auto &it = intervals[v];
+            if (it.vreg == -1) {
+                it.vreg = v;
+                it.start = pos;
+                it.end = pos;
+            } else {
+                it.start = std::min(it.start, pos);
+                it.end = std::max(it.end, pos);
+            }
+        };
+
         int idx = 0;
         for (int bi = l; bi < r; ++bi) {
-            for (const auto &ins : blocks[bi]->instrs) {
+            int b = bi - l;
+            auto &instrs = blocks[bi]->instrs;
+            if (!instrs.empty()) {
+                blockBegin[b] = idx;
+            }
+            blockDefs[b].reserve(instrs.size());
+            blockUses[b].reserve(instrs.size());
+            blockInstrIdx[b].reserve(instrs.size());
+
+            std::unordered_set<int> seenDef;
+            for (const auto &ins : instrs) {
                 if (ins.op == ASMOp::CALL) {
                     callSites.push_back(idx);
                 }
                 std::vector<int> defs, uses;
                 addInstrDefUse(ins, defs, uses);
+
                 for (int v : uses) {
-                    auto &it = intervals[v];
-                    if (it.vreg == -1) {
-                        it.vreg = v;
-                        it.start = idx;
-                        it.end = idx;
-                    } else {
-                        it.start = std::min(it.start, idx);
-                        it.end = std::max(it.end, idx);
+                    touchInterval(v, idx);
+                    if (seenDef.find(v) == seenDef.end()) {
+                        blockUseSet[b].insert(v);
                     }
                 }
                 for (int v : defs) {
-                    auto &it = intervals[v];
-                    if (it.vreg == -1) {
-                        it.vreg = v;
-                        it.start = idx;
-                        it.end = idx;
-                    } else {
-                        it.start = std::min(it.start, idx);
-                        it.end = std::max(it.end, idx);
+                    touchInterval(v, idx);
+                    seenDef.insert(v);
+                    blockDefSet[b].insert(v);
+                }
+
+                blockDefs[b].push_back(std::move(defs));
+                blockUses[b].push_back(std::move(uses));
+                blockInstrIdx[b].push_back(idx);
+                blockEnd[b] = idx;
+                ++idx;
+            }
+        }
+
+        std::unordered_map<std::string, int> labelToBlock;
+        labelToBlock.reserve(n);
+        for (int b = 0; b < n; ++b) {
+            labelToBlock[blocks[l + b]->label] = b;
+        }
+
+        std::vector<std::vector<int>> succ(n);
+        for (int b = 0; b < n; ++b) {
+            auto addSucc = [&](int s) {
+                if (s < 0 || s >= n) return;
+                if (std::find(succ[b].begin(), succ[b].end(), s) == succ[b].end()) {
+                    succ[b].push_back(s);
+                }
+            };
+            auto addLabelSucc = [&](const Operand &label) {
+                if (label.type != OperandType::LABEL) return;
+                std::string name = ".L" + std::to_string(label.value);
+                auto it = labelToBlock.find(name);
+                if (it != labelToBlock.end()) addSucc(it->second);
+            };
+
+            const auto &instrs = blocks[l + b]->instrs;
+            if (instrs.empty()) {
+                if (b + 1 < n) addSucc(b + 1);
+                continue;
+            }
+
+            const ASMInstr &term = instrs.back();
+            switch (term.op) {
+                case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
+                case ASMOp::BLTU: case ASMOp::BGEU: case ASMOp::BNEZ:
+                    addLabelSucc(term.label);
+                    if (b + 1 < n) addSucc(b + 1);
+                    break;
+                case ASMOp::J: case ASMOp::JAL:
+                    addLabelSucc(term.label);
+                    break;
+                case ASMOp::JR:
+                    break;
+                default:
+                    if (b + 1 < n) addSucc(b + 1);
+                    break;
+            }
+        }
+
+        std::vector<std::unordered_set<int>> liveIn(n), liveOut(n);
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            for (int b = n - 1; b >= 0; --b) {
+                std::unordered_set<int> newOut;
+                for (int s : succ[b]) {
+                    for (int v : liveIn[s]) newOut.insert(v);
+                }
+
+                std::unordered_set<int> newIn = blockUseSet[b];
+                for (int v : newOut) {
+                    if (blockDefSet[b].find(v) == blockDefSet[b].end()) {
+                        newIn.insert(v);
                     }
                 }
-                ++idx;
+
+                if (newOut != liveOut[b] || newIn != liveIn[b]) {
+                    liveOut[b] = std::move(newOut);
+                    liveIn[b] = std::move(newIn);
+                    changed = true;
+                }
+            }
+        }
+
+        for (int b = 0; b < n; ++b) {
+            if (blockBegin[b] >= 0) {
+                for (int v : liveIn[b]) touchInterval(v, blockBegin[b]);
+                for (int v : liveOut[b]) touchInterval(v, blockEnd[b]);
+            }
+
+            auto live = liveOut[b];
+            const auto &defsVec = blockDefs[b];
+            const auto &usesVec = blockUses[b];
+            const auto &idxVec = blockInstrIdx[b];
+
+            for (int i = static_cast<int>(idxVec.size()) - 1; i >= 0; --i) {
+                int curIdx = idxVec[i];
+                for (int v : defsVec[i]) touchInterval(v, curIdx);
+                for (int v : usesVec[i]) touchInterval(v, curIdx);
+                for (int v : defsVec[i]) live.erase(v);
+                for (int v : usesVec[i]) live.insert(v);
             }
         }
     }
