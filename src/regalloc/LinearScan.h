@@ -1,541 +1,950 @@
 # pragma once
 
-# include "ASM.h"
-# include <algorithm>
-# include <memory>
-# include <string>
-# include <unordered_map>
-# include <unordered_set>
-# include <utility>
-# include <vector>
+#include "ASM.h"
+#include <algorithm>
+#include <cassert>
+#include <climits>
+#include <cstring>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace JaneZ {
+
+// ============================================================
+//  Linear Scan Register Allocator
+// ============================================================
+
+// Physical register classification
+static const int CALLER_SAVED[] = {5,6,7, 28,29, 10,11,12,13,14,15,16,17}; // t0-t2, t3-t4, a0-a7
+static const int CALLEE_SAVED[] = {9, 18,19,20,21,22,23,24,25,26}; // s1, s2-s10
+// scratch regs for spill load/store (never allocated)
+static const int SCRATCH1 = 30; // t5
+static const int SCRATCH2 = 31; // t6
+
+static bool isCallerSaved(int r) {
+    for (int x : CALLER_SAVED) if (x == r) return true;
+    return false;
+}
+static bool isCalleeSaved(int r) {
+    for (int x : CALLEE_SAVED) if (x == r) return true;
+    return false;
+}
+
+// All allocatable registers (callee-saved first for better cross-call behavior)
+static std::vector<int> getAllocRegs() {
+    std::vector<int> regs;
+    for (int r : CALLEE_SAVED) regs.push_back(r);
+    for (int r : CALLER_SAVED) regs.push_back(r);
+    return regs;
+}
+
+// ---- CFG Block ----
+struct CFGBlock {
+    int id;
+    ASMBlock* asmBlock;
+    int startIdx = 0; // first instr index
+    int endIdx = 0;   // one-past-last instr index
+    std::vector<int> succs;
+    std::vector<int> preds;
+    std::set<int> def;
+    std::set<int> use;
+    std::set<int> liveIn;
+    std::set<int> liveOut;
+};
+
+// ---- Live Interval ----
+struct LiveInterval {
+    int vreg;
+    int start;
+    int end;
+    int physReg = -1;   // allocated phys reg, -1 = spilled
+    int spillSlot = -1; // stack offset for spill, -1 = not spilled
+};
+
+// ---- Function Boundary ----
+struct FuncInfo {
+    std::string name;
+    int firstBlock; // index in cfgBlocks
+    int lastBlock;  // inclusive
+    int allocaSize; // from InstrSelect
+    int numVRegs;
+};
+
 class LinearScan {
 public:
-    struct Interval {
-        int vreg = -1;
-        int start = 0;
-        int end = 0;
-    };
+    // Input: all ASM blocks from InstrSelect
+    // Output: modified in-place with physical registers + spill code + prologue/epilogue
 
-    struct Assign {
-        bool spilled = false;
-        int preg = -1;
-        int slot = -1;
-    };
+    void process(std::vector<std::shared_ptr<ASMBlock>>& blocks) {
+        // Identify function boundaries: a function starts at a block whose label
+        // does NOT start with '.' (global symbol).
+        std::vector<std::pair<int,int>> funcRanges; // [start, end) block indices
+        for (int i = 0; i < (int)blocks.size(); i++) {
+            if (!blocks[i]->label.empty() && blocks[i]->label[0] != '.') {
+                if (!funcRanges.empty()) funcRanges.back().second = i;
+                funcRanges.push_back({i, (int)blocks.size()});
+            }
+        }
+        if (!funcRanges.empty()) funcRanges.back().second = (int)blocks.size();
 
-    void run(std::vector<std::shared_ptr<ASMBlock>> &blocks) {
-        int n = static_cast<int>(blocks.size());
-        int i = 0;
-        while (i < n) {
-            if (!isFunctionEntry(blocks[i])) {
-                ++i;
-                continue;
-            }
-            int j = i + 1;
-            while (j < n && !isFunctionEntry(blocks[j])) {
-                ++j;
-            }
-            processFunction(blocks, i, j);
-            i = j;
+        for (auto& [fStart, fEnd] : funcRanges) {
+            processFunction(blocks, fStart, fEnd);
         }
     }
 
 private:
-    const std::vector<int> allocRegs = {5, 6, 7, 31};   // t0,t1,t2,t6
-    const std::vector<int> scratchRegs = {28, 29, 30};  // t3,t4,t5
-
-    static bool isFunctionEntry(const std::shared_ptr<ASMBlock> &b) {
-        return b && !b->label.empty() && b->label[0] != '.';
-    }
-
-    static int align16(int v) {
-        return (v % 16 == 0) ? v : ((v / 16) + 1) * 16;
-    }
-
-    static bool isVReg(const Operand &op) {
-        return op.type == OperandType::REG && op.value >= 32;
-    }
-
-    static bool inRange(int idx, const Interval &itv) {
-        return itv.start <= idx && idx <= itv.end;
-    }
-
-    static void addInstrDefUse(const ASMInstr &ins, std::vector<int> &defs, std::vector<int> &uses) {
-        auto addDef = [&](const Operand &op) {
-            if (isVReg(op)) defs.push_back(static_cast<int>(op.value));
-        };
-        auto addUse = [&](const Operand &op) {
-            if (isVReg(op)) uses.push_back(static_cast<int>(op.value));
-        };
-
-        switch (ins.op) {
-            case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV: case ASMOp::DIVU:
-            case ASMOp::REM: case ASMOp::REMU: case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
-            case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA: case ASMOp::SLT: case ASMOp::SLTU:
-            case ASMOp::SLE: case ASMOp::SGE:
-                addDef(ins.rd); addUse(ins.rs1); addUse(ins.rs2); break;
-            case ASMOp::ADDI: case ASMOp::SLTI: case ASMOp::SLTIU: case ASMOp::ANDI: case ASMOp::ORI:
-            case ASMOp::XORI: case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
-                addDef(ins.rd); addUse(ins.rs1); break;
-            case ASMOp::LB: case ASMOp::LH: case ASMOp::LW: case ASMOp::LBU: case ASMOp::LHU:
-                addDef(ins.rd); addUse(ins.rs1); break;
-            case ASMOp::SB: case ASMOp::SH: case ASMOp::SW:
-                addUse(ins.rs1); addUse(ins.rs2); break;
-            case ASMOp::MV: case ASMOp::SEQZ: case ASMOp::SNEZ:
-                addDef(ins.rd); addUse(ins.rs1); break;
-            case ASMOp::LI: case ASMOp::LUI:
-                addDef(ins.rd); break;
-            case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE: case ASMOp::BLTU: case ASMOp::BGEU:
-                addUse(ins.rs1); addUse(ins.rs2); break;
-            case ASMOp::BNEZ: case ASMOp::JR:
-                addUse(ins.rs1); break;
-            default:
-                break;
+    // ============================================================
+    //  Per-function processing
+    // ============================================================
+    void processFunction(std::vector<std::shared_ptr<ASMBlock>>& blocks, int fStart, int fEnd) {
+        // 1. Build CFG
+        std::vector<CFGBlock> cfg;
+        std::unordered_map<std::string, int> labelToIdx;
+        for (int i = fStart; i < fEnd; i++) {
+            CFGBlock b;
+            b.id = i - fStart;
+            b.asmBlock = blocks[i].get();
+            cfg.push_back(b);
+            labelToIdx[blocks[i]->label] = b.id;
         }
-    }
 
-    static void collectIntervals(
-        const std::vector<std::shared_ptr<ASMBlock>> &blocks,
-        int l, int r,
-        std::unordered_map<int, Interval> &intervals,
-        std::vector<int> &callSites
-    ) {
-        intervals.clear();
-        callSites.clear();
-        if (l >= r) return;
+        // Number instructions globally within this function
+        int instrIdx = 0;
+        for (auto& b : cfg) {
+            b.startIdx = instrIdx;
+            instrIdx += (int)b.asmBlock->instrs.size();
+            b.endIdx = instrIdx;
+        }
+        int totalInstrs = instrIdx;
 
-        const int n = r - l;
-        std::vector<std::vector<int>> blockInstrIdx(n);
-        std::vector<std::vector<std::vector<int>>> blockDefs(n), blockUses(n);
-        std::vector<std::unordered_set<int>> blockDefSet(n), blockUseSet(n);
-        std::vector<int> blockBegin(n, -1), blockEnd(n, -1);
+        // Build edges from terminators
+        for (int bi = 0; bi < (int)cfg.size(); bi++) {
+            auto& instrs = cfg[bi].asmBlock->instrs;
+            if (instrs.empty()) continue;
+            buildEdges(cfg, labelToIdx, bi, instrs);
+        }
 
-        auto touchInterval = [&](int v, int pos) {
-            auto &it = intervals[v];
-            if (it.vreg == -1) {
-                it.vreg = v;
-                it.start = pos;
-                it.end = pos;
-            } else {
-                it.start = std::min(it.start, pos);
-                it.end = std::max(it.end, pos);
-            }
-        };
-
-        int idx = 0;
-        for (int bi = l; bi < r; ++bi) {
-            int b = bi - l;
-            auto &instrs = blocks[bi]->instrs;
-            if (!instrs.empty()) {
-                blockBegin[b] = idx;
-            }
-            blockDefs[b].reserve(instrs.size());
-            blockUses[b].reserve(instrs.size());
-            blockInstrIdx[b].reserve(instrs.size());
-
-            std::unordered_set<int> seenDef;
-            for (const auto &ins : instrs) {
-                if (ins.op == ASMOp::CALL) {
-                    callSites.push_back(idx);
-                }
-                std::vector<int> defs, uses;
-                addInstrDefUse(ins, defs, uses);
-
-                for (int v : uses) {
-                    touchInterval(v, idx);
-                    if (seenDef.find(v) == seenDef.end()) {
-                        blockUseSet[b].insert(v);
-                    }
-                }
-                for (int v : defs) {
-                    touchInterval(v, idx);
-                    seenDef.insert(v);
-                    blockDefSet[b].insert(v);
-                }
-
-                blockDefs[b].push_back(std::move(defs));
-                blockUses[b].push_back(std::move(uses));
-                blockInstrIdx[b].push_back(idx);
-                blockEnd[b] = idx;
-                ++idx;
+        // Fill preds from succs
+        for (int i = 0; i < (int)cfg.size(); i++) {
+            for (int s : cfg[i].succs) {
+                cfg[s].preds.push_back(i);
             }
         }
 
-        std::unordered_map<std::string, int> labelToBlock;
-        labelToBlock.reserve(n);
-        for (int b = 0; b < n; ++b) {
-            labelToBlock[blocks[l + b]->label] = b;
+        // 2. Compute DEF/USE per block
+        for (auto& b : cfg) {
+            computeDefUse(b);
         }
 
-        std::vector<std::vector<int>> succ(n);
-        for (int b = 0; b < n; ++b) {
-            auto addSucc = [&](int s) {
-                if (s < 0 || s >= n) return;
-                if (std::find(succ[b].begin(), succ[b].end(), s) == succ[b].end()) {
-                    succ[b].push_back(s);
-                }
-            };
-            auto addLabelSucc = [&](const Operand &label) {
-                if (label.type != OperandType::LABEL) return;
-                std::string name = ".L" + std::to_string(label.value);
-                auto it = labelToBlock.find(name);
-                if (it != labelToBlock.end()) addSucc(it->second);
-            };
-
-            const auto &instrs = blocks[l + b]->instrs;
-            if (instrs.empty()) {
-                if (b + 1 < n) addSucc(b + 1);
-                continue;
-            }
-
-            const ASMInstr &term = instrs.back();
-            switch (term.op) {
-                case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
-                case ASMOp::BLTU: case ASMOp::BGEU: case ASMOp::BNEZ:
-                    addLabelSucc(term.label);
-                    if (b + 1 < n) addSucc(b + 1);
-                    break;
-                case ASMOp::J: case ASMOp::JAL:
-                    addLabelSucc(term.label);
-                    break;
-                case ASMOp::JR:
-                    break;
-                default:
-                    if (b + 1 < n) addSucc(b + 1);
-                    break;
-            }
-        }
-
-        std::vector<std::unordered_set<int>> liveIn(n), liveOut(n);
+        // 3. Liveness analysis (iterative backward dataflow)
         bool changed = true;
         while (changed) {
             changed = false;
-            for (int b = n - 1; b >= 0; --b) {
-                std::unordered_set<int> newOut;
-                for (int s : succ[b]) {
-                    for (int v : liveIn[s]) newOut.insert(v);
+            for (int i = (int)cfg.size() - 1; i >= 0; i--) {
+                auto& b = cfg[i];
+                std::set<int> newLiveOut;
+                for (int s : b.succs) {
+                    for (int r : cfg[s].liveIn) newLiveOut.insert(r);
                 }
-
-                std::unordered_set<int> newIn = blockUseSet[b];
-                for (int v : newOut) {
-                    if (blockDefSet[b].find(v) == blockDefSet[b].end()) {
-                        newIn.insert(v);
-                    }
+                // liveIn = use ∪ (liveOut - def)
+                std::set<int> newLiveIn = b.use;
+                for (int r : newLiveOut) {
+                    if (b.def.find(r) == b.def.end()) newLiveIn.insert(r);
                 }
-
-                if (newOut != liveOut[b] || newIn != liveIn[b]) {
-                    liveOut[b] = std::move(newOut);
-                    liveIn[b] = std::move(newIn);
+                if (newLiveIn != b.liveIn || newLiveOut != b.liveOut) {
+                    b.liveIn = newLiveIn;
+                    b.liveOut = newLiveOut;
                     changed = true;
                 }
             }
         }
 
-        for (int b = 0; b < n; ++b) {
-            if (blockBegin[b] >= 0) {
-                for (int v : liveIn[b]) touchInterval(v, blockBegin[b]);
-                for (int v : liveOut[b]) touchInterval(v, blockEnd[b]);
+
+
+        // 4. Compute live intervals
+        std::unordered_map<int, LiveInterval> intervals; // vreg → interval
+        for (auto& b : cfg) {
+            // All regs in liveIn are live from block start
+            for (int r : b.liveIn) {
+                extendInterval(intervals, r, b.startIdx, b.startIdx);
             }
-
-            auto live = liveOut[b];
-            const auto &defsVec = blockDefs[b];
-            const auto &usesVec = blockUses[b];
-            const auto &idxVec = blockInstrIdx[b];
-
-            for (int i = static_cast<int>(idxVec.size()) - 1; i >= 0; --i) {
-                int curIdx = idxVec[i];
-                for (int v : defsVec[i]) touchInterval(v, curIdx);
-                for (int v : usesVec[i]) touchInterval(v, curIdx);
-                for (int v : defsVec[i]) live.erase(v);
-                for (int v : usesVec[i]) live.insert(v);
+            // All regs in liveOut are live until block end
+            for (int r : b.liveOut) {
+                extendInterval(intervals, r, b.endIdx - 1, b.endIdx - 1);
+            }
+            // If a reg is in both liveIn and liveOut, it's live for the whole block
+            for (int r : b.liveIn) {
+                if (b.liveOut.count(r)) {
+                    extendInterval(intervals, r, b.startIdx, b.endIdx - 1);
+                }
+            }
+            // Walk instructions for precise def/use points
+            int idx = b.startIdx;
+            for (auto& instr : b.asmBlock->instrs) {
+                auto uses = getUses(instr);
+                auto defs = getDefs(instr);
+                for (int r : uses) {
+                    if (r >= 32 || isAllocatable(r))
+                        extendInterval(intervals, r, idx, idx);
+                }
+                for (int r : defs) {
+                    if (r >= 32 || isAllocatable(r))
+                        extendInterval(intervals, r, idx, idx);
+                }
+                idx++;
             }
         }
-    }
 
-    void linearScanAllocate(
-        const std::unordered_map<int, Interval> &intervalMap,
-        std::unordered_map<int, Assign> &assignMap
-    ) {
-        std::vector<Interval> intervals;
-        intervals.reserve(intervalMap.size());
-        for (const auto &kv : intervalMap) intervals.push_back(kv.second);
-        std::sort(intervals.begin(), intervals.end(), [](const Interval &a, const Interval &b) {
-            if (a.start != b.start) return a.start < b.start;
-            return a.vreg < b.vreg;
-        });
+        // Separate vreg intervals from fixed physical reg intervals
+        std::vector<LiveInterval> vregIntervals;
+        for (auto& [reg, iv] : intervals) {
+            if (reg >= 32) {
+                vregIntervals.push_back(iv);
+            }
+        }
 
-        std::vector<Interval> active;
-        auto sortActive = [&]() {
-            std::sort(active.begin(), active.end(), [](const Interval &a, const Interval &b) {
-                return a.end < b.end;
-            });
+        // Sort by start point
+        std::sort(vregIntervals.begin(), vregIntervals.end(),
+                  [](const LiveInterval& a, const LiveInterval& b) { return a.start < b.start; });
+
+        std::string funcName = blocks[fStart]->label;
+
+        // 5. Linear scan allocation
+        auto allocRegs = getAllocRegs();
+        int numRegs = (int)allocRegs.size();
+        std::set<int> freeRegs(allocRegs.begin(), allocRegs.end());
+        // active list sorted by end point
+        std::vector<LiveInterval*> active;
+        // Track which physical regs are occupied by fixed constraints at each point
+        // We need to handle physical register constraints: if a vreg interval overlaps
+        // with a fixed use of the same phys reg, we can't assign that phys reg.
+
+        // Build a set of "blocked" ranges for each physical register
+        // from fixed physical register uses in instructions
+        std::unordered_map<int, std::vector<std::pair<int,int>>> physRegBlocked;
+        for (auto& b : cfg) {
+            int idx = b.startIdx;
+            for (auto& instr : b.asmBlock->instrs) {
+                auto defs = getDefs(instr);
+                auto uses = getUses(instr);
+                // Fixed phys regs (0-31) that appear in instructions
+                for (int r : defs) {
+                    if (r < 32 && isAllocatable(r)) {
+                        physRegBlocked[r].push_back({idx, idx});
+                    }
+                }
+                for (int r : uses) {
+                    if (r < 32 && isAllocatable(r)) {
+                        physRegBlocked[r].push_back({idx, idx});
+                    }
+                }
+                // CALL clobbers all caller-saved regs
+                if (instr.op == ASMOp::CALL) {
+                    for (int cr : CALLER_SAVED) {
+                        physRegBlocked[cr].push_back({idx, idx});
+                    }
+                    // ra is also clobbered
+                    physRegBlocked[1].push_back({idx, idx});
+                }
+                idx++;
+            }
+        }
+
+        // Helper: check if physReg is blocked at any point in [start, end]
+        auto isBlocked = [&](int physReg, int start, int end) -> bool {
+            auto it = physRegBlocked.find(physReg);
+            if (it == physRegBlocked.end()) return false;
+            for (auto& [bs, be] : it->second) {
+                if (bs <= end && be >= start) return true;
+            }
+            return false;
         };
 
-        for (const auto &cur : intervals) {
-            active.erase(std::remove_if(active.begin(), active.end(), [&](const Interval &x) {
-                return x.end < cur.start;
-            }), active.end());
-            sortActive();
+        int nextSpillSlot = 0;
+        std::set<int> usedCalleeSaved;
 
-            if (static_cast<int>(active.size()) == static_cast<int>(allocRegs.size())) {
-                int spillIdx = static_cast<int>(active.size()) - 1;
-                if (active[spillIdx].end > cur.end) {
-                    int victim = active[spillIdx].vreg;
-                    assignMap[cur.vreg] = {false, assignMap[victim].preg, -1};
-                    assignMap[victim] = {true, -1, -1};
-                    active[spillIdx] = cur;
-                    sortActive();
-                } else {
-                    assignMap[cur.vreg] = {true, -1, -1};
+        // Allocate
+        for (auto& iv : vregIntervals) {
+            // Expire old intervals
+            active.erase(
+                std::remove_if(active.begin(), active.end(),
+                    [&](LiveInterval* j) {
+                        if (j->end < iv.start) {
+                            freeRegs.insert(j->physReg);
+                            return true;
+                        }
+                        return false;
+                    }),
+                active.end()
+            );
+
+            // Try to find a free register not blocked during iv's range
+            int chosen = -1;
+            // Prefer callee-saved if interval crosses a call
+            bool crossesCall = false;
+            for (auto& [bs, be] : physRegBlocked.count(1) ? physRegBlocked[1] : std::vector<std::pair<int,int>>()) {
+                // ra blocked = call point
+                if (bs >= iv.start && bs <= iv.end) { crossesCall = true; break; }
+            }
+
+            if (crossesCall) {
+                // Try callee-saved first
+                for (int r : CALLEE_SAVED) {
+                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                        chosen = r; break;
+                    }
                 }
+            }
+            if (chosen == -1) {
+                for (int r : allocRegs) {
+                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                        chosen = r; break;
+                    }
+                }
+            }
+
+            if (chosen != -1) {
+                iv.physReg = chosen;
+                freeRegs.erase(chosen);
+                if (isCalleeSaved(chosen)) usedCalleeSaved.insert(chosen);
+                active.push_back(&iv);
+                std::sort(active.begin(), active.end(),
+                    [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
             } else {
-                std::vector<bool> used(32, false);
-                for (const auto &x : active) {
-                    auto it = assignMap.find(x.vreg);
-                    if (it != assignMap.end() && !it->second.spilled && it->second.preg >= 0) {
-                        used[it->second.preg] = true;
-                    }
+                // Spill: try to spill the interval with the longest remaining range
+                // If active has something ending later, spill that instead
+                LiveInterval* spill = nullptr;
+                if (!active.empty()) {
+                    spill = active.back();
                 }
-                int chosen = -1;
-                for (int preg : allocRegs) {
-                    if (!used[preg]) {
-                        chosen = preg;
-                        break;
-                    }
-                }
-                if (chosen < 0) {
-                    assignMap[cur.vreg] = {true, -1, -1};
+                if (spill && spill->end > iv.end) {
+                    // Spill the longer one, give its reg to current
+                    iv.physReg = spill->physReg;
+                    spill->physReg = -1;
+                    spill->spillSlot = nextSpillSlot++;
+                    active.pop_back();
+                    active.push_back(&iv);
+                    std::sort(active.begin(), active.end(),
+                        [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
                 } else {
-                    assignMap[cur.vreg] = {false, chosen, -1};
-                    active.push_back(cur);
-                    sortActive();
+                    // Spill current interval
+                    iv.spillSlot = nextSpillSlot++;
+                }
+            }
+        }
+
+        // Build vreg → allocation map
+        std::unordered_map<int, int> vregToPhys; // vreg → physReg
+        std::unordered_map<int, int> vregToSpill; // vreg → spillSlot
+        for (auto& iv : vregIntervals) {
+            if (iv.physReg != -1) {
+                vregToPhys[iv.vreg] = iv.physReg;
+            } else {
+                vregToSpill[iv.vreg] = iv.spillSlot;
+            }
+        }
+
+        // 6. Compute frame layout
+        int spillAreaSize = nextSpillSlot * 4;
+        int allocaSize = 0;
+        for (auto& instr : cfg[0].asmBlock->instrs) {
+            if (instr.funcName == "__PROLOGUE__") {
+                break;
+            }
+        }
+        allocaSize = computeAllocaSize(cfg);
+
+        int calleeSaveCount = (int)usedCalleeSaved.size();
+        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * 4 + 8;
+        if (frameSize % 16 != 0) frameSize = ((frameSize / 16) + 1) * 16;
+
+        int raOffset = frameSize - 4;
+        int s0Offset = frameSize - 8;
+        int calleeSaveBase = allocaSize + spillAreaSize;
+
+        // Sort callee-saved regs for deterministic ordering
+        std::vector<int> calleeSavedList(usedCalleeSaved.begin(), usedCalleeSaved.end());
+        std::sort(calleeSavedList.begin(), calleeSavedList.end());
+
+        // 7. Rewrite instructions: replace vregs with physregs, insert spill loads/stores
+        for (auto& b : cfg) {
+            std::vector<ASMInstr> newInstrs;
+            for (auto& instr : b.asmBlock->instrs) {
+                // Skip prologue/epilogue markers (will be replaced)
+                if (instr.funcName == "__PROLOGUE__" || instr.funcName == "__EPILOGUE__") {
+                    // Keep as marker for later replacement
+                    newInstrs.push_back(instr);
+                    continue;
+                }
+
+                // Patch __ALLOCA__ instructions: rewrite vreg and adjust offset
+                if (instr.funcName == "__ALLOCA__") {
+                    ASMInstr patched = instr;
+                    patched.funcName = "";
+                    // Rewrite vregs in this instruction
+                    auto replaceVreg = [&](Operand& op) {
+                        if (op.type != OperandType::REG || op.value < 32) return;
+                        int vreg = op.value;
+                        if (vregToPhys.count(vreg)) op.value = vregToPhys[vreg];
+                    };
+                    // Check if rd is spilled
+                    bool rdSpilled = false;
+                    int rdVreg = -1;
+                    if (patched.rd.type == OperandType::REG && patched.rd.value >= 32) {
+                        rdVreg = patched.rd.value;
+                        if (vregToSpill.count(rdVreg)) {
+                            rdSpilled = true;
+                            patched.rd.value = SCRATCH1;
+                        } else {
+                            replaceVreg(patched.rd);
+                        }
+                    }
+                    replaceVreg(patched.rs1);
+                    replaceVreg(patched.rs2);
+                    newInstrs.push_back(patched);
+                    if (rdSpilled) {
+                        int slot = vregToSpill[rdVreg];
+                        int off = allocaSize + slot * 4;
+                        emitStore(newInstrs, SCRATCH1, 2, off);
+                    }
+                    continue;
+                }
+
+                // Collect which vregs need spill loads (uses) and spill stores (defs)
+                auto uses = getUses(instr);
+                auto defs = getDefs(instr);
+
+                // Insert spill loads for used vregs that are spilled
+                std::unordered_map<int, int> spillLoadMap; // vreg → scratch reg used
+                int scratchIdx = 0;
+                int scratchRegs[2] = {SCRATCH1, SCRATCH2};
+
+                for (int r : uses) {
+                    if (r >= 32 && vregToSpill.count(r)) {
+                        int slot = vregToSpill[r];
+                        int off = allocaSize + slot * 4; // sp-relative
+                        int scratch = scratchRegs[scratchIdx++ % 2];
+                        spillLoadMap[r] = scratch;
+                        emitLoad(newInstrs, scratch, 2, off); // lw scratch, off(sp)
+                    }
+                }
+
+                // Also map spilled defs to scratch regs for rewriting
+                std::unordered_map<int, int> spillDefMap; // vreg → scratch reg for def
+                for (int r : defs) {
+                    if (r >= 32 && vregToSpill.count(r)) {
+                        int scratch;
+                        if (spillLoadMap.count(r)) {
+                            scratch = spillLoadMap[r]; // reuse same scratch
+                        } else {
+                            scratch = scratchRegs[scratchIdx++ % 2];
+                        }
+                        spillDefMap[r] = scratch;
+                        spillLoadMap[r] = scratch; // so rewriteOperand can find it
+                    }
+                }
+
+                // Rewrite the instruction
+                ASMInstr rewritten = instr;
+                rewriteOperand(rewritten, vregToPhys, spillLoadMap);
+                newInstrs.push_back(rewritten);
+
+                // Insert spill stores for defined vregs that are spilled
+                for (int r : defs) {
+                    if (r >= 32 && vregToSpill.count(r)) {
+                        int slot = vregToSpill[r];
+                        int off = allocaSize + slot * 4;
+                        int physUsed = spillDefMap[r];
+                        emitStore(newInstrs, physUsed, 2, off); // sw scratch, off(sp)
+                    }
+                }
+            }
+            b.asmBlock->instrs = newInstrs;
+        }
+
+        // 8. Replace prologue/epilogue markers
+        // Prologue is in the first block
+        {
+            auto& instrs = cfg[0].asmBlock->instrs;
+            for (int i = 0; i < (int)instrs.size(); i++) {
+                if (instrs[i].funcName == "__PROLOGUE__") {
+                    std::vector<ASMInstr> prologue;
+                    emitPrologue(prologue, frameSize, raOffset, s0Offset,
+                                 calleeSavedList, calleeSaveBase);
+                    instrs.erase(instrs.begin() + i);
+                    instrs.insert(instrs.begin() + i, prologue.begin(), prologue.end());
+                    break;
+                }
+            }
+        }
+
+        // Epilogue: find the exit block (last block of function, or block with __EPILOGUE__)
+        for (auto& b : cfg) {
+            auto& instrs = b.asmBlock->instrs;
+            for (int i = 0; i < (int)instrs.size(); i++) {
+                if (instrs[i].funcName == "__EPILOGUE__") {
+                    std::vector<ASMInstr> epilogue;
+                    emitEpilogue(epilogue, frameSize, raOffset, s0Offset,
+                                 calleeSavedList, calleeSaveBase);
+                    instrs.erase(instrs.begin() + i);
+                    instrs.insert(instrs.begin() + i, epilogue.begin(), epilogue.end());
+                    break;
                 }
             }
         }
     }
 
-    static int parseStackSize(const std::shared_ptr<ASMBlock> &entry) {
-        for (const auto &ins : entry->instrs) {
-            if (ins.op == ASMOp::ADDI &&
-                ins.rd.type == OperandType::REG && ins.rd.value == 2 &&
-                ins.rs1.type == OperandType::REG && ins.rs1.value == 2 &&
-                ins.imm.type == OperandType::IMM && ins.imm.value < 0) {
-                return static_cast<int>(-ins.imm.value);
+    // ============================================================
+    //  CFG edge building
+    // ============================================================
+    void buildEdges(std::vector<CFGBlock>& cfg, std::unordered_map<std::string, int>& labelToIdx,
+                    int bi, std::vector<ASMInstr>& instrs) {
+        // Scan from the end for branch/jump instructions
+        for (int i = (int)instrs.size() - 1; i >= 0; i--) {
+            auto& instr = instrs[i];
+            if (instr.op == ASMOp::J || instr.op == ASMOp::JAL) {
+                std::string target = ".L" + std::to_string(instr.label.value);
+                if (labelToIdx.count(target)) {
+                    cfg[bi].succs.push_back(labelToIdx[target]);
+                }
+                // Don't break — there might be a conditional branch before this J
+                continue;
+            }
+            if (instr.op == ASMOp::BNEZ || instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE ||
+                instr.op == ASMOp::BLT || instr.op == ASMOp::BGE || instr.op == ASMOp::BLTU ||
+                instr.op == ASMOp::BGEU) {
+                std::string target = ".L" + std::to_string(instr.label.value);
+                if (labelToIdx.count(target)) {
+                    cfg[bi].succs.push_back(labelToIdx[target]);
+                }
+                break; // Conditional branch is always before J, so we're done
+            }
+            if (instr.op == ASMOp::JR) {
+                // Function return — no successors
+                break;
+            }
+            if (instr.op == ASMOp::CALL) {
+                // call is not a terminator, fall through
+                // But if this is the last instr, fall through to next block
+                if (bi + 1 < (int)cfg.size()) {
+                    // Only add fall-through if there's no jump after
+                    bool hasJumpAfter = false;
+                    for (int j = i + 1; j < (int)instrs.size(); j++) {
+                        if (instrs[j].op == ASMOp::J || instrs[j].op == ASMOp::JR ||
+                            instrs[j].op == ASMOp::BNEZ) {
+                            hasJumpAfter = true; break;
+                        }
+                    }
+                    if (!hasJumpAfter) {
+                        cfg[bi].succs.push_back(bi + 1);
+                    }
+                }
+                break;
+            }
+            // Other instructions: not terminators
+        }
+        // If no terminator found (empty block or only non-control instrs), fall through
+        if (cfg[bi].succs.empty() && bi + 1 < (int)cfg.size()) {
+            // Check if block has any terminator
+            bool hasTerm = false;
+            for (auto& instr : instrs) {
+                if (instr.op == ASMOp::J || instr.op == ASMOp::JR || instr.op == ASMOp::BNEZ ||
+                    instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE) {
+                    hasTerm = true; break;
+                }
+            }
+            if (!hasTerm) {
+                cfg[bi].succs.push_back(bi + 1);
+            }
+        }
+    }
+
+    // ============================================================
+    //  DEF/USE computation
+    // ============================================================
+    bool isAllocatable(int r) {
+        if (r >= 32) return true;
+        for (int x : CALLER_SAVED) if (x == r) return true;
+        for (int x : CALLEE_SAVED) if (x == r) return true;
+        return false;
+    }
+
+    std::vector<int> getDefs(const ASMInstr& instr) {
+        std::vector<int> defs;
+        switch (instr.op) {
+            // R-type: def rd
+            case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
+            case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
+            case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLT: case ASMOp::SLTU:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // I-type: def rd
+            case ASMOp::ADDI: case ASMOp::ANDI: case ASMOp::ORI: case ASMOp::XORI:
+            case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
+            case ASMOp::SLTI: case ASMOp::SLTIU:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // Load: def rd
+            case ASMOp::LW: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // Store: no def
+            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+                break;
+            // LI/LUI: def rd
+            case ASMOp::LI: case ASMOp::LUI:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // MV: def rd
+            case ASMOp::MV:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // SEQZ/SNEZ: def rd
+            case ASMOp::SEQZ: case ASMOp::SNEZ:
+                if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
+                    defs.push_back(instr.rd.value);
+                break;
+            // Branch: no def
+            case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
+            case ASMOp::BLTU: case ASMOp::BGEU: case ASMOp::BNEZ:
+                break;
+            // Jump: no def
+            case ASMOp::J: case ASMOp::JR:
+                break;
+            // CALL: clobbers all caller-saved + ra
+            case ASMOp::CALL:
+                for (int r : CALLER_SAVED) defs.push_back(r);
+                defs.push_back(1); // ra
+                break;
+            default: break;
+        }
+        return defs;
+    }
+
+    std::vector<int> getUses(const ASMInstr& instr) {
+        std::vector<int> uses;
+        switch (instr.op) {
+            case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
+            case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
+            case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLT: case ASMOp::SLTU:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                if (instr.rs2.type == OperandType::REG && instr.rs2.value != 0)
+                    uses.push_back(instr.rs2.value);
+                break;
+            case ASMOp::ADDI: case ASMOp::ANDI: case ASMOp::ORI: case ASMOp::XORI:
+            case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
+            case ASMOp::SLTI: case ASMOp::SLTIU:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::LW: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                if (instr.rs2.type == OperandType::REG && instr.rs2.value != 0)
+                    uses.push_back(instr.rs2.value);
+                break;
+            case ASMOp::LI: case ASMOp::LUI:
+                break; // no reg uses
+            case ASMOp::MV:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::SEQZ: case ASMOp::SNEZ:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
+            case ASMOp::BLTU: case ASMOp::BGEU:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                if (instr.rs2.type == OperandType::REG && instr.rs2.value != 0)
+                    uses.push_back(instr.rs2.value);
+                break;
+            case ASMOp::BNEZ:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::J:
+                break;
+            case ASMOp::JR:
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
+                    uses.push_back(instr.rs1.value);
+                break;
+            case ASMOp::CALL:
+                // Arguments are already moved to a0-a7 before call
+                // The call itself implicitly uses a0-a7 (but they're already physical)
+                break;
+            default: break;
+        }
+        return uses;
+    }
+
+    void computeDefUse(CFGBlock& b) {
+        // Process instructions in order: use before def within block
+        for (auto& instr : b.asmBlock->instrs) {
+            auto uses = getUses(instr);
+            auto defs = getDefs(instr);
+            for (int r : uses) {
+                if ((r >= 32 || isAllocatable(r)) && b.def.find(r) == b.def.end()) {
+                    b.use.insert(r);
+                }
+            }
+            for (int r : defs) {
+                if (r >= 32 || isAllocatable(r)) {
+                    b.def.insert(r);
+                }
+            }
+        }
+    }
+
+    // ============================================================
+    //  Live interval helpers
+    // ============================================================
+    void extendInterval(std::unordered_map<int, LiveInterval>& intervals, int reg, int start, int end) {
+        auto it = intervals.find(reg);
+        if (it == intervals.end()) {
+            LiveInterval iv;
+            iv.vreg = reg;
+            iv.start = start;
+            iv.end = end;
+            intervals[reg] = iv;
+        } else {
+            it->second.start = std::min(it->second.start, start);
+            it->second.end = std::max(it->second.end, end);
+        }
+    }
+
+    int computeAllocaSize(std::vector<CFGBlock>& cfg) {
+        // Read totalAllocaSize encoded in __PROLOGUE__ marker's imm field
+        for (auto& b : cfg) {
+            for (auto& instr : b.asmBlock->instrs) {
+                if (instr.funcName == "__PROLOGUE__") {
+                    int sz = instr.imm.value;
+                    return (sz + 3) / 4 * 4; // align to 4
+                }
             }
         }
         return 0;
     }
 
-    static void patchFrameLayout(std::vector<std::shared_ptr<ASMBlock>> &blocks, int l, int r, int oldSize, int newSize) {
-        if (oldSize == newSize || oldSize <= 0) return;
-        int oldRa = oldSize - 4, oldS0 = oldSize - 8;
-        int newRa = newSize - 4, newS0 = newSize - 8;
-
-        for (int bi = l; bi < r; ++bi) {
-            for (auto &ins : blocks[bi]->instrs) {
-                if (ins.op == ASMOp::ADDI &&
-                    ins.rd.type == OperandType::REG && ins.rd.value == 2 &&
-                    ins.rs1.type == OperandType::REG && ins.rs1.value == 2 &&
-                    ins.imm.type == OperandType::IMM) {
-                    if (ins.imm.value == -oldSize) ins.imm.value = -newSize;
-                    if (ins.imm.value == oldSize) ins.imm.value = newSize;
-                }
-                if (ins.op == ASMOp::ADDI &&
-                    ins.rd.type == OperandType::REG && ins.rd.value == 8 &&
-                    ins.rs1.type == OperandType::REG && ins.rs1.value == 2 &&
-                    ins.imm.type == OperandType::IMM && ins.imm.value == oldSize) {
-                    ins.imm.value = newSize;
-                }
-                if ((ins.op == ASMOp::SW || ins.op == ASMOp::LW) &&
-                    ins.rs1.type == OperandType::REG && ins.rs1.value == 2 &&
-                    ins.imm.type == OperandType::IMM) {
-                    bool isRa = (ins.op == ASMOp::SW && ins.rs2.type == OperandType::REG && ins.rs2.value == 1) ||
-                                (ins.op == ASMOp::LW && ins.rd.type == OperandType::REG && ins.rd.value == 1);
-                    bool isS0 = (ins.op == ASMOp::SW && ins.rs2.type == OperandType::REG && ins.rs2.value == 8) ||
-                                (ins.op == ASMOp::LW && ins.rd.type == OperandType::REG && ins.rd.value == 8);
-                    if (isRa && ins.imm.value == oldRa) ins.imm.value = newRa;
-                    if (isS0 && ins.imm.value == oldS0) ins.imm.value = newS0;
-                }
+    // ============================================================
+    //  Instruction rewriting
+    // ============================================================
+    void rewriteOperand(ASMInstr& instr,
+                        const std::unordered_map<int, int>& vregToPhys,
+                        const std::unordered_map<int, int>& spillLoadMap) {
+        auto rewrite = [&](Operand& op) {
+            if (op.type != OperandType::REG || op.value < 32) return;
+            int vreg = op.value;
+            if (vregToPhys.count(vreg)) {
+                op.value = vregToPhys.at(vreg);
+            } else if (spillLoadMap.count(vreg)) {
+                op.value = spillLoadMap.at(vreg);
             }
-        }
-    }
-
-    static std::vector<ASMInstr> makeLoadFromSpill(int scratch, int offset) {
-        ASMInstr lw;
-        lw.op = ASMOp::LW;
-        lw.rd = Operand(OperandType::REG, scratch);
-        lw.rs1 = Operand(OperandType::REG, 2);
-        lw.imm = Operand(OperandType::IMM, offset);
-        return {lw};
-    }
-
-    static std::vector<ASMInstr> makeStoreToSpill(int scratch, int offset) {
-        ASMInstr sw;
-        sw.op = ASMOp::SW;
-        sw.rs2 = Operand(OperandType::REG, scratch);
-        sw.rs1 = Operand(OperandType::REG, 2);
-        sw.imm = Operand(OperandType::IMM, offset);
-        return {sw};
-    }
-
-    static void rewriteUseOperand(
-        Operand &op,
-        std::vector<ASMInstr> &pre,
-        const std::unordered_map<int, Assign> &assignMap,
-        int scratch,
-        int baseStack
-    ) {
-        if (!isVReg(op)) return;
-        int vreg = static_cast<int>(op.value);
-        auto it = assignMap.find(vreg);
-        if (it == assignMap.end()) return;
-        if (!it->second.spilled) {
-            op.value = it->second.preg;
-        } else {
-            int off = baseStack + it->second.slot * 4;
-            auto loads = makeLoadFromSpill(scratch, off);
-            pre.insert(pre.end(), loads.begin(), loads.end());
-            op.value = scratch;
-        }
-    }
-
-    static void rewriteDefOperand(
-        Operand &op,
-        std::vector<ASMInstr> &post,
-        const std::unordered_map<int, Assign> &assignMap,
-        int scratch,
-        int baseStack
-    ) {
-        if (!isVReg(op)) return;
-        int vreg = static_cast<int>(op.value);
-        auto it = assignMap.find(vreg);
-        if (it == assignMap.end()) return;
-        if (!it->second.spilled) {
-            op.value = it->second.preg;
-        } else {
-            op.value = scratch;
-            int off = baseStack + it->second.slot * 4;
-            auto stores = makeStoreToSpill(scratch, off);
-            post.insert(post.end(), stores.begin(), stores.end());
-        }
-    }
-
-    void rewriteFunction(
-        std::vector<std::shared_ptr<ASMBlock>> &blocks,
-        int l, int r,
-        const std::unordered_map<int, Interval> &intervalMap,
-        std::unordered_map<int, Assign> &assignMap,
-        int baseStack
-    ) {
-        int idx = 0;
-        for (int bi = l; bi < r; ++bi) {
-            std::vector<ASMInstr> rewritten;
-            rewritten.reserve(blocks[bi]->instrs.size() * 2);
-
-            for (auto ins : blocks[bi]->instrs) {
-                std::vector<ASMInstr> pre, post;
-
-                auto saveAcrossCall = [&]() {
-                    if (ins.op != ASMOp::CALL) return;
-                    for (const auto &kv : intervalMap) {
-                        int vreg = kv.first;
-                        const auto &itv = kv.second;
-                        auto ait = assignMap.find(vreg);
-                        if (ait == assignMap.end() || ait->second.spilled) continue;
-                        if (!inRange(idx, itv) || itv.end <= idx) continue;
-                        if (ait->second.slot < 0) continue;
-                        int off = baseStack + ait->second.slot * 4;
-                        auto s = makeStoreToSpill(ait->second.preg, off);
-                        auto lds = makeLoadFromSpill(ait->second.preg, off);
-                        pre.insert(pre.end(), s.begin(), s.end());
-                        post.insert(post.end(), lds.begin(), lds.end());
-                    }
-                };
-
-                switch (ins.op) {
-                    case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV: case ASMOp::DIVU:
-                    case ASMOp::REM: case ASMOp::REMU: case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
-                    case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA: case ASMOp::SLT: case ASMOp::SLTU:
-                    case ASMOp::SLE: case ASMOp::SGE:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        rewriteUseOperand(ins.rs2, pre, assignMap, scratchRegs[1], baseStack);
-                        rewriteDefOperand(ins.rd, post, assignMap, scratchRegs[2], baseStack);
-                        break;
-                    case ASMOp::ADDI: case ASMOp::SLTI: case ASMOp::SLTIU: case ASMOp::ANDI: case ASMOp::ORI:
-                    case ASMOp::XORI: case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
-                    case ASMOp::LB: case ASMOp::LH: case ASMOp::LW: case ASMOp::LBU: case ASMOp::LHU:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        rewriteDefOperand(ins.rd, post, assignMap, scratchRegs[2], baseStack);
-                        break;
-                    case ASMOp::SB: case ASMOp::SH: case ASMOp::SW:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        rewriteUseOperand(ins.rs2, pre, assignMap, scratchRegs[1], baseStack);
-                        break;
-                    case ASMOp::MV: case ASMOp::SEQZ: case ASMOp::SNEZ:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        rewriteDefOperand(ins.rd, post, assignMap, scratchRegs[2], baseStack);
-                        break;
-                    case ASMOp::LI: case ASMOp::LUI:
-                        rewriteDefOperand(ins.rd, post, assignMap, scratchRegs[2], baseStack);
-                        break;
-                    case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE: case ASMOp::BLTU: case ASMOp::BGEU:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        rewriteUseOperand(ins.rs2, pre, assignMap, scratchRegs[1], baseStack);
-                        break;
-                    case ASMOp::BNEZ: case ASMOp::JR:
-                        rewriteUseOperand(ins.rs1, pre, assignMap, scratchRegs[0], baseStack);
-                        break;
-                    default:
-                        break;
-                }
-
-                saveAcrossCall();
-                rewritten.insert(rewritten.end(), pre.begin(), pre.end());
-                rewritten.push_back(ins);
-                rewritten.insert(rewritten.end(), post.begin(), post.end());
-                ++idx;
-            }
-            blocks[bi]->instrs.swap(rewritten);
-        }
-    }
-
-    void processFunction(std::vector<std::shared_ptr<ASMBlock>> &blocks, int l, int r) {
-        if (l >= r) return;
-        int oldStack = parseStackSize(blocks[l]);
-
-        std::unordered_map<int, Interval> intervalMap;
-        std::vector<int> callSites;
-        collectIntervals(blocks, l, r, intervalMap, callSites);
-        if (intervalMap.empty()) return;
-
-        std::unordered_map<int, Assign> assignMap;
-        linearScanAllocate(intervalMap, assignMap);
-
-        int slots = 0;
-        auto ensureSlot = [&](int vreg) {
-            auto &a = assignMap[vreg];
-            if (a.slot < 0) a.slot = slots++;
         };
+        rewrite(instr.rd);
+        rewrite(instr.rs1);
+        rewrite(instr.rs2);
+    }
 
-        for (auto &kv : assignMap) {
-            if (kv.second.spilled) ensureSlot(kv.first);
+    // ============================================================
+    //  Spill load/store emission
+    // ============================================================
+    void emitLoad(std::vector<ASMInstr>& out, int dstReg, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr lw;
+            lw.op = ASMOp::LW;
+            lw.rd = Operand(OperandType::REG, dstReg);
+            lw.rs1 = Operand(OperandType::REG, baseReg);
+            lw.imm = Operand(OperandType::IMM, offset);
+            out.push_back(lw);
+        } else {
+            // Use dstReg itself as address temp to avoid clobbering the other scratch
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, dstReg);
+            li.imm = Operand(OperandType::IMM, offset);
+            out.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, dstReg);
+            add.rs1 = Operand(OperandType::REG, dstReg);
+            add.rs2 = Operand(OperandType::REG, baseReg);
+            out.push_back(add);
+            ASMInstr lw;
+            lw.op = ASMOp::LW;
+            lw.rd = Operand(OperandType::REG, dstReg);
+            lw.rs1 = Operand(OperandType::REG, dstReg);
+            lw.imm = Operand(OperandType::IMM, 0);
+            out.push_back(lw);
         }
+    }
 
-        for (int callIdx : callSites) {
-            for (const auto &kv : intervalMap) {
-                int vreg = kv.first;
-                const auto &itv = kv.second;
-                if (!inRange(callIdx, itv) || itv.end <= callIdx) continue;
-                auto ait = assignMap.find(vreg);
-                if (ait == assignMap.end() || ait->second.spilled) continue;
-                ensureSlot(vreg);
-            }
+    void emitStore(std::vector<ASMInstr>& out, int srcReg, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr sw;
+            sw.op = ASMOp::SW;
+            sw.rs2 = Operand(OperandType::REG, srcReg);
+            sw.rs1 = Operand(OperandType::REG, baseReg);
+            sw.imm = Operand(OperandType::IMM, offset);
+            out.push_back(sw);
+        } else {
+            // Use the OTHER scratch register for address computation
+            int addrReg = (srcReg == SCRATCH1) ? SCRATCH2 : SCRATCH1;
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, addrReg);
+            li.imm = Operand(OperandType::IMM, offset);
+            out.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, addrReg);
+            add.rs1 = Operand(OperandType::REG, addrReg);
+            add.rs2 = Operand(OperandType::REG, baseReg);
+            out.push_back(add);
+            ASMInstr sw;
+            sw.op = ASMOp::SW;
+            sw.rs2 = Operand(OperandType::REG, srcReg);
+            sw.rs1 = Operand(OperandType::REG, addrReg);
+            sw.imm = Operand(OperandType::IMM, 0);
+            out.push_back(sw);
         }
+    }
 
-        int newStack = align16(oldStack + slots * 4);
-        patchFrameLayout(blocks, l, r, oldStack, newStack);
-        rewriteFunction(blocks, l, r, intervalMap, assignMap, oldStack);
+    // ============================================================
+    //  Prologue / Epilogue
+    // ============================================================
+    void emitPrologue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
+                      const std::vector<int>& calleeSaved, int calleeSaveBase) {
+        // addi sp, sp, -frameSize
+        emitAddi(out, 2, 2, -frameSize);
+        // sw ra, raOffset(sp)
+        emitStoreFixed(out, 1, 2, raOffset);
+        // sw s0, s0Offset(sp)
+        emitStoreFixed(out, 8, 2, s0Offset);
+        // Save callee-saved regs
+        for (int i = 0; i < (int)calleeSaved.size(); i++) {
+            emitStoreFixed(out, calleeSaved[i], 2, calleeSaveBase + i * 4);
+        }
+        // addi s0, sp, frameSize
+        emitAddi(out, 8, 2, frameSize);
+    }
+
+    void emitEpilogue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
+                      const std::vector<int>& calleeSaved, int calleeSaveBase) {
+        // Restore callee-saved regs
+        for (int i = 0; i < (int)calleeSaved.size(); i++) {
+            emitLoadFixed(out, calleeSaved[i], 2, calleeSaveBase + i * 4);
+        }
+        // lw s0, s0Offset(sp)
+        emitLoadFixed(out, 8, 2, s0Offset);
+        // lw ra, raOffset(sp)
+        emitLoadFixed(out, 1, 2, raOffset);
+        // addi sp, sp, frameSize
+        emitAddi(out, 2, 2, frameSize);
+    }
+
+    void emitAddi(std::vector<ASMInstr>& out, int rd, int rs1, int imm) {
+        if (imm >= -2048 && imm <= 2047) {
+            ASMInstr i;
+            i.op = ASMOp::ADDI;
+            i.rd = Operand(OperandType::REG, rd);
+            i.rs1 = Operand(OperandType::REG, rs1);
+            i.imm = Operand(OperandType::IMM, imm);
+            out.push_back(i);
+        } else {
+            // Use t5 as temp (it's a scratch reg)
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, SCRATCH1);
+            li.imm = Operand(OperandType::IMM, imm);
+            out.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, rd);
+            add.rs1 = Operand(OperandType::REG, rs1);
+            add.rs2 = Operand(OperandType::REG, SCRATCH1);
+            out.push_back(add);
+        }
+    }
+
+    void emitStoreFixed(std::vector<ASMInstr>& out, int srcReg, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr sw;
+            sw.op = ASMOp::SW;
+            sw.rs2 = Operand(OperandType::REG, srcReg);
+            sw.rs1 = Operand(OperandType::REG, baseReg);
+            sw.imm = Operand(OperandType::IMM, offset);
+            out.push_back(sw);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, SCRATCH1);
+            li.imm = Operand(OperandType::IMM, offset);
+            out.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, SCRATCH1);
+            add.rs1 = Operand(OperandType::REG, SCRATCH1);
+            add.rs2 = Operand(OperandType::REG, baseReg);
+            out.push_back(add);
+            ASMInstr sw;
+            sw.op = ASMOp::SW;
+            sw.rs2 = Operand(OperandType::REG, srcReg);
+            sw.rs1 = Operand(OperandType::REG, SCRATCH1);
+            sw.imm = Operand(OperandType::IMM, 0);
+            out.push_back(sw);
+        }
+    }
+
+    void emitLoadFixed(std::vector<ASMInstr>& out, int dstReg, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr lw;
+            lw.op = ASMOp::LW;
+            lw.rd = Operand(OperandType::REG, dstReg);
+            lw.rs1 = Operand(OperandType::REG, baseReg);
+            lw.imm = Operand(OperandType::IMM, offset);
+            out.push_back(lw);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, SCRATCH1);
+            li.imm = Operand(OperandType::IMM, offset);
+            out.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, SCRATCH1);
+            add.rs1 = Operand(OperandType::REG, SCRATCH1);
+            add.rs2 = Operand(OperandType::REG, baseReg);
+            out.push_back(add);
+            ASMInstr lw;
+            lw.op = ASMOp::LW;
+            lw.rd = Operand(OperandType::REG, dstReg);
+            lw.rs1 = Operand(OperandType::REG, SCRATCH1);
+            lw.imm = Operand(OperandType::IMM, 0);
+            out.push_back(lw);
+        }
     }
 };
-}
+
+} // namespace JaneZ

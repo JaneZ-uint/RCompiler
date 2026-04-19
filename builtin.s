@@ -41,18 +41,7 @@ my_strdup:                              # @my_strdup
 	.type	my_exit,@function
 my_exit:                                # @my_exit
 # %bb.0:
-	addi	sp, sp, -16
-	sw	ra, 12(sp)                      # 4-byte Folded Spill
-	sw	s0, 8(sp)                       # 4-byte Folded Spill
-	addi	s0, sp, 16
-	sw	a0, -12(s0)
-	lw	a1, -12(s0)
-	lui	a0, %hi(.L.str)
-	addi	a0, a0, %lo(.L.str)
-	call	printf
-	j	.LBB1_1
-.LBB1_1:                                # =>This Inner Loop Header: Depth=1
-	j	.LBB1_1
+	ret
 .Lfunc_end1:
 	.size	my_exit, .Lfunc_end1-my_exit
                                         # -- End function
