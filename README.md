@@ -18,8 +18,6 @@ make
 ```
 
 ## Usage
-The compiler currently reads the source file from `tmp.rx` in the project root and outputs LLVM IR to `test.ll`.
-
 ```bash
 cd build
 ./RCompiler
@@ -50,13 +48,32 @@ cd build
 
 ### Code Generation
 - Instruction Selection (from LLVM-IR to RV32I assembly)
-- Register Allocation
 - Stack Management
 - Assembly Code Generation (RV32I target)
 - Builtin Functions Support (builtin.s)
 
-### Register Allocation
+### Register Allocation TBD
 - Linear Scan Register Allocation Algorithm
+- Graph Coloring Register Allocation Algorithm
+
+### IR Generation Optimization TBD
+- Naive Mem2Reg Optimization
+- SSA Form Construction
+- Strength Reduction
+- Loop Analyis and Optimization
+- Maybe more
+
+## Test
+You can find all testcases in [RCompiler-Testcases](https://github.com/peterzheng98/RCompiler-Testcases).We only test testcases under the `semantic2` folder, which are more comprehensive and cover all features of the language.
+### IR Generation Test
+```bash
+./ir_test.sh
+```
+
+### ASM Generation Test
+```bash
+./asm_test.sh
+```
 
 ## RxLanguage Reference
 The project is based on [RLanguage Reference](https://github.com/peterzheng98/RCompiler-Spec/).

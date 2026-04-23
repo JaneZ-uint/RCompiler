@@ -9,7 +9,7 @@
 #include "src/semantic/NameResolver.h"
 #include "src/semantic/checker.h"
 #include "src/semantic/ConstEvaluator.h"
-#include "src/regalloc/regalloc.h"
+#include "src/linearScan/regalloc.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>

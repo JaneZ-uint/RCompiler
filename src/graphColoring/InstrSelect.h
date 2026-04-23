@@ -44,7 +44,6 @@ public:
     int currenctExitBlock = 1;
     std::string currentFuncExitLabel;
 
-    // ---- vreg allocator ----
     int nextVReg = 32;
     std::unordered_map<IRNode*, int> valueToVReg;
 
@@ -58,9 +57,8 @@ public:
     }
     int freshVReg() { return nextVReg++; }
 
-    // ---- alloca tracking ----
-    int allocaOffset = 0; // grows upward from sp
-    std::unordered_map<IRNode*, int> allocaStackOffset; // IRVar* → sp-relative offset
+    int allocaOffset = 0; 
+    std::unordered_map<IRNode*, int> allocaStackOffset;
 
     int getAllocaSlot(std::shared_ptr<IRNode> var, int size) {
         IRNode* key = var.get();
@@ -73,9 +71,8 @@ public:
         return off;
     }
 
-    int totalAllocaSize = 0; // set after processing all allocas
+    int totalAllocaSize = 0;
 
-    // Materialize an IR value into a vreg: literal → li, var → mapped vreg
     int materialize(std::shared_ptr<IRNode> val) {
         if (auto* lit = dynamic_cast<IRLiteral*>(val.get())) {
             int vr = freshVReg();
@@ -89,7 +86,6 @@ public:
         return getVReg(val);
     }
 
-    // ========== entry ==========
     void select(std::shared_ptr<IRRoot> irRoot) {
         asmBlocks.clear();
         for (auto& func : irRoot->children) {
@@ -103,7 +99,6 @@ public:
         }
     }
 
-    // Per-function state kept in a struct so recursion on nested funcs works
     void selectFunc(std::shared_ptr<IRFunction> irFunc) {
         blockMap.clear();
         nextVReg = 32;
@@ -111,7 +106,6 @@ public:
         allocaOffset = 0;
         allocaStackOffset.clear();
 
-        // Recurse into nested functions first
         for (auto& nested : irFunc->funcList) {
             selectFunc(nested);
         }
@@ -141,9 +135,6 @@ public:
         currentBlock = entryBlock;
         currentIRBlock = irFunc->body;
 
-        // ---- Emit PLACEHOLDER prologue marker ----
-        // We insert a NOP-like marker; LinearScan will patch it later.
-        // The marker is: addi x0, x0, 0  (effectively nop, with funcName tag)
         {
             ASMInstr marker;
             marker.op = ASMOp::ADDI;
@@ -154,20 +145,16 @@ public:
             currentBlock->instrs.push_back(marker);
         }
 
-        // ---- Move arguments from physical regs to vregs ----
         int argCount = irFunc->paramList->paramList.size();
         for (int i = 0; i < argCount; i++) {
             int vr = getVReg(irFunc->paramList->paramList[i]);
             if (i < 8) {
-                // mv vreg, a{i}
                 ASMInstr mv;
                 mv.op = ASMOp::MV;
                 mv.rd = Operand(OperandType::REG, vr);
                 mv.rs1 = Operand(OperandType::REG, 10 + i); // a0-a7
                 currentBlock->instrs.push_back(mv);
             } else {
-                // lw vreg, offset(s0)  — s0 points to old sp
-                // Caller pushed extra args starting at old_sp + 0
                 int stackParamOffset = (i - 8) * 4;
                 ASMInstr lw;
                 lw.op = ASMOp::LW;
@@ -178,7 +165,6 @@ public:
             }
         }
 
-        // ---- First pass: collect all allocas and assign stack offsets ----
         for (auto& instr : irFunc->body->instrList) {
             if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
                 processAlloca(alloca);
@@ -193,7 +179,6 @@ public:
         }
         totalAllocaSize = allocaOffset;
 
-        // Patch the prologue marker with totalAllocaSize
         for (auto& instr : entryBlock->instrs) {
             if (instr.funcName == "__PROLOGUE__") {
                 instr.imm = Operand(OperandType::IMM, totalAllocaSize);
@@ -201,7 +186,6 @@ public:
             }
         }
 
-        // ---- Emit alloca address instructions (in entry block) ----
         for (auto& instr : irFunc->body->instrList) {
             if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
                 emitAllocaAddr(alloca);
@@ -210,7 +194,6 @@ public:
         for (auto& block : irFunc->body->blockList) {
             for (auto& instr : block->instrList) {
                 if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
-                    // Emit alloca addr in the entry block, not in the alloca's block
                     auto savedBlock = currentBlock;
                     currentBlock = blockMap[irFunc->body];
                     emitAllocaAddr(alloca);
@@ -219,13 +202,11 @@ public:
             }
         }
 
-        // ---- Second pass: emit instructions for entry block (skip alloca) ----
         for (auto& instr : irFunc->body->instrList) {
             if (std::dynamic_pointer_cast<IRAlloca>(instr)) continue;
             selectInstr(instr);
         }
 
-        // ---- Emit instructions for other blocks ----
         for (auto& block : irFunc->body->blockList) {
             currentBlock = blockMap[block];
             currentIRBlock = block;
@@ -235,12 +216,10 @@ public:
             }
         }
 
-        // ---- Exit block ----
         auto exitBlock = std::make_shared<ASMBlock>(currentFuncExitLabel);
         currentBlock = exitBlock;
         asmBlocks.push_back(exitBlock);
 
-        // Handle struct/array return: load last param (ptr) into a0
         if (std::dynamic_pointer_cast<IRStructType>(irFunc->retType) ||
             std::dynamic_pointer_cast<IRArrayType>(irFunc->retType)) {
             auto lastParam = irFunc->paramList->paramList.back();
@@ -252,7 +231,6 @@ public:
             currentBlock->instrs.push_back(mv);
         }
 
-        // Epilogue placeholder
         {
             ASMInstr marker;
             marker.op = ASMOp::ADDI;
@@ -263,14 +241,12 @@ public:
             currentBlock->instrs.push_back(marker);
         }
 
-        // jr ra
         ASMInstr jr;
         jr.op = ASMOp::JR;
         jr.rs1 = Operand(OperandType::REG, 1); // ra
         currentBlock->instrs.push_back(jr);
     }
 
-    // ---- alloca: compute sp-relative address into vreg ----
     void processAlloca(std::shared_ptr<IRAlloca> alloca) {
         int size = alloca->allocatedType->size;
         if (size == 0) size = 4;
@@ -280,10 +256,6 @@ public:
     void emitAllocaAddr(std::shared_ptr<IRAlloca> alloca) {
         int off = allocaStackOffset[alloca->var.get()];
         int vr = getVReg(alloca->var);
-        // The actual sp-relative offset will be patched after frame layout.
-        // For now we store the alloca-region-relative offset and mark it.
-        // We use: addi vr, sp, off  — the 'off' is alloca-region relative.
-        // LinearScan will add the spill-area size to adjust.
         if (off >= -2048 && off <= 2047) {
             ASMInstr addi;
             addi.op = ASMOp::ADDI;
@@ -310,7 +282,6 @@ public:
         }
     }
 
-    // ========== dispatch ==========
     void selectInstr(std::shared_ptr<IRNode> instr) {
         if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) selectBinaryOp(op);
         else if (auto op = std::dynamic_pointer_cast<IRAlloca>(instr)) emitAllocaAddr(op);
@@ -330,7 +301,6 @@ public:
         else if (auto op = std::dynamic_pointer_cast<IRSext>(instr)) selectSext(op);
     }
 
-    // ========== BinaryOp ==========
     void selectBinaryOp(std::shared_ptr<IRBinaryop> op) {
         int lhs = materialize(op->leftValue);
         int rhs = materialize(op->rightValue);
@@ -353,7 +323,6 @@ public:
             case IROp::MOD: emit(op->utag ? ASMOp::REMU : ASMOp::REM); break;
             case IROp::LT:  emit(ASMOp::SLT); break;
             case IROp::GT: {
-                // a > b  ⟺  b < a
                 ASMInstr i;
                 i.op = ASMOp::SLT;
                 i.rd = Operand(OperandType::REG, dst);
@@ -431,12 +400,10 @@ public:
         }
     }
 
-    // ========== Load ==========
     void selectLoad(std::shared_ptr<IRLoad> op) {
         int addr = materialize(op->addressVar);
         int dst = getVReg(op->tmp);
         if (op->type->type == BaseType::PTR) {
-            // pointer load = just copy the address
             ASMInstr mv;
             mv.op = ASMOp::MV;
             mv.rd = Operand(OperandType::REG, dst);
@@ -452,7 +419,6 @@ public:
         }
     }
 
-    // ========== Store ==========
     void selectStore(std::shared_ptr<IRStore> op) {
         if (op->valueType->type == BaseType::PTR) {
             int val = materialize(op->storeValue);
@@ -478,7 +444,6 @@ public:
         currentBlock->instrs.push_back(sw);
     }
 
-    // ========== Getptr ==========
     int calculateStructOffset(std::shared_ptr<IRStructType> st, int idx) {
         int off = 0;
         for (int i = 0; i < idx; i++) off += st->memberTypes[i].second->size;
@@ -569,7 +534,6 @@ public:
         }
     }
 
-    // ========== Branch ==========
     void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
         if (!targetBlock) return;
         for (auto& instr : targetBlock->instrList) {
@@ -612,10 +576,6 @@ public:
 
     void selectBr(std::shared_ptr<IRBr> op) {
         if (op->condition) {
-            // Conditional: emit phi copies for both targets before branching
-            // We need a temporary block split to handle phi copies correctly.
-            // For simplicity: emit true-path phi copies, then false-path phi copies,
-            // then branch. This works because phi dst vregs are only written once.
             handlePhiCopies(op->trueLabel);
             handlePhiCopies(op->falseLabel);
 
@@ -639,7 +599,6 @@ public:
         }
     }
 
-    // ========== Return ==========
     void selectReturn(std::shared_ptr<IRReturn> op) {
         int val;
         if (op->returnLiteral)
@@ -659,7 +618,6 @@ public:
         currentBlock->instrs.push_back(j);
     }
 
-    // ========== Call ==========
     void selectCall(std::shared_ptr<IRCall> op) {
         int totalParams = op->pList->paramList.size();
         int regParams = std::min(totalParams, 8);
@@ -675,8 +633,6 @@ public:
         }
 
         // Stack args (>8)
-        // Store at negative offsets BEFORE adjusting sp, so that any
-        // spill loads emitted by regalloc still use the correct sp.
         if (totalParams > 8) {
             int stackBytes = (totalParams - 8) * 4;
 
@@ -698,7 +654,6 @@ public:
             currentBlock->instrs.push_back(addiSp);
         }
 
-        // call
         ASMInstr call;
         call.op = ASMOp::CALL;
         std::string target = op->function->name;
@@ -707,7 +662,6 @@ public:
         call.funcName = target;
         currentBlock->instrs.push_back(call);
 
-        // Cleanup stack args
         if (totalParams > 8) {
             int stackBytes = (totalParams - 8) * 4;
             ASMInstr addiSp;
@@ -718,7 +672,6 @@ public:
             currentBlock->instrs.push_back(addiSp);
         }
 
-        // Collect return value
         if (op->retVar) {
             int dst = getVReg(op->retVar);
             ASMInstr mv;
@@ -729,7 +682,6 @@ public:
         }
     }
 
-    // ========== Print ==========
     void selectPrint(std::shared_ptr<IRPrint> op) {
         if (op->printVar) {
             int val = materialize(op->printVar);
@@ -746,7 +698,6 @@ public:
         }
     }
 
-    // ========== Exit ==========
     void selectExit(std::shared_ptr<IRExit> op) {
         if (op->exitCode) {
             int val = materialize(op->exitCode);
@@ -768,7 +719,6 @@ public:
         currentBlock->instrs.push_back(call);
     }
 
-    // ========== Getint ==========
     void selectGetint(std::shared_ptr<IRGetint> op) {
         ASMInstr call;
         call.op = ASMOp::CALL;
@@ -782,7 +732,6 @@ public:
         currentBlock->instrs.push_back(mv);
     }
 
-    // ========== Memcpy ==========
     void selectMemcpy(std::shared_ptr<IRMemcpy> op) {
         int dest = materialize(op->dest);
         int src = materialize(op->value);
@@ -803,7 +752,6 @@ public:
         currentBlock->instrs.push_back(call);
     }
 
-    // ========== Memset ==========
     void selectMemset(std::shared_ptr<IRMemset> op) {
         int dest = materialize(op->dest);
         ASMInstr mvA0; mvA0.op = ASMOp::MV;
@@ -823,7 +771,6 @@ public:
         currentBlock->instrs.push_back(call);
     }
 
-    // ========== Trunc/Zext/Sext ==========
     void selectTrunc(std::shared_ptr<IRTrunc> op) {
         int src = materialize(op->value);
         int dst = getVReg(op->result);
