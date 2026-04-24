@@ -52,15 +52,17 @@ cd build
 - Assembly Code Generation (RV32I target)
 - Builtin Functions Support (builtin.s)
 
-### Register Allocation TBD
+### Register Allocation
 - Linear Scan Register Allocation Algorithm
-- Graph Coloring Register Allocation Algorithm
+- Graph Coloring Register Allocation Algorithm TBD
 
-### IR Generation Optimization TBD
-- Naive Mem2Reg Optimization
-- SSA Form Construction
-- Strength Reduction
-- Loop Analyis and Optimization
+### IR Generation Optimization 
+- Dead alloca elimination
+- Single-store propagation
+- SSA Form Construction TBD
+- Function Inlining TBD
+- Strength Reduction TBD
+- Loop Analyis and Optimization TBD
 - Maybe more
 
 ## Test
