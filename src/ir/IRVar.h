@@ -17,6 +17,7 @@ public:
     long long int serial;
     bool isSelf = false;
     std::shared_ptr<IRVar> baseVar = nullptr; // ptr type
+    bool isUsed = true;
 
     IRVar(){
         serial = ir_cnt++;
