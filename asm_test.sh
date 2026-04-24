@@ -1,10 +1,10 @@
 #!/bin/bash
-# RCompiler 评测脚本
-# 用法: ./test.sh [选项]
-#   ./test.sh              运行全部 50 个测试点
-#   ./test.sh 23           运行单个测试点
-#   ./test.sh 10 20        运行测试点 10 到 20
-#   ./test.sh -v           详细模式（显示每个测试点的输出对比）
+# RCompiler 评测脚本（含性能分析）
+# 用法: ./asm_test.sh [选项]
+#   ./asm_test.sh              运行全部 50 个测试点
+#   ./asm_test.sh 23           运行单个测试点
+#   ./asm_test.sh 10 20        运行测试点 10 到 20
+#   ./asm_test.sh -v           详细模式（显示每个测试点的输出对比）
 
 set -euo pipefail
 
@@ -16,8 +16,8 @@ TESTDIR="$ROOT/RCompiler-Testcases/semantic-2/src"
 BUILTIN="$ROOT/builtin.s"
 TIMEOUT=120
 REIMU_MEM="16M"
+BENCHMARK_DIR="$ROOT/benchmark"
 
-# 颜色
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -66,17 +66,40 @@ if [[ ! -f "$BUILD/RCompiler" ]]; then
     cd "$BUILD" && cmake --build . -j 2>&1 | tail -3
 fi
 
+mkdir -p "$BENCHMARK_DIR"
+
 # ======================== 辅助函数 ========================
 normalize() {
-    # 去除 \r，去除每行尾部空白，删除空行
     sed 's/\r$//' | sed 's/[[:space:]]*$//' | sed '/^[[:space:]]*$/d'
 }
+
+# ======================== 准备 benchmark 文件 ========================
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+BENCH_FILE="$BENCHMARK_DIR/benchmark_${TIMESTAMP}.txt"
+
+{
+    echo "================================================================================"
+    echo "  RCompiler Benchmark Report"
+    echo "  Date: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo "  Git commit: $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo 'N/A')"
+    echo "  Git message: $(git -C "$ROOT" log -1 --format='%s' 2>/dev/null || echo 'N/A')"
+    echo "  Test range: comprehensive${START} - comprehensive${END}"
+    echo "================================================================================"
+    echo ""
+    printf "%-20s %-8s %15s %15s %12s %12s %12s %12s %12s %12s %12s %15s %15s\n" \
+        "Testcase" "Result" "Total_Cycles" "Instr_Parsed" \
+        "Simple" "Mul" "Div" "Mem" "Branch" "Jump" "Jalr" \
+        "BranchPred%" "CacheHit%"
+    printf '%.0s-' {1..195}
+    echo ""
+} > "$BENCH_FILE"
 
 # ======================== 运行测试 ========================
 PASS=0
 FAIL=0
 FAIL_LIST=""
 TOTAL=0
+TOTAL_CYCLES=0
 
 echo -e "${BOLD}══════════════════════════════════════════════════${NC}"
 echo -e "${BOLD}  RCompiler 评测  (comprehensive${START}-${END})${NC}"
@@ -103,33 +126,55 @@ for i in $(seq "$START" "$END"); do
         echo -e "  ${RED}[CE]${NC}   comprehensive${i} — 编译失败"
         FAIL=$((FAIL + 1))
         FAIL_LIST="$FAIL_LIST $i"
+        printf "%-20s %-8s\n" "comprehensive${i}" "CE" >> "$BENCH_FILE"
         cd "$ROOT"
         continue
     fi
     cd "$ROOT"
 
-    # 运行
+    # 运行 reimu（开启 cache + branch predictor，输出 profile）
     IN_ARG="$IN"
     [[ ! -f "$IN" ]] && IN_ARG="/dev/null"
+    PROF_TMP="$ROOT/.prof_tmp.txt"
 
     if ! timeout "$TIMEOUT" "$REIMU" -s="$REIMU_MEM" \
         -i="$IN_ARG" -o=test.out \
-        -f=test.s,"$BUILTIN" 2>/dev/null; then
+        -f=test.s,"$BUILTIN" \
+        --all -p="$PROF_TMP" 2>/dev/null; then
         echo -e "  ${RED}[TLE]${NC}  comprehensive${i} — 运行超时或异常"
         FAIL=$((FAIL + 1))
         FAIL_LIST="$FAIL_LIST $i"
+        printf "%-20s %-8s\n" "comprehensive${i}" "TLE" >> "$BENCH_FILE"
         continue
     fi
+
+    # 解析 profile 数据
+    PROF_DATA=$(cat "$PROF_TMP" 2>/dev/null || echo "")
+
+    CYCLES=$(echo "$PROF_DATA" | grep -oP 'Total cycles: \K[0-9]+' || echo "0")
+    INSTR_PARSED=$(echo "$PROF_DATA" | grep -oP 'Instruction parsed: \K[0-9]+' || echo "0")
+    N_SIMPLE=$(echo "$PROF_DATA" | grep -oP '# simple\s*= \K[0-9]+' || echo "0")
+    N_MUL=$(echo "$PROF_DATA" | grep -oP '# mul\s*= \K[0-9]+' || echo "0")
+    N_DIV=$(echo "$PROF_DATA" | grep -oP '# div\s*= \K[0-9]+' || echo "0")
+    N_MEM=$(echo "$PROF_DATA" | grep -oP '# mem\s*= \K[0-9]+' || echo "0")
+    N_BRANCH=$(echo "$PROF_DATA" | grep -oP '# branch\s*= \K[0-9]+' || echo "0")
+    N_JUMP=$(echo "$PROF_DATA" | grep -oP '# jump\s*= \K[0-9]+' || echo "0")
+    N_JALR=$(echo "$PROF_DATA" | grep -oP '# jalr\s*= \K[0-9]+' || echo "0")
+    BRANCH_PRED=$(echo "$PROF_DATA" | grep -oP 'Branch prediction taken rate: \K[0-9.]+' || echo "N/A")
+    CACHE_HIT=$(echo "$PROF_DATA" | grep -oP 'Cache hit rate: \K[0-9.]+' || echo "N/A")
 
     # 对比输出
     ACTUAL=$(normalize < test.out)
     EXPECT=$(normalize < "$EXPECTED")
 
     if [[ "$ACTUAL" == "$EXPECT" ]]; then
-        echo -e "  ${GREEN}[AC]${NC}   comprehensive${i}"
+        RESULT="AC"
+        echo -e "  ${GREEN}[AC]${NC}   comprehensive${i}  ${CYAN}cycles=${CYCLES}${NC}"
         PASS=$((PASS + 1))
+        TOTAL_CYCLES=$((TOTAL_CYCLES + CYCLES))
     else
-        echo -e "  ${RED}[WA]${NC}   comprehensive${i}"
+        RESULT="WA"
+        echo -e "  ${RED}[WA]${NC}   comprehensive${i}  ${CYAN}cycles=${CYCLES}${NC}"
         FAIL=$((FAIL + 1))
         FAIL_LIST="$FAIL_LIST $i"
 
@@ -139,9 +184,31 @@ for i in $(seq "$START" "$END"); do
             echo ""
         fi
     fi
+
+    # 写入 benchmark 文件
+    printf "%-20s %-8s %15s %15s %12s %12s %12s %12s %12s %12s %12s %15s %15s\n" \
+        "comprehensive${i}" "$RESULT" "$CYCLES" "$INSTR_PARSED" \
+        "$N_SIMPLE" "$N_MUL" "$N_DIV" "$N_MEM" "$N_BRANCH" "$N_JUMP" "$N_JALR" \
+        "$BRANCH_PRED" "$CACHE_HIT" >> "$BENCH_FILE"
 done
 
-# ======================== 汇总 ========================
+# ======================== 汇总写入 benchmark ========================
+{
+    printf '%.0s-' {1..195}
+    echo ""
+    echo ""
+    echo "Summary:"
+    echo "  Pass: ${PASS}/${TOTAL}  Fail: ${FAIL}"
+    if [[ -n "$FAIL_LIST" ]]; then
+        echo "  Failed:${FAIL_LIST}"
+    fi
+    echo "  Total cycles (AC only): ${TOTAL_CYCLES}"
+    echo ""
+} >> "$BENCH_FILE"
+
+rm -f "$ROOT/.prof_tmp.txt"
+
+# ======================== 汇总输出 ========================
 echo ""
 echo -e "${BOLD}══════════════════════════════════════════════════${NC}"
 if [[ $FAIL -eq 0 ]]; then
@@ -150,6 +217,8 @@ else
     echo -e "  ${RED}${BOLD}通过: ${PASS}/${TOTAL}  失败: ${FAIL}${NC}"
     echo -e "  失败测试点:${FAIL_LIST}"
 fi
+echo -e "  ${CYAN}Total cycles (AC only): ${TOTAL_CYCLES}${NC}"
+echo -e "  ${CYAN}Benchmark saved: ${BENCH_FILE}${NC}"
 echo -e "${BOLD}══════════════════════════════════════════════════${NC}"
 
 exit $FAIL

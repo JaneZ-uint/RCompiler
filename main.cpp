@@ -1,4 +1,5 @@
 #include "src/ast/root.h"
+#include "src/codegen/codegen.h"
 #include "src/ir/CodeGenerator.h"
 #include "src/lexer/lexer.h"
 #include "src/parser/parser.h"
@@ -9,7 +10,7 @@
 #include "src/semantic/NameResolver.h"
 #include "src/semantic/checker.h"
 #include "src/semantic/ConstEvaluator.h"
-#include "src/linearScan/regalloc.h"
+//#include "src/linearScan/regalloc.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -63,7 +64,7 @@ int main(){
     code_generator.generateCode(*root);
 
     //codegen
-    JaneZ::regalloc cg;
+    JaneZ::codegen cg;
     cg.generate(code_generator.irRoot);
 
     std::cout.rdbuf(cout_buf);
