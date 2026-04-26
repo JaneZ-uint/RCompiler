@@ -51,6 +51,7 @@ public:
         if(!func->body) return;
         removeUnusedAllocas(func);
         singleStorePropagate(func);
+        singleBlockPropagate(func);
     }
 
 private:
@@ -389,6 +390,260 @@ private:
         for(auto &blk: func->body->blockList) {
             removeDead(blk->instrList);
         }
+    }
+
+    void singleBlockPropagate(std::shared_ptr<IRFunction> func){
+        std::set<IRVar*> allocaVars;
+        forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
+            if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
+                allocaVars.insert(p->var.get());
+            }
+        });
+        if(allocaVars.empty()) {
+            return;
+        }
+
+        std::map<IRVar*, bool> escaped;
+        auto markEscape = [&](const std::shared_ptr<IRVar> &var){
+            if(var && allocaVars.count(var.get())) escaped[var.get()] = true;
+        };
+        auto markEscapeValue = [&](const std::shared_ptr<IRValue> &val){
+            if(auto var = std::dynamic_pointer_cast<IRVar>(val)) markEscape(var);
+        };
+
+        forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
+            if(dynamic_cast<IRAlloca*>(&*instr)) return;
+            if(auto *p = dynamic_cast<IRStore*>(&*instr)){
+                if(!(p->address && allocaVars.count(p->address.get()))){
+                    markEscape(p->address);
+                }
+                markEscape(p->storeValue);
+            } else if(auto *p = dynamic_cast<IRLoad*>(&*instr)){
+                (void)p;
+            } else if(auto *p = dynamic_cast<IRGetptr*>(&*instr)){
+                markEscape(p->base); 
+                markEscape(p->res); 
+                markEscape(p->index);
+            } else if(auto *p = dynamic_cast<IRBinaryop*>(&*instr)){
+                markEscapeValue(p->leftValue); 
+                markEscapeValue(p->rightValue); 
+                markEscape(p->result);
+            } else if(auto *p = dynamic_cast<IRBr*>(&*instr)){
+                markEscape(p->condition);
+            } else if(auto *p = dynamic_cast<IRReturn*>(&*instr)){
+                markEscape(p->returnValue);
+            } else if(auto *p = dynamic_cast<IRCall*>(&*instr)){
+                markEscape(p->retVar);
+                if(p->pList){
+                    for(auto &param: p->pList->paramList){
+                        if(auto var = std::dynamic_pointer_cast<IRVar>(param)){
+                            markEscape(var);
+                        }
+                    }
+                }
+            } else if(auto *p = dynamic_cast<IRPrint*>(&*instr)){
+                markEscapeValue(p->printVar);
+            } else if(auto *p = dynamic_cast<IRGetint*>(&*instr)){
+                markEscape(p->result);
+            } else if(auto *p = dynamic_cast<IRSext*>(&*instr)){
+                markEscape(p->value); 
+                markEscape(p->result);
+            } else if(auto *p = dynamic_cast<IRZext*>(&*instr)){
+                markEscape(p->value); 
+                markEscape(p->result);
+            } else if(auto *p = dynamic_cast<IRTrunc*>(&*instr)){
+                markEscape(p->value); 
+                markEscape(p->result);
+            } else if(auto *p = dynamic_cast<IRPhi*>(&*instr)){
+                markEscape(p->result); 
+                markEscape(p->secondState);
+            } else if(auto *p = dynamic_cast<IRPHI*>(&*instr)){
+                markEscape(p->result); 
+                markEscapeValue(p->firstState); 
+                markEscapeValue(p->secondState);
+            } else if(auto *p = dynamic_cast<IRMemset*>(&*instr)){
+                markEscape(p->dest);
+            } else if(auto *p = dynamic_cast<IRMemcpy*>(&*instr)){
+                markEscape(p->dest); 
+                markEscape(p->value);
+            } else if(auto *p = dynamic_cast<IRExit*>(&*instr)){
+                markEscapeValue(p->exitCode);
+            }
+        });
+
+        std::map<IRVar*, std::set<IRBlock*>> usedInBlocks;
+        auto scanBlockUsage = [&](IRBlock* blk){
+            for(auto &instr: blk->instrList){
+                if(auto *p = dynamic_cast<IRStore*>(&*instr)){
+                    if(p->address && allocaVars.count(p->address.get()) && !escaped[p->address.get()]){
+                        usedInBlocks[p->address.get()].insert(blk);
+                    }
+                } else if(auto *p = dynamic_cast<IRLoad*>(&*instr)){
+                    if(p->addressVar && allocaVars.count(p->addressVar.get()) && !escaped[p->addressVar.get()]){
+                        usedInBlocks[p->addressVar.get()].insert(blk);
+                    }
+                }
+            }
+        };
+        scanBlockUsage(func->body.get());
+        for(auto &blk: func->body->blockList) {
+            scanBlockUsage(blk.get());
+        }
+
+        std::set<IRVar*> singleBlockAllocas;
+        for(auto *av : allocaVars){
+            if(escaped[av]) continue;
+            if(usedInBlocks[av].size() == 1){
+                singleBlockAllocas.insert(av);
+            }
+        }
+        if(singleBlockAllocas.empty()) return;
+
+        std::map<IRVar*, std::shared_ptr<IRVar>> replaceMap;
+        std::set<IRNode*> toRemove;
+        std::map<IRVar*, int> totalLoads, replacedLoads;
+
+        auto processBlock = [&](std::vector<std::shared_ptr<IRNode>> &instrList){
+            std::map<IRVar*, std::shared_ptr<IRVar>> curVal;
+            for(auto &instr: instrList){
+                if(auto *p = dynamic_cast<IRStore*>(&*instr)){
+                    if(p->address && singleBlockAllocas.count(p->address.get())){
+                        if(p->storeValue){
+                            auto val = p->storeValue;
+                            while(replaceMap.count(val.get())) val = replaceMap[val.get()];
+                            curVal[p->address.get()] = val;
+                        } else {
+                            curVal.erase(p->address.get());
+                        }
+                    }
+                } else if(auto *p = dynamic_cast<IRLoad*>(&*instr)){
+                    if(p->addressVar && singleBlockAllocas.count(p->addressVar.get())){
+                        totalLoads[p->addressVar.get()]++;
+                        auto it = curVal.find(p->addressVar.get());
+                        if(it != curVal.end()){
+                            replaceMap[p->tmp.get()] = it->second;
+                            toRemove.insert(p);
+                            replacedLoads[p->addressVar.get()]++;
+                        }
+                    }
+                }
+            }
+        };
+
+        processBlock(func->body->instrList);
+        for(auto &blk: func->body->blockList) processBlock(blk->instrList);
+
+        if(replaceMap.empty()) return;
+
+        std::set<IRVar*> removedAllocas;
+        for(auto *av : singleBlockAllocas){
+            if(totalLoads[av] > 0 && totalLoads[av] == replacedLoads[av]){
+                removedAllocas.insert(av);
+            }
+        }
+
+        forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
+            if(auto *p = dynamic_cast<IRStore*>(&*instr)){
+                if(p->address && removedAllocas.count(p->address.get())){
+                    toRemove.insert(p);
+                }
+            }
+        });
+
+        // if A->B and B->C, make A->C
+        for(auto &[key, val] : replaceMap){
+            auto cur = val;
+            while(replaceMap.count(cur.get())) cur = replaceMap[cur.get()];
+            val = cur;
+        }
+
+        auto repVar = [&](std::shared_ptr<IRVar> &var){
+            if(var && replaceMap.count(var.get())){
+                var = replaceMap[var.get()];
+            }
+        };
+        auto repValue = [&](std::shared_ptr<IRValue> &val){
+            if(auto var = std::dynamic_pointer_cast<IRVar>(val)){
+                if(replaceMap.count(var.get())){
+                    val = replaceMap[var.get()];
+                }
+            }
+        };
+
+        forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
+            if(auto *p = dynamic_cast<IRStore*>(&*instr)){
+                repVar(p->storeValue); 
+                repVar(p->address);
+            } else if(auto *p = dynamic_cast<IRLoad*>(&*instr)){
+                repVar(p->addressVar); 
+                repVar(p->tmp);
+            } else if(auto *p = dynamic_cast<IRGetptr*>(&*instr)){
+                repVar(p->base); 
+                repVar(p->res); 
+                repVar(p->index);
+            } else if(auto *p = dynamic_cast<IRBinaryop*>(&*instr)){
+                repValue(p->leftValue); 
+                repValue(p->rightValue); 
+                repVar(p->result);
+            } else if(auto *p = dynamic_cast<IRBr*>(&*instr)){
+                repVar(p->condition);
+            } else if(auto *p = dynamic_cast<IRReturn*>(&*instr)){
+                repVar(p->returnValue);
+            } else if(auto *p = dynamic_cast<IRCall*>(&*instr)){
+                repVar(p->retVar);
+                if(p->pList){
+                    for(auto &param: p->pList->paramList){
+                        if(auto var = std::dynamic_pointer_cast<IRVar>(param)){
+                            if(replaceMap.count(var.get())){
+                                param = replaceMap[var.get()];
+                            }
+                        }
+                    }
+                }
+            } else if(auto *p = dynamic_cast<IRPrint*>(&*instr)){
+                repValue(p->printVar);
+            } else if(auto *p = dynamic_cast<IRGetint*>(&*instr)){
+                repVar(p->result);
+            } else if(auto *p = dynamic_cast<IRSext*>(&*instr)){
+                repVar(p->value); 
+                repVar(p->result);
+            } else if(auto *p = dynamic_cast<IRZext*>(&*instr)){
+                repVar(p->value); 
+                repVar(p->result);
+            } else if(auto *p = dynamic_cast<IRTrunc*>(&*instr)){
+                repVar(p->value); 
+                repVar(p->result);
+            } else if(auto *p = dynamic_cast<IRPhi*>(&*instr)){
+                repVar(p->result); 
+                repVar(p->secondState);
+            } else if(auto *p = dynamic_cast<IRPHI*>(&*instr)){
+                repVar(p->result); 
+                repValue(p->firstState); 
+                repValue(p->secondState);
+            } else if(auto *p = dynamic_cast<IRMemset*>(&*instr)){
+                repVar(p->dest);
+            } else if(auto *p = dynamic_cast<IRMemcpy*>(&*instr)){
+                repVar(p->dest); 
+                repVar(p->value);
+            } else if(auto *p = dynamic_cast<IRExit*>(&*instr)){
+                repValue(p->exitCode);
+            }
+        });
+
+        auto removeDead = [&](std::vector<std::shared_ptr<IRNode>> &instrList){
+            instrList.erase(
+                std::remove_if(instrList.begin(), instrList.end(),
+                    [&](const std::shared_ptr<IRNode> &instr){
+                        if(toRemove.count(instr.get())) return true;
+                        if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
+                            return removedAllocas.count(p->var.get()) > 0;
+                        }
+                        return false;
+                    }),
+                instrList.end());
+        };
+        removeDead(func->body->instrList);
+        for(auto &blk: func->body->blockList) removeDead(blk->instrList);
     }
 };
 }
