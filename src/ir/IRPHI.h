@@ -17,6 +17,7 @@ public:
     std::shared_ptr<IRBlock> firstBlock;
     std::shared_ptr<IRValue> secondState;
     std::shared_ptr<IRBlock> secondBlock;
+    std::vector<std::pair<std::shared_ptr<IRValue>, std::shared_ptr<IRBlock>>> entries;
 
     IRPHI() = default;
     IRPHI(std::shared_ptr<IRVar> result,

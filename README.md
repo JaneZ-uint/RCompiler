@@ -57,10 +57,10 @@ cd build
 - Graph Coloring Register Allocation Algorithm TBD
 
 ### IR Generation Optimization 
-- Dead alloca elimination
-- Single-store propagation
-- SSA Form Construction TBD
+- Mem2Reg 
 - Function Inlining TBD
+- SCCP TBD
+- Dead Code Elimination TBD
 - Strength Reduction TBD
 - Loop Analyis and Optimization TBD
 - Maybe more

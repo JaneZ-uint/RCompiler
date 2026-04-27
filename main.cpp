@@ -11,6 +11,7 @@
 #include "src/semantic/ConstEvaluator.h"
 #include "src/linearScan/regalloc.h"
 #include "src/optimize/mem2reg.h"
+#include "src/optimize/dominantTree.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -66,6 +67,9 @@ int main(){
     //optimize
     JaneZ::Mem2Reg mem2reg;
     mem2reg.optimize(code_generator.irRoot);
+
+    JaneZ::DominantTree domTree;
+    domTree.optimize(code_generator.irRoot);
 
     //codegen
     JaneZ::regalloc cg;

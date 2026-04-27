@@ -12,5 +12,6 @@ add_executable(RCompiler
     src/parser/ParseStmt.cpp
     src/parser/ParseType.cpp
     src/parser/PrattParser.cpp
+    src/optimize/dominantTree.h
 
     )

@@ -536,41 +536,58 @@ public:
 
     void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
         if (!targetBlock) return;
+        std::vector<std::pair<int, int>> copies;
         for (auto& instr : targetBlock->instrList) {
             if (auto* phi = dynamic_cast<IRPhi*>(instr.get())) {
                 int dst = getVReg(phi->result);
                 if (phi->firstBlock == currentIRBlock) {
                     int immVal = phi->firstState ? 1 : 0;
+                    int tmp = freshVReg();
                     ASMInstr li;
                     li.op = ASMOp::LI;
-                    li.rd = Operand(OperandType::REG, dst);
+                    li.rd = Operand(OperandType::REG, tmp);
                     li.imm = Operand(OperandType::IMM, immVal);
                     currentBlock->instrs.push_back(li);
+                    copies.push_back({dst, tmp});
                 } else if (phi->secondBlock == currentIRBlock) {
                     if (phi->secondState) {
                         int src = materialize(phi->secondState);
+                        int tmp = freshVReg();
                         ASMInstr mv;
                         mv.op = ASMOp::MV;
-                        mv.rd = Operand(OperandType::REG, dst);
+                        mv.rd = Operand(OperandType::REG, tmp);
                         mv.rs1 = Operand(OperandType::REG, src);
                         currentBlock->instrs.push_back(mv);
+                        copies.push_back({dst, tmp});
                     }
                 }
             } else if (auto* phi = dynamic_cast<IRPHI*>(instr.get())) {
                 int dst = getVReg(phi->result);
                 std::shared_ptr<IRValue> srcNode = nullptr;
-                if (phi->firstBlock == currentIRBlock) srcNode = phi->firstState;
-                else if (phi->secondBlock == currentIRBlock) srcNode = phi->secondState;
-                else continue;
-                if (srcNode) {
-                    int src = materialize(srcNode);
-                    ASMInstr mv;
-                    mv.op = ASMOp::MV;
-                    mv.rd = Operand(OperandType::REG, dst);
-                    mv.rs1 = Operand(OperandType::REG, src);
-                    currentBlock->instrs.push_back(mv);
+                if (phi->firstBlock && phi->firstBlock == currentIRBlock) srcNode = phi->firstState;
+                else if (phi->secondBlock && phi->secondBlock == currentIRBlock) srcNode = phi->secondState;
+                else {
+                    for (auto& entry : phi->entries) {
+                        if (entry.second == currentIRBlock) { srcNode = entry.first; break; }
+                    }
                 }
+                if (!srcNode) continue;
+                int src = materialize(srcNode);
+                int tmp = freshVReg();
+                ASMInstr mv;
+                mv.op = ASMOp::MV;
+                mv.rd = Operand(OperandType::REG, tmp);
+                mv.rs1 = Operand(OperandType::REG, src);
+                currentBlock->instrs.push_back(mv);
+                copies.push_back({dst, tmp});
             }
+        }
+        for (auto& [dst, tmp] : copies) {
+            ASMInstr mv;
+            mv.op = ASMOp::MV;
+            mv.rd = Operand(OperandType::REG, dst);
+            mv.rs1 = Operand(OperandType::REG, tmp);
+            currentBlock->instrs.push_back(mv);
         }
     }
 
