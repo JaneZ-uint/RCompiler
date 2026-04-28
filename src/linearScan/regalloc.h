@@ -13,6 +13,7 @@ public:
         InstrSelect selector;
         selector.select(root);
         LinearScan allocator;
+        allocator.deadCodeElimination(selector.asmBlocks);
         allocator.process(selector.asmBlocks);
         ASMPrinter printer(selector.asmBlocks);
         printer.print();

@@ -175,8 +175,12 @@ private:
                 IRBlock *newIdom = nullptr;
                 for (auto *p : preds[blk]) {
                     if (!idom.count(p)) continue;
-                    if (!newIdom) { newIdom = p; }
-                    else { newIdom = intersect(p, newIdom); }
+                    if (!newIdom) { 
+                        newIdom = p; 
+                    }
+                    else { 
+                        newIdom = intersect(p, newIdom); 
+                    }
                 }
                 if (newIdom && idom[blk] != newIdom) {
                     idom[blk] = newIdom;
@@ -207,9 +211,14 @@ private:
 
     void forEachInstr(std::shared_ptr<IRFunction> func,
                       const std::function<void(const std::shared_ptr<IRNode>&)> &fn) {
-        for (auto &instr : func->body->instrList) fn(instr);
-        for (auto &blk : func->body->blockList)
-            for (auto &instr : blk->instrList) fn(instr);
+        for (auto &instr : func->body->instrList) {
+            fn(instr);
+        }
+        for (auto &blk : func->body->blockList){
+            for (auto &instr : blk->instrList) {
+                fn(instr);
+            }
+        }
     }
 
     struct AllocaInfo {
@@ -308,7 +317,8 @@ private:
                 inWL.insert(db);
             }
             while (!worklist.empty()) {
-                auto *b = worklist.front(); worklist.pop();
+                auto *b = worklist.front(); 
+                worklist.pop();
                 for (auto *df : domFrontier[b]) {
                     if (hasPhi.insert(df).second) {
                         phiBlocks[av].insert(df);
@@ -539,11 +549,13 @@ private:
         auto scan = [&](IRBlock *blk) {
             for (auto &instr : blk->instrList) {
                 if (auto *p = dynamic_cast<IRStore*>(&*instr)) {
-                    if (p->address && promotable.count(p->address.get()))
+                    if (p->address && promotable.count(p->address.get())){
                         infoMap[p->address.get()].defBlocks.insert(blk);
+                    }
                 } else if (auto *p = dynamic_cast<IRLoad*>(&*instr)) {
-                    if (p->addressVar && promotable.count(p->addressVar.get()))
+                    if (p->addressVar && promotable.count(p->addressVar.get())){
                         infoMap[p->addressVar.get()].useBlocks.insert(blk);
+                    }
                 }
             }
         };

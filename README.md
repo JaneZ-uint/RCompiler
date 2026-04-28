@@ -58,9 +58,9 @@ cd build
 
 ### IR Generation Optimization 
 - Mem2Reg 
+- Dead Code Elimination
 - Function Inlining TBD
 - SCCP TBD
-- Dead Code Elimination TBD
 - Strength Reduction TBD
 - Loop Analyis and Optimization TBD
 - Maybe more

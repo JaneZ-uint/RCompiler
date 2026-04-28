@@ -82,7 +82,117 @@ public:
         }
     }
 
+    void deadCodeElimination(std::vector<std::shared_ptr<ASMBlock>>& blocks) {
+        std::vector<std::pair<int,int>> funcRanges;
+        for (int i = 0; i < (int)blocks.size(); i++) {
+            if (!blocks[i]->label.empty() && blocks[i]->label[0] != '.') {
+                if (!funcRanges.empty()) funcRanges.back().second = i;
+                funcRanges.push_back({i, (int)blocks.size()});
+            }
+        }
+        if (!funcRanges.empty()) funcRanges.back().second = (int)blocks.size();
+
+        for (auto& [fStart, fEnd] : funcRanges) {
+            dceFunction(blocks, fStart, fEnd);
+        }
+    }
+
 private:
+    bool hasSideEffect(const ASMInstr& instr) {
+        if (!instr.funcName.empty()) return true;
+        switch (instr.op) {
+            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::CALL:
+            case ASMOp::J: case ASMOp::JR: case ASMOp::JAL:
+            case ASMOp::BNEZ: case ASMOp::BEQ: case ASMOp::BNE:
+            case ASMOp::BLT: case ASMOp::BGE: case ASMOp::BLTU: case ASMOp::BGEU:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    void dceFunction(std::vector<std::shared_ptr<ASMBlock>>& blocks, int fStart, int fEnd) {
+        bool changed = true;
+        while (changed) {
+            changed = false;
+
+            std::vector<CFGBlock> cfg;
+            std::unordered_map<std::string, int> labelToIdx;
+            for (int i = fStart; i < fEnd; i++) {
+                CFGBlock b;
+                b.id = i - fStart;
+                b.asmBlock = blocks[i].get();
+                cfg.push_back(b);
+                labelToIdx[blocks[i]->label] = b.id;
+            }
+
+            for (int bi = 0; bi < (int)cfg.size(); bi++) {
+                auto& instrs = cfg[bi].asmBlock->instrs;
+                if (instrs.empty()) continue;
+                buildEdges(cfg, labelToIdx, bi, instrs);
+            }
+            for (int i = 0; i < (int)cfg.size(); i++) {
+                for (int s : cfg[i].succs)
+                    cfg[s].preds.push_back(i);
+            }
+            for (auto& b : cfg) computeDefUse(b);
+
+            bool liveChanged = true;
+            while (liveChanged) {
+                liveChanged = false;
+                for (int i = (int)cfg.size() - 1; i >= 0; i--) {
+                    auto& b = cfg[i];
+                    std::set<int> newLiveOut;
+                    for (int s : b.succs)
+                        for (int r : cfg[s].liveIn) newLiveOut.insert(r);
+                    std::set<int> newLiveIn = b.use;
+                    for (int r : newLiveOut)
+                        if (b.def.find(r) == b.def.end()) newLiveIn.insert(r);
+                    if (newLiveIn != b.liveIn || newLiveOut != b.liveOut) {
+                        b.liveIn = newLiveIn;
+                        b.liveOut = newLiveOut;
+                        liveChanged = true;
+                    }
+                }
+            }
+
+            for (auto& b : cfg) {
+                std::set<int> live = b.liveOut;
+                std::vector<bool> dead(b.asmBlock->instrs.size(), false);
+
+                for (int i = (int)b.asmBlock->instrs.size() - 1; i >= 0; i--) {
+                    auto& instr = b.asmBlock->instrs[i];
+                    if (hasSideEffect(instr)) {
+                        for (int r : getDefs(instr)) live.erase(r);
+                        for (int r : getUses(instr)) live.insert(r);
+                        continue;
+                    }
+                    auto defs = getDefs(instr);
+                    bool allDead = !defs.empty();
+                    for (int r : defs) {
+                        if (live.count(r)) { allDead = false; break; }
+                    }
+                    if (allDead) {
+                        dead[i] = true;
+                        changed = true;
+                    } else {
+                        for (int r : defs) live.erase(r);
+                        for (int r : getUses(instr)) live.insert(r);
+                    }
+                }
+
+                if (changed) {
+                    std::vector<ASMInstr> newInstrs;
+                    for (int i = 0; i < (int)b.asmBlock->instrs.size(); i++) {
+                        if (!dead[i]) newInstrs.push_back(b.asmBlock->instrs[i]);
+                    }
+                    b.asmBlock->instrs = std::move(newInstrs);
+                }
+            }
+        }
+    }
+
     void processFunction(std::vector<std::shared_ptr<ASMBlock>>& blocks, int fStart, int fEnd) {
         std::vector<CFGBlock> cfg;
         std::unordered_map<std::string, int> labelToIdx;
