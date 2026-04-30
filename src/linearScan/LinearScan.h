@@ -127,6 +127,19 @@ private:
                 labelToIdx[blocks[i]->label] = b.id;
             }
 
+            for (auto& b : cfg) {
+                auto& instrs = b.asmBlock->instrs;
+                for (int i = 0; i < (int)instrs.size(); i++) {
+                    if (instrs[i].op == ASMOp::J || instrs[i].op == ASMOp::JR) {
+                        if (i + 1 < (int)instrs.size()) {
+                            instrs.erase(instrs.begin() + i + 1, instrs.end());
+                            changed = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
             for (int bi = 0; bi < (int)cfg.size(); bi++) {
                 auto& instrs = cfg[bi].asmBlock->instrs;
                 if (instrs.empty()) continue;
@@ -171,6 +184,7 @@ private:
                     auto defs = getDefs(instr);
                     bool allDead = !defs.empty();
                     for (int r : defs) {
+                        if (r > 0 && r < 32 && !isAllocatable(r)) { allDead = false; break; }
                         if (live.count(r)) { allDead = false; break; }
                     }
                     if (allDead) {
@@ -537,6 +551,7 @@ private:
 
     void buildEdges(std::vector<CFGBlock>& cfg, std::unordered_map<std::string, int>& labelToIdx,
                     int bi, std::vector<ASMInstr>& instrs) {
+        bool seenUncondJump = false;
         for (int i = (int)instrs.size() - 1; i >= 0; i--) {
             auto& instr = instrs[i];
             if (instr.op == ASMOp::J || instr.op == ASMOp::JAL) {
@@ -544,6 +559,7 @@ private:
                 if (labelToIdx.count(target)) {
                     cfg[bi].succs.push_back(labelToIdx[target]);
                 }
+                seenUncondJump = true;
                 continue;
             }
             if (instr.op == ASMOp::BNEZ || instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE ||
@@ -553,24 +569,12 @@ private:
                 if (labelToIdx.count(target)) {
                     cfg[bi].succs.push_back(labelToIdx[target]);
                 }
+                if (!seenUncondJump && bi + 1 < (int)cfg.size()) {
+                    cfg[bi].succs.push_back(bi + 1);
+                }
                 break;
             }
             if (instr.op == ASMOp::JR) {
-                break;
-            }
-            if (instr.op == ASMOp::CALL) {
-                if (bi + 1 < (int)cfg.size()) {
-                    bool hasJumpAfter = false;
-                    for (int j = i + 1; j < (int)instrs.size(); j++) {
-                        if (instrs[j].op == ASMOp::J || instrs[j].op == ASMOp::JR ||
-                            instrs[j].op == ASMOp::BNEZ) {
-                            hasJumpAfter = true; break;
-                        }
-                    }
-                    if (!hasJumpAfter) {
-                        cfg[bi].succs.push_back(bi + 1);
-                    }
-                }
                 break;
             }
         }
@@ -578,7 +582,9 @@ private:
             bool hasTerm = false;
             for (auto& instr : instrs) {
                 if (instr.op == ASMOp::J || instr.op == ASMOp::JR || instr.op == ASMOp::BNEZ ||
-                    instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE) {
+                    instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE ||
+                    instr.op == ASMOp::BLT || instr.op == ASMOp::BGE ||
+                    instr.op == ASMOp::BLTU || instr.op == ASMOp::BGEU) {
                     hasTerm = true; break;
                 }
             }
@@ -709,8 +715,11 @@ private:
             case ASMOp::JR:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
+                if (instr.rs1.type == OperandType::REG && instr.rs1.value == 1)
+                    uses.push_back(10);
                 break;
             case ASMOp::CALL:
+                for (int i = 10; i <= 17; i++) uses.push_back(i);
                 break;
             default: break;
         }
