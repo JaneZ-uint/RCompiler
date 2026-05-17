@@ -13,6 +13,7 @@ add_executable(RCompiler
     src/parser/ParseType.cpp
     src/parser/PrattParser.cpp
     src/optimize/dominantTree.h
+    src/optimize/functionInline.h
     src/optimize/constantFold.h
 
     )
