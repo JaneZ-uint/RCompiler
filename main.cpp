@@ -12,6 +12,7 @@
 #include "src/linearScan/regalloc.h"
 #include "src/optimize/mem2reg.h"
 #include "src/optimize/dominantTree.h"
+#include "src/optimize/constantFold.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -70,6 +71,9 @@ int main(){
 
     JaneZ::DominantTree domTree;
     domTree.optimize(code_generator.irRoot);
+
+    JaneZ::ConstantFold constantFold;
+    constantFold.optimize(code_generator.irRoot);
 
     //codegen
     JaneZ::regalloc cg;
