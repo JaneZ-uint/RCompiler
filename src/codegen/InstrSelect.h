@@ -56,7 +56,7 @@ public:
             return varStackOffset[var];
         }
         int offset = stackOffset;
-        stackOffset += 4;
+        stackOffset += RISCV_XLEN_BYTES;
         varStackOffset[var] = offset;
         return offset;
     }
@@ -263,16 +263,16 @@ public:
                 if(i < 8){
                     storeFromReg(10 + i, irInstr->paramList->paramList[i]);
                 }else{
-                    int stackParamOffset = (i - 8) * 4;
-                    ASMInstr lwInstr;
-                    lwInstr.op = ASMOp::LW;
-                    lwInstr.rd.type = OperandType::REG;
-                    lwInstr.rd.value = 5;
-                    lwInstr.rs1.type = OperandType::REG;
-                    lwInstr.rs1.value = 8; 
-                    lwInstr.imm.type = OperandType::IMM;
-                    lwInstr.imm.value = stackParamOffset;
-                    currentBlock->instrs.push_back(lwInstr);
+                    int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
+                    ASMInstr ldInstr;
+                    ldInstr.op = ASMOp::LD;
+                    ldInstr.rd.type = OperandType::REG;
+                    ldInstr.rd.value = 5;
+                    ldInstr.rs1.type = OperandType::REG;
+                    ldInstr.rs1.value = 8; 
+                    ldInstr.imm.type = OperandType::IMM;
+                    ldInstr.imm.value = stackParamOffset;
+                    currentBlock->instrs.push_back(ldInstr);
                     storeFromReg(5, irInstr->paramList->paramList[i]);
                 }
             }
@@ -309,7 +309,7 @@ public:
             }
         }
         
-        currentStackSize = stackOffset + 8;
+        currentStackSize = stackOffset + 2 * RISCV_XLEN_BYTES;
         if (currentStackSize % 16 != 0) {
             currentStackSize = ((currentStackSize / 16) + 1) * 16;
         }
@@ -339,15 +339,15 @@ public:
             prologue.push_back(addInstr);
         }
 
-        // sw ra, offset(sp)
-        int raOffset = currentStackSize - 4;
+        // sd ra, offset(sp)
+        int raOffset = currentStackSize - RISCV_XLEN_BYTES;
         if (raOffset >= -2048 and raOffset <= 2047) {
-            ASMInstr swRa;
-            swRa.op = ASMOp::SW;
-            swRa.rs2 = Operand(OperandType::REG, 1);
-            swRa.rs1 = Operand(OperandType::REG, 2);
-            swRa.imm = Operand(OperandType::IMM, raOffset);
-            prologue.push_back(swRa);
+            ASMInstr sdRa;
+            sdRa.op = ASMOp::SD;
+            sdRa.rs2 = Operand(OperandType::REG, 1);
+            sdRa.rs1 = Operand(OperandType::REG, 2);
+            sdRa.imm = Operand(OperandType::IMM, raOffset);
+            prologue.push_back(sdRa);
         } else {
             int tempReg = 5; // t0
             ASMInstr liInstr;
@@ -363,23 +363,23 @@ public:
             addInstr.rs2 = Operand(OperandType::REG, 2);
             prologue.push_back(addInstr);
 
-            ASMInstr swRa;
-            swRa.op = ASMOp::SW;
-            swRa.rs2 = Operand(OperandType::REG, 1);
-            swRa.rs1 = Operand(OperandType::REG, tempReg);
-            swRa.imm = Operand(OperandType::IMM, 0);
-            prologue.push_back(swRa);
+            ASMInstr sdRa;
+            sdRa.op = ASMOp::SD;
+            sdRa.rs2 = Operand(OperandType::REG, 1);
+            sdRa.rs1 = Operand(OperandType::REG, tempReg);
+            sdRa.imm = Operand(OperandType::IMM, 0);
+            prologue.push_back(sdRa);
         }
 
-        // sw s0, offset(sp)
-        int s0Offset = currentStackSize - 8;
+        // sd s0, offset(sp)
+        int s0Offset = currentStackSize - 2 * RISCV_XLEN_BYTES;
         if (s0Offset >= -2048 and s0Offset <= 2047) {
-            ASMInstr swS0;
-            swS0.op = ASMOp::SW;
-            swS0.rs2 = Operand(OperandType::REG, 8);
-            swS0.rs1 = Operand(OperandType::REG, 2);
-            swS0.imm = Operand(OperandType::IMM, s0Offset);
-            prologue.push_back(swS0);
+            ASMInstr sdS0;
+            sdS0.op = ASMOp::SD;
+            sdS0.rs2 = Operand(OperandType::REG, 8);
+            sdS0.rs1 = Operand(OperandType::REG, 2);
+            sdS0.imm = Operand(OperandType::IMM, s0Offset);
+            prologue.push_back(sdS0);
         } else {
             int tempReg = 5; // t0
             ASMInstr liInstr;
@@ -395,12 +395,12 @@ public:
             addInstr.rs2 = Operand(OperandType::REG, 2);
             prologue.push_back(addInstr);
 
-            ASMInstr swS0;
-            swS0.op = ASMOp::SW;
-            swS0.rs2 = Operand(OperandType::REG, 8);
-            swS0.rs1 = Operand(OperandType::REG, tempReg);
-            swS0.imm = Operand(OperandType::IMM, 0);
-            prologue.push_back(swS0);
+            ASMInstr sdS0;
+            sdS0.op = ASMOp::SD;
+            sdS0.rs2 = Operand(OperandType::REG, 8);
+            sdS0.rs1 = Operand(OperandType::REG, tempReg);
+            sdS0.imm = Operand(OperandType::IMM, 0);
+            prologue.push_back(sdS0);
         }
 
         // addi s0, sp, size
@@ -454,14 +454,14 @@ public:
             currentBlock->instrs.push_back(mvA0);
         }
 
-        // lw ra, offset(sp)
+        // ld ra, offset(sp)
         if (raOffset >= -2048 and raOffset <= 2047) {
-            ASMInstr lwRa;
-            lwRa.op = ASMOp::LW;
-            lwRa.rd = Operand(OperandType::REG, 1);
-            lwRa.rs1 = Operand(OperandType::REG, 2);
-            lwRa.imm = Operand(OperandType::IMM, raOffset);
-            currentBlock->instrs.push_back(lwRa);
+            ASMInstr ldRa;
+            ldRa.op = ASMOp::LD;
+            ldRa.rd = Operand(OperandType::REG, 1);
+            ldRa.rs1 = Operand(OperandType::REG, 2);
+            ldRa.imm = Operand(OperandType::IMM, raOffset);
+            currentBlock->instrs.push_back(ldRa);
         } else {
             int tempReg = 5; // t0
             ASMInstr liInstr;
@@ -477,22 +477,22 @@ public:
             addInstr.rs2 = Operand(OperandType::REG, 2);
             currentBlock->instrs.push_back(addInstr);
 
-            ASMInstr lwRa;
-            lwRa.op = ASMOp::LW;
-            lwRa.rd = Operand(OperandType::REG, 1);
-            lwRa.rs1 = Operand(OperandType::REG, tempReg);
-            lwRa.imm = Operand(OperandType::IMM, 0);
-            currentBlock->instrs.push_back(lwRa);
+            ASMInstr ldRa;
+            ldRa.op = ASMOp::LD;
+            ldRa.rd = Operand(OperandType::REG, 1);
+            ldRa.rs1 = Operand(OperandType::REG, tempReg);
+            ldRa.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(ldRa);
         }
 
-        // lw s0, offset(sp)
+        // ld s0, offset(sp)
         if (s0Offset >= -2048 and s0Offset <= 2047) {
-            ASMInstr lwS0;
-            lwS0.op = ASMOp::LW;
-            lwS0.rd = Operand(OperandType::REG, 8);
-            lwS0.rs1 = Operand(OperandType::REG, 2);
-            lwS0.imm = Operand(OperandType::IMM, s0Offset);
-            currentBlock->instrs.push_back(lwS0);
+            ASMInstr ldS0;
+            ldS0.op = ASMOp::LD;
+            ldS0.rd = Operand(OperandType::REG, 8);
+            ldS0.rs1 = Operand(OperandType::REG, 2);
+            ldS0.imm = Operand(OperandType::IMM, s0Offset);
+            currentBlock->instrs.push_back(ldS0);
         } else {
             int tempReg = 5; // t0
             ASMInstr liInstr;
@@ -508,12 +508,12 @@ public:
             addInstr.rs2 = Operand(OperandType::REG, 2);
             currentBlock->instrs.push_back(addInstr);
 
-            ASMInstr lwS0;
-            lwS0.op = ASMOp::LW;
-            lwS0.rd = Operand(OperandType::REG, 8);
-            lwS0.rs1 = Operand(OperandType::REG, tempReg);
-            lwS0.imm = Operand(OperandType::IMM, 0);
-            currentBlock->instrs.push_back(lwS0);
+            ASMInstr ldS0;
+            ldS0.op = ASMOp::LD;
+            ldS0.rd = Operand(OperandType::REG, 8);
+            ldS0.rs1 = Operand(OperandType::REG, tempReg);
+            ldS0.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(ldS0);
         }
 
         // addi sp, sp, size
@@ -698,7 +698,7 @@ public:
     void selectAlloca(std::shared_ptr<IRAlloca> allocaOp){
         int offest = 0;
         if(allocaOp->allocatedType->size % 4 != 0){
-            offest = ((allocaOp->allocatedType->size / 4) + 1) * 4;
+            offest = ((allocaOp->allocatedType->size + RISCV_XLEN_BYTES - 1) / RISCV_XLEN_BYTES) * RISCV_XLEN_BYTES;
         }else{
             offest = allocaOp->allocatedType->size;
         }
@@ -912,7 +912,7 @@ public:
         }
         
         if (totalParamCount > 8) {
-            int stackBytesNeeded = (totalParamCount - 8) * 4;
+            int stackBytesNeeded = (totalParamCount - 8) * RISCV_XLEN_BYTES;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);
@@ -922,12 +922,12 @@ public:
 
             for(int i = 8; i < totalParamCount; i++){
                 loadToReg(callOp->pList->paramList[i], 5,true, stackBytesNeeded);
-                ASMInstr swInstr;
-                swInstr.op = ASMOp::SW;
-                swInstr.rs2 = Operand(OperandType::REG, 5); 
-                swInstr.rs1 = Operand(OperandType::REG, 2); 
-                swInstr.imm = Operand(OperandType::IMM, (i - 8) * 4);
-                currentBlock->instrs.push_back(swInstr);
+                ASMInstr sdInstr;
+                sdInstr.op = ASMOp::SD;
+                sdInstr.rs2 = Operand(OperandType::REG, 5); 
+                sdInstr.rs1 = Operand(OperandType::REG, 2); 
+                sdInstr.imm = Operand(OperandType::IMM, (i - 8) * RISCV_XLEN_BYTES);
+                currentBlock->instrs.push_back(sdInstr);
             }
         }
         
@@ -942,7 +942,7 @@ public:
 
         // Clean up stack space for parameters
         if (totalParamCount > 8) {
-            int stackBytesToClean = (totalParamCount - 8) * 4;
+            int stackBytesToClean = (totalParamCount - 8) * RISCV_XLEN_BYTES;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);

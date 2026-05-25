@@ -101,7 +101,7 @@ private:
     bool hasSideEffect(const ASMInstr& instr) {
         if (!instr.funcName.empty()) return true;
         switch (instr.op) {
-            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::SW: case ASMOp::SD: case ASMOp::SB: case ASMOp::SH:
             case ASMOp::CALL:
             case ASMOp::J: case ASMOp::JR: case ASMOp::JAL:
             case ASMOp::BNEZ: case ASMOp::BEQ: case ASMOp::BNE:
@@ -416,7 +416,7 @@ private:
             }
         }
 
-        int spillAreaSize = nextSpillSlot * 4;
+        int spillAreaSize = nextSpillSlot * RISCV_XLEN_BYTES;
         int allocaSize = 0;
         for (auto& instr : cfg[0].asmBlock->instrs) {
             if (instr.funcName == "__PROLOGUE__") {
@@ -426,11 +426,11 @@ private:
         allocaSize = computeAllocaSize(cfg);
 
         int calleeSaveCount = (int)usedCalleeSaved.size();
-        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * 4 + 8;
+        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * RISCV_XLEN_BYTES + 2 * RISCV_XLEN_BYTES;
         if (frameSize % 16 != 0) frameSize = ((frameSize / 16) + 1) * 16;
 
-        int raOffset = frameSize - 4;
-        int s0Offset = frameSize - 8;
+        int raOffset = frameSize - RISCV_XLEN_BYTES;
+        int s0Offset = frameSize - 2 * RISCV_XLEN_BYTES;
         int calleeSaveBase = allocaSize + spillAreaSize;
 
         std::vector<int> calleeSavedList(usedCalleeSaved.begin(), usedCalleeSaved.end());
@@ -467,7 +467,7 @@ private:
                     newInstrs.push_back(patched);
                     if (rdSpilled) {
                         int slot = vregToSpill[rdVreg];
-                        int off = allocaSize + slot * 4;
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
                         emitStore(newInstrs, SCRATCH1, 2, off);
                     }
                     continue;
@@ -483,7 +483,7 @@ private:
                 for (int r : uses) {
                     if (r >= 32 && vregToSpill.count(r)) {
                         int slot = vregToSpill[r];
-                        int off = allocaSize + slot * 4;
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
                         int scratch = scratchRegs[scratchIdx++ % 2];
                         spillLoadMap[r] = scratch;
                         emitLoad(newInstrs, scratch, 2, off);
@@ -511,9 +511,9 @@ private:
                 for (int r : defs) {
                     if (r >= 32 && vregToSpill.count(r)) {
                         int slot = vregToSpill[r];
-                        int off = allocaSize + slot * 4;
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
                         int physUsed = spillDefMap[r];
-                        emitStore(newInstrs, physUsed, 2, off); // sw scratch, off(sp)
+                        emitStore(newInstrs, physUsed, 2, off);
                     }
                 }
             }
@@ -621,12 +621,12 @@ private:
                     defs.push_back(instr.rd.value);
                 break;
             // Load: def rd
-            case ASMOp::LW: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::LW: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
                 if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
                     defs.push_back(instr.rd.value);
                 break;
             // Store: no def
-            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::SW: case ASMOp::SD: case ASMOp::SB: case ASMOp::SH:
                 break;
             // LI/LUI: def rd
             case ASMOp::LI: case ASMOp::LUI:
@@ -679,11 +679,11 @@ private:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
                 break;
-            case ASMOp::LW: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::LW: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
                 break;
-            case ASMOp::SW: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::SW: case ASMOp::SD: case ASMOp::SB: case ASMOp::SH:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
                 if (instr.rs2.type == OperandType::REG && instr.rs2.value != 0)
@@ -762,7 +762,7 @@ private:
             for (auto& instr : b.asmBlock->instrs) {
                 if (instr.funcName == "__PROLOGUE__") {
                     int sz = instr.imm.value;
-                    return (sz + 3) / 4 * 4;
+                    return (sz + RISCV_XLEN_BYTES - 1) / RISCV_XLEN_BYTES * RISCV_XLEN_BYTES;
                 }
             }
         }
@@ -788,12 +788,12 @@ private:
 
     void emitLoad(std::vector<ASMInstr>& out, int dstReg, int baseReg, int offset) {
         if (offset >= -2048 && offset <= 2047) {
-            ASMInstr lw;
-            lw.op = ASMOp::LW;
-            lw.rd = Operand(OperandType::REG, dstReg);
-            lw.rs1 = Operand(OperandType::REG, baseReg);
-            lw.imm = Operand(OperandType::IMM, offset);
-            out.push_back(lw);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dstReg);
+            ld.rs1 = Operand(OperandType::REG, baseReg);
+            ld.imm = Operand(OperandType::IMM, offset);
+            out.push_back(ld);
         } else {
             ASMInstr li;
             li.op = ASMOp::LI;
@@ -806,23 +806,23 @@ private:
             add.rs1 = Operand(OperandType::REG, dstReg);
             add.rs2 = Operand(OperandType::REG, baseReg);
             out.push_back(add);
-            ASMInstr lw;
-            lw.op = ASMOp::LW;
-            lw.rd = Operand(OperandType::REG, dstReg);
-            lw.rs1 = Operand(OperandType::REG, dstReg);
-            lw.imm = Operand(OperandType::IMM, 0);
-            out.push_back(lw);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dstReg);
+            ld.rs1 = Operand(OperandType::REG, dstReg);
+            ld.imm = Operand(OperandType::IMM, 0);
+            out.push_back(ld);
         }
     }
 
     void emitStore(std::vector<ASMInstr>& out, int srcReg, int baseReg, int offset) {
         if (offset >= -2048 && offset <= 2047) {
-            ASMInstr sw;
-            sw.op = ASMOp::SW;
-            sw.rs2 = Operand(OperandType::REG, srcReg);
-            sw.rs1 = Operand(OperandType::REG, baseReg);
-            sw.imm = Operand(OperandType::IMM, offset);
-            out.push_back(sw);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, srcReg);
+            sd.rs1 = Operand(OperandType::REG, baseReg);
+            sd.imm = Operand(OperandType::IMM, offset);
+            out.push_back(sd);
         } else {
             int addrReg = (srcReg == SCRATCH1) ? SCRATCH2 : SCRATCH1;
             ASMInstr li;
@@ -836,12 +836,12 @@ private:
             add.rs1 = Operand(OperandType::REG, addrReg);
             add.rs2 = Operand(OperandType::REG, baseReg);
             out.push_back(add);
-            ASMInstr sw;
-            sw.op = ASMOp::SW;
-            sw.rs2 = Operand(OperandType::REG, srcReg);
-            sw.rs1 = Operand(OperandType::REG, addrReg);
-            sw.imm = Operand(OperandType::IMM, 0);
-            out.push_back(sw);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, srcReg);
+            sd.rs1 = Operand(OperandType::REG, addrReg);
+            sd.imm = Operand(OperandType::IMM, 0);
+            out.push_back(sd);
         }
     }
 
@@ -851,7 +851,7 @@ private:
         emitStoreFixed(out, 1, 2, raOffset);
         emitStoreFixed(out, 8, 2, s0Offset);
         for (int i = 0; i < (int)calleeSaved.size(); i++) {
-            emitStoreFixed(out, calleeSaved[i], 2, calleeSaveBase + i * 4);
+            emitStoreFixed(out, calleeSaved[i], 2, calleeSaveBase + i * RISCV_XLEN_BYTES);
         }
         emitAddi(out, 8, 2, frameSize);
     }
@@ -859,7 +859,7 @@ private:
     void emitEpilogue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
                       const std::vector<int>& calleeSaved, int calleeSaveBase) {
         for (int i = 0; i < (int)calleeSaved.size(); i++) {
-            emitLoadFixed(out, calleeSaved[i], 2, calleeSaveBase + i * 4);
+            emitLoadFixed(out, calleeSaved[i], 2, calleeSaveBase + i * RISCV_XLEN_BYTES);
         }
         emitLoadFixed(out, 8, 2, s0Offset);
         emitLoadFixed(out, 1, 2, raOffset);
@@ -891,12 +891,12 @@ private:
 
     void emitStoreFixed(std::vector<ASMInstr>& out, int srcReg, int baseReg, int offset) {
         if (offset >= -2048 && offset <= 2047) {
-            ASMInstr sw;
-            sw.op = ASMOp::SW;
-            sw.rs2 = Operand(OperandType::REG, srcReg);
-            sw.rs1 = Operand(OperandType::REG, baseReg);
-            sw.imm = Operand(OperandType::IMM, offset);
-            out.push_back(sw);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, srcReg);
+            sd.rs1 = Operand(OperandType::REG, baseReg);
+            sd.imm = Operand(OperandType::IMM, offset);
+            out.push_back(sd);
         } else {
             ASMInstr li;
             li.op = ASMOp::LI;
@@ -909,23 +909,23 @@ private:
             add.rs1 = Operand(OperandType::REG, SCRATCH1);
             add.rs2 = Operand(OperandType::REG, baseReg);
             out.push_back(add);
-            ASMInstr sw;
-            sw.op = ASMOp::SW;
-            sw.rs2 = Operand(OperandType::REG, srcReg);
-            sw.rs1 = Operand(OperandType::REG, SCRATCH1);
-            sw.imm = Operand(OperandType::IMM, 0);
-            out.push_back(sw);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, srcReg);
+            sd.rs1 = Operand(OperandType::REG, SCRATCH1);
+            sd.imm = Operand(OperandType::IMM, 0);
+            out.push_back(sd);
         }
     }
 
     void emitLoadFixed(std::vector<ASMInstr>& out, int dstReg, int baseReg, int offset) {
         if (offset >= -2048 && offset <= 2047) {
-            ASMInstr lw;
-            lw.op = ASMOp::LW;
-            lw.rd = Operand(OperandType::REG, dstReg);
-            lw.rs1 = Operand(OperandType::REG, baseReg);
-            lw.imm = Operand(OperandType::IMM, offset);
-            out.push_back(lw);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dstReg);
+            ld.rs1 = Operand(OperandType::REG, baseReg);
+            ld.imm = Operand(OperandType::IMM, offset);
+            out.push_back(ld);
         } else {
             ASMInstr li;
             li.op = ASMOp::LI;
@@ -938,12 +938,12 @@ private:
             add.rs1 = Operand(OperandType::REG, SCRATCH1);
             add.rs2 = Operand(OperandType::REG, baseReg);
             out.push_back(add);
-            ASMInstr lw;
-            lw.op = ASMOp::LW;
-            lw.rd = Operand(OperandType::REG, dstReg);
-            lw.rs1 = Operand(OperandType::REG, SCRATCH1);
-            lw.imm = Operand(OperandType::IMM, 0);
-            out.push_back(lw);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dstReg);
+            ld.rs1 = Operand(OperandType::REG, SCRATCH1);
+            ld.imm = Operand(OperandType::IMM, 0);
+            out.push_back(ld);
         }
     }
 };

@@ -16,6 +16,7 @@ public:
 
     void print(){
         // Print header or global directives if needed
+        std::cout << "    .attribute arch, \"rv64i2p1_m2p0\"\n";
         std::cout << "    .text\n";
         
         for (const auto& block : blocks) {
@@ -96,12 +97,14 @@ private:
             case ASMOp::LB:   std::cout << "lb"; break;
             case ASMOp::LH:   std::cout << "lh"; break;
             case ASMOp::LW:   std::cout << "lw"; break;
+            case ASMOp::LD:   std::cout << "ld"; break;
             case ASMOp::LBU:  std::cout << "lbu"; break;
             case ASMOp::LHU:  std::cout << "lhu"; break;
             
             case ASMOp::SB:   std::cout << "sb"; break;
             case ASMOp::SH:   std::cout << "sh"; break;
             case ASMOp::SW:   std::cout << "sw"; break;
+            case ASMOp::SD:   std::cout << "sd"; break;
 
             case ASMOp::BEQ:  std::cout << "beq"; break;
             case ASMOp::BNE:  std::cout << "bne"; break;
@@ -148,13 +151,13 @@ private:
         else if (instr.op == ASMOp::SEQZ || instr.op == ASMOp::SNEZ) {
              std::cout << getRegName(instr.rd.value) << ", " << getRegName(instr.rs1.value);
         }
-        else if (instr.op == ASMOp::SW || instr.op == ASMOp::SB || instr.op == ASMOp::SH) {
+        else if (instr.op == ASMOp::SW || instr.op == ASMOp::SD || instr.op == ASMOp::SB || instr.op == ASMOp::SH) {
             // S-type: sw rs2, imm(rs1)
             // rs2 is source value, rs1 is base address
             std::cout << getRegName(instr.rs2.value) << ", " 
                       << instr.imm.value << "(" << getRegName(instr.rs1.value) << ")";
         }
-        else if (instr.op == ASMOp::LW || instr.op == ASMOp::LB || instr.op == ASMOp::LH || 
+        else if (instr.op == ASMOp::LW || instr.op == ASMOp::LD || instr.op == ASMOp::LB || instr.op == ASMOp::LH || 
                  instr.op == ASMOp::LBU || instr.op == ASMOp::LHU) {
             // I-type (load): lw rd, imm(rs1)
             std::cout << getRegName(instr.rd.value) << ", " 

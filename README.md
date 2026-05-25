@@ -1,7 +1,7 @@
 # RCompiler
 
 ## Overview
-A compiler from a Rust-like language to RV32I Assembly via LLVM-IR.
+A compiler from a Rust-like language to RV64IM Assembly via LLVM-IR.
 
 ## Build
 
@@ -47,9 +47,9 @@ cd build
 - LLVM-IR Generation (Text format)
 
 ### Code Generation
-- Instruction Selection (from LLVM-IR to RV32I assembly)
+- Instruction Selection (from LLVM-IR to RV64IM assembly)
 - Stack Management
-- Assembly Code Generation (RV32I target)
+- Assembly Code Generation (RV64IM target)
 - Builtin Functions Support (builtin.s)
 
 ### Register Allocation

@@ -8,7 +8,7 @@ public:
     std::unordered_map<int, int> stackMap;
 
     int allocate(int regId) {
-        stackSize += 4;
+        stackSize += RISCV_XLEN_BYTES;
         stackMap[regId] = -stackSize;
         return -stackSize;
     }

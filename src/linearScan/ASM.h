@@ -4,6 +4,8 @@
 # include <vector>
 
 namespace JaneZ {
+static constexpr int RISCV_XLEN_BYTES = 8;
+
 enum class OperandType{
     REG,
     IMM,
@@ -15,7 +17,7 @@ struct Operand{
     long long int value;
 
     Operand() : type(OperandType::IMM), value(0) {}
-    Operand(OperandType type, int value) : type(type), value(value) {}
+    Operand(OperandType type, long long value) : type(type), value(value) {}
 };
 
 enum class ASMOp{
@@ -48,9 +50,11 @@ enum class ASMOp{
     LH,
     LHU,
     LW,
+    LD,
     SB,
     SH,
     SW,
+    SD,
     BEQ,
     BGE,
     BGEU,

@@ -9,6 +9,7 @@ Move blank and comments.
 #include <ostream>
 #include <string>
 #include <iostream>
+#include <istream>
 #include <fstream>
 #include <system_error>
 #include <vector>
@@ -125,6 +126,14 @@ private:
 public:
     Simplifier(const std::string filename):fileName(filename){
         getTokens();
+    }
+
+    Simplifier(std::istream& input):fileName("<stdin>"){
+        std::string line;
+        while(std::getline(input,line)){
+            line += '\n';
+            tokens.push_back(line);
+        }
     }
 
     ~Simplifier(){

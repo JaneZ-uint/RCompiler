@@ -30,20 +30,7 @@ namespace fs = std::filesystem;
 
 long long int ir_cnt = 0;
 int main(){
-    std::ofstream out("../test.s");
-    if (!out.is_open()) {
-        std::cerr << "Failed to open log file\n";
-        return 1;
-    }
-
-    // 2. 备份原来的 streambuf
-    auto *cout_buf = std::cout.rdbuf();
-    auto *cerr_buf = std::cerr.rdbuf();
-
-    // 3. 重定向
-    std::cout.rdbuf(out.rdbuf());
-    std::cerr.rdbuf(out.rdbuf());
-    JaneZ::Simplifier simplifier("../tmp.rx");
+    JaneZ::Simplifier simplifier(std::cin);
     std::string source_code = simplifier.work();
 
     //lexer
@@ -83,6 +70,10 @@ int main(){
     JaneZ::regalloc cg;
     cg.generate(code_generator.irRoot);
 
-    std::cout.rdbuf(cout_buf);
-    std::cerr.rdbuf(cerr_buf);
+    std::ifstream builtin("builtin.s");
+    if (!builtin.is_open()) {
+        std::cerr << "Failed to open builtin.s\n";
+        return 1;
+    }
+    std::cerr << builtin.rdbuf();
 }

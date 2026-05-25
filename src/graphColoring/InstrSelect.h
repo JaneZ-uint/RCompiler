@@ -64,7 +64,7 @@ public:
         IRNode* key = var.get();
         auto it = allocaStackOffset.find(key);
         if (it != allocaStackOffset.end()) return it->second;
-        int aligned = (size + 3) / 4 * 4;
+        int aligned = (size + RISCV_XLEN_BYTES - 1) / RISCV_XLEN_BYTES * RISCV_XLEN_BYTES;
         int off = allocaOffset;
         allocaOffset += aligned;
         allocaStackOffset[key] = off;
@@ -155,13 +155,13 @@ public:
                 mv.rs1 = Operand(OperandType::REG, 10 + i); // a0-a7
                 currentBlock->instrs.push_back(mv);
             } else {
-                int stackParamOffset = (i - 8) * 4;
-                ASMInstr lw;
-                lw.op = ASMOp::LW;
-                lw.rd = Operand(OperandType::REG, vr);
-                lw.rs1 = Operand(OperandType::REG, 8); // s0
-                lw.imm = Operand(OperandType::IMM, stackParamOffset);
-                currentBlock->instrs.push_back(lw);
+                int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
+                ASMInstr ld;
+                ld.op = ASMOp::LD;
+                ld.rd = Operand(OperandType::REG, vr);
+                ld.rs1 = Operand(OperandType::REG, 8); // s0
+                ld.imm = Operand(OperandType::IMM, stackParamOffset);
+                currentBlock->instrs.push_back(ld);
             }
         }
 
@@ -634,16 +634,16 @@ public:
 
         // Stack args (>8)
         if (totalParams > 8) {
-            int stackBytes = (totalParams - 8) * 4;
+            int stackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
 
             for (int i = 8; i < totalParams; i++) {
                 int src = materialize(op->pList->paramList[i]);
-                ASMInstr sw;
-                sw.op = ASMOp::SW;
-                sw.rs2 = Operand(OperandType::REG, src);
-                sw.rs1 = Operand(OperandType::REG, 2); // sp
-                sw.imm = Operand(OperandType::IMM, (i - 8) * 4 - stackBytes);
-                currentBlock->instrs.push_back(sw);
+                ASMInstr sd;
+                sd.op = ASMOp::SD;
+                sd.rs2 = Operand(OperandType::REG, src);
+                sd.rs1 = Operand(OperandType::REG, 2); // sp
+                sd.imm = Operand(OperandType::IMM, (i - 8) * RISCV_XLEN_BYTES - stackBytes);
+                currentBlock->instrs.push_back(sd);
             }
 
             ASMInstr addiSp;
@@ -663,7 +663,7 @@ public:
         currentBlock->instrs.push_back(call);
 
         if (totalParams > 8) {
-            int stackBytes = (totalParams - 8) * 4;
+            int stackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);
