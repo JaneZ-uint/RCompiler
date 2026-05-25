@@ -500,7 +500,46 @@ public:
     }
 
     std::shared_ptr<IRBlock> visit(ExprBlock &node){
-        return nullptr;
+        auto block = std::make_shared<IRBlock>();
+        for(auto & stmt : node.statements){
+            auto stmtInstrs = visit(*stmt);
+            if(stmtInstrs){
+                if(block->blockList.empty()){
+                    for(auto & instr : stmtInstrs->instrList){
+                        block->instrList.push_back(instr);
+                    }
+                }else{
+                    auto lastBlock = block->blockList[block->blockList.size() - 1];
+                    for(auto & instr : stmtInstrs->instrList){
+                        lastBlock->instrList.push_back(instr);
+                    }
+                }
+                for(auto & blk : stmtInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
+            }
+        }
+        if(node.ExpressionWithoutBlock){
+            auto exprInstrs = visit(*node.ExpressionWithoutBlock);
+            if(exprInstrs){
+                if(block->blockList.empty()){
+                    for(auto & instr : exprInstrs->instrList){
+                        block->instrList.push_back(instr);
+                    }
+                }else{
+                    auto lastBlock = block->blockList[block->blockList.size() - 1];
+                    for(auto & instr : exprInstrs->instrList){
+                        lastBlock->instrList.push_back(instr);
+                    }
+                }
+                for(auto & blk : exprInstrs->blockList){
+                    block->blockList.push_back(blk);
+                }
+            }
+            node.ret = node.ExpressionWithoutBlock->ret;
+            node.is_lvalue = true;
+        }
+        return block;
     }
 
     std::shared_ptr<IRBlock> visit(ExprBreak &node){
@@ -2258,6 +2297,10 @@ public:
         if(node.op == LOGICAL_AND || node.op == LOGICAL_OR){
             return phiProcess(node);
         }
+        IROp op = turnBinaryOp(node.op);
+        if(op == ASSIGNEQ || op == ADD_EQ || op == SUB_EQ || op == MUL_EQ || op == DIV_EQ || op == MOD_EQ || op == XOROPEQ || op == LEFTSHIFTOPEQ || op == RIGHTSHIFTOPEQ){
+            node.left->is_lvalue = true;
+        }
         auto leftInstrs = std::make_shared<IRBlock>();
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.left)){
             leftInstrs = normalVisit(*ifExpr);    
@@ -2334,7 +2377,6 @@ public:
             }
         }
         auto rightExpr = node.right->ret;
-        IROp op = turnBinaryOp(node.op);
         if(op == ADD_EQ || op == SUB_EQ || op == MUL_EQ || op == DIV_EQ || op == MOD_EQ || op == XOROPEQ || op == LEFTSHIFTOPEQ || op == RIGHTSHIFTOPEQ){
             if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
                 auto loadvar = std::make_shared<IRVar>();
@@ -2673,10 +2715,17 @@ public:
             }
         }else if(node.pathSecond){
             std::string structName = node.pathFirst->pathSegments.identifier;
+            std::string memberName = node.pathSecond->pathSegments.identifier;
+            auto constSymbol = currentScope->lookupConstantSymbol(structName + "::" + memberName);
+            if(constSymbol.type != "null"){
+                node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
+                node.is_lvalue = true;
+                return block;
+            }
             if(auto *structTypeSymbol = currentScope->lookupTypeSymbol(structName).get()){
                 if(auto *structType = dynamic_cast<IRStructType *>(& *structTypeSymbol)){
                     for(int i = 0;i < structType->memberFunctions.size();i ++){
-                        if(structType->memberFunctions[i]->name == node.pathSecond->pathSegments.identifier){
+                        if(structType->memberFunctions[i]->name == memberName){
                             node.ret = structType->memberFunctions[i];
                             break;
                         }
@@ -2913,6 +2962,15 @@ public:
     }
 
     std::shared_ptr<IRNode> visit(ItemEnumDecl &node){
+        for(int i = 0;i < node.item_enum.size();i++){
+            constInfo info;
+            info.value = i;
+            info.type = node.identifier;
+            std::string qualifiedName = node.identifier + "::" + node.item_enum[i];
+            if(currentScope->constant_table.find(qualifiedName) == currentScope->constant_table.end()){
+                currentScope->addConstantSymbol(qualifiedName, info);
+            }
+        }
         return nullptr;
     }
 
@@ -3459,6 +3517,9 @@ public:
     }
 
     std::shared_ptr<IRBlock> visit(StmtExpr &node){
+        if(node.stmtExpr){
+            return visit(*node.stmtExpr);
+        }
         return nullptr;
     }
 

@@ -105,6 +105,15 @@ public:
 
     void visit(ItemEnumDecl &node){
         globalScope->addTypeSymbol(node.identifier, std::make_shared<IRIntType>(32));
+        for(int i = 0;i < node.item_enum.size();i++){
+            constInfo info;
+            info.value = i;
+            info.type = node.identifier;
+            std::string qualifiedName = node.identifier + "::" + node.item_enum[i];
+            if(globalScope->constant_table.find(qualifiedName) == globalScope->constant_table.end()){
+                globalScope->addConstantSymbol(qualifiedName, info);
+            }
+        }
     }
 
     void visit(ItemFnDecl &node){
