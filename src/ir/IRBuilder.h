@@ -1228,6 +1228,18 @@ public:
     }
 
     std::shared_ptr<IRBlock> normalVisit(ExprIf &node){
+        if(!node.thenBlock || !node.thenBlock->ExpressionWithoutBlock){
+            return visit(node);
+        }
+        if(node.elseBlock){
+            if(auto *elseblk = dynamic_cast<ExprBlock *>(& *node.elseBlock)){
+                if(!elseblk->ExpressionWithoutBlock){
+                    return visit(node);
+                }
+            }else{
+                return visit(node);
+            }
+        }
         auto block = std::make_shared<IRBlock>();
         auto condBlock = std::make_shared<IRBlock>();
         auto condVar = std::make_shared<IRVar>();
@@ -3379,13 +3391,15 @@ public:
                     int j = 0;
                     if(auto *structType = dynamic_cast<IRStructType *>(& *Type)){
                         implNode->mainStructType = Type;
+                        currentScope->type_table["Self"] = Type;
                         for(int i = 0;i < structType->memberFunctions.size();i ++){
-                            if(node.item_trait_fn[j]->identifier == structType->memberFunctions[i]->name){
+                            if(j < (int)node.item_trait_fn.size() && node.item_trait_fn[j]->identifier == structType->memberFunctions[i]->name){
                                 structType->memberFunctions[i] = visit(*node.item_trait_fn[j], Type);
                                 implNode->functions.push_back(structType->memberFunctions[i]);
                                 j ++;
                             }
                         }
+                        currentScope->type_table.erase("Self");
                     }
                 }
             }
@@ -3826,17 +3840,23 @@ public:
         throw std::runtime_error("IRBuilder resolveType error");
     }
 
-    std::shared_ptr<IRIntType> visit(Type &node){
+    std::shared_ptr<IRType> visit(Type &node){
         if(node.type == I32){
-            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("i32"));
+            return currentScope->lookupTypeSymbol("i32");
         }else if(node.type == U32){
-            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("u32"));
+            return currentScope->lookupTypeSymbol("u32");
         }else if(node.type == ISIZE){
-            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("isize"));
+            return currentScope->lookupTypeSymbol("isize");
         }else if(node.type == USIZE){
-            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("usize"));
+            return currentScope->lookupTypeSymbol("usize");
         }else if(node.type == BOOL){
-            return std::dynamic_pointer_cast<IRIntType>(currentScope->lookupTypeSymbol("bool"));
+            return currentScope->lookupTypeSymbol("bool");
+        }else if(node.type == CHAR){
+            return currentScope->lookupTypeSymbol("char");
+        }else if(node.type == STR){
+            return currentScope->lookupTypeSymbol("String");
+        }else if(node.type == ENUM){
+            return currentScope->lookupTypeSymbol("i32");
         }
         throw std::runtime_error("IRBuilder visit Type error: unknown primitive type");
     }
@@ -3927,12 +3947,16 @@ public:
         return arrayType;
     }
 
-    std::shared_ptr<IRStructType> visit(Path &node){
+    std::shared_ptr<IRType> visit(Path &node){
         if(node.pathSegments.type == IDENTIFIER){
             std::string typeName = node.pathSegments.identifier;
+            if(typeName == "Self"){
+                auto selfType = currentScope->lookupTypeSymbol("Self");
+                if(selfType) return selfType;
+            }
             auto Type = currentScope->lookupTypeSymbol(typeName);
             if(Type){
-                return std::dynamic_pointer_cast<IRStructType>(Type);
+                return Type;
             }
         }
         throw std::runtime_error("IRBuilder visit Path error: unknown type path");

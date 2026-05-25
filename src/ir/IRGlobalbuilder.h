@@ -49,6 +49,9 @@ public:
         globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("bool", std::make_shared<IRIntType>(8));
         globalScope->addTypeSymbol("BOOL", std::make_shared<IRIntType>(1));
+        globalScope->addTypeSymbol("char", std::make_shared<IRIntType>(32));
+        globalScope->addTypeSymbol("String", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8)));
+        globalScope->addTypeSymbol("str", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8)));
         globalScope->addTypeSymbol("void", std::make_shared<IRVoidType>());
 
         //Wait to add more functions like print, println, etc.
@@ -101,7 +104,7 @@ public:
     }
 
     void visit(ItemEnumDecl &node){
-        //TODO just wait and see babe
+        globalScope->addTypeSymbol(node.identifier, std::make_shared<IRIntType>(32));
     }
 
     void visit(ItemFnDecl &node){
@@ -164,6 +167,7 @@ public:
                 auto tp = globalScope->lookupTypeSymbol(typeName);
                 if(tp){
                     if(auto structType = std::dynamic_pointer_cast<IRStructType>(tp)){
+                        globalScope->type_table["Self"] = structType;
                         for(auto & itemFn: node.item_trait_fn){
                             std::shared_ptr<IRType> retType;
                             if(itemFn->returnType){
@@ -234,6 +238,7 @@ public:
                             currentFunction->typeList = typeList;
                             structType->memberFunctions.push_back(currentFunction);
                         }
+                        globalScope->type_table.erase("Self");
                     }
                     
                 }
@@ -290,17 +295,23 @@ public:
         throw std::runtime_error("IRBuilder resolveType error: unknown type node");
     }
 
-    std::shared_ptr<IRIntType> visit(Type &node){
+    std::shared_ptr<IRType> visit(Type &node){
         if(node.type == I32){
-            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("i32"));
+            return globalScope->lookupTypeSymbol("i32");
         }else if(node.type == U32){
-            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("u32"));
+            return globalScope->lookupTypeSymbol("u32");
         }else if(node.type == ISIZE){
-            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("isize"));
+            return globalScope->lookupTypeSymbol("isize");
         }else if(node.type == USIZE){
-            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("usize"));
+            return globalScope->lookupTypeSymbol("usize");
         }else if(node.type == BOOL){
-            return std::dynamic_pointer_cast<IRIntType>(globalScope->lookupTypeSymbol("bool"));
+            return globalScope->lookupTypeSymbol("bool");
+        }else if(node.type == CHAR){
+            return globalScope->lookupTypeSymbol("char");
+        }else if(node.type == STR){
+            return globalScope->lookupTypeSymbol("String");
+        }else if(node.type == ENUM){
+            return globalScope->lookupTypeSymbol("i32");
         }
         throw std::runtime_error("Unknown primitive type");
     }
@@ -391,10 +402,11 @@ public:
         return arrayType;
     }
 
-    std::shared_ptr<IRStructType> visit(Path &node){
+    std::shared_ptr<IRType> visit(Path &node){
         auto typeName = node.pathSegments.identifier;
-        auto structType = globalScope->lookupTypeSymbol(typeName);
-        return std::dynamic_pointer_cast<IRStructType>(structType);
+        auto type = globalScope->lookupTypeSymbol(typeName);
+        if (type) return type;
+        return nullptr;
     }
 
     std::shared_ptr<IRPtrType> visit(TypeReference &node){
