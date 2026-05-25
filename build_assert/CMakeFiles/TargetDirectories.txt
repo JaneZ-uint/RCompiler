@@ -1,0 +1,3 @@
+/home/zhuyihan/code/RCompiler/build_assert/CMakeFiles/RCompiler.dir
+/home/zhuyihan/code/RCompiler/build_assert/CMakeFiles/edit_cache.dir
+/home/zhuyihan/code/RCompiler/build_assert/CMakeFiles/rebuild_cache.dir

@@ -291,8 +291,10 @@ public:
                     }
                 }
             }
+            if(node.size->ret){
             if(auto *sizeLiteral = dynamic_cast<IRLiteral *>(& *node.size->ret)){
                 size = sizeLiteral->intValue;
+            }
             }
             auto condBlock = std::make_shared<IRBlock>();
             auto cnt = std::make_shared<IRVar>();
@@ -328,7 +330,8 @@ public:
             getptrInstr->offset = -1;
             getptrInstr->base = arrayVar;
             auto resVar = std::make_shared<IRVar>();
-            if(auto *literal = dynamic_cast<IRLiteral *>(& *node.type->ret)){
+            if(node.type->ret && dynamic_cast<IRLiteral *>(& *node.type->ret)){
+                auto *literal = dynamic_cast<IRLiteral *>(& *node.type->ret);
                 int init;
                 if(literal->literalType == BOOL_LITERAL){
                     arrayVar->type = std::make_shared<IRArrayType>(currentScope->lookupTypeSymbol("bool"), size);
@@ -406,7 +409,8 @@ public:
             std::vector<int> assignList;
             auto arrayType = std::make_shared<IRType>();
             auto exprInstrs = visit(*node.arrayExpr[0]);
-            if(auto *literal = dynamic_cast<IRLiteral *>(& *node.arrayExpr[0]->ret)){
+            if(node.arrayExpr[0]->ret && dynamic_cast<IRLiteral *>(& *node.arrayExpr[0]->ret)){
+                auto *literal = dynamic_cast<IRLiteral *>(& *node.arrayExpr[0]->ret);
                 if(literal->literalType == INT_LITERAL){
                     assignList.push_back(literal->intValue);
                     arrayType = currentScope->lookupTypeSymbol("i32");
@@ -2482,21 +2486,24 @@ public:
             binaryInstr->rightValue = rightExpr;
             auto resultVar = std::make_shared<IRVar>();
             bool islftBOOL = false;
-            if(auto *leftVar = dynamic_cast<IRVar *>(& *leftExpr)){
+            if(leftExpr && dynamic_cast<IRVar *>(& *leftExpr)){
+                auto *leftVar = dynamic_cast<IRVar *>(& *leftExpr);
                 resultVar->type = leftVar->type;
                 if(leftVar->type  == currentScope->lookupTypeSymbol("u32")){
                     binaryInstr->utag = true;
                 }else if(leftVar->type == currentScope->lookupTypeSymbol("BOOL")){
                     islftBOOL = true;
                 }
-            }else if(auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr)){
+            }else if(rightExpr && dynamic_cast<IRVar *>(& *rightExpr)){
+                auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr);
                 resultVar->type = rightVar->type;
             }else{
                 resultVar->type = currentScope->lookupTypeSymbol("i32");
             }
             if(islftBOOL){
                 if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
-                    if(auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr)){
+                    if(rightExpr && dynamic_cast<IRVar *>(& *rightExpr)){
+                        auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr);
                         if(rightVar->type == currentScope->lookupTypeSymbol("bool")){
                             auto zextInstr = std::make_shared<IRZext>();
                             zextInstr->originalType = currentScope->lookupTypeSymbol("BOOL");
