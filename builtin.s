@@ -1,541 +1,415 @@
+	.file	"builtin_gcc_runtime.c"
+	.option nopic
 	.text
-	.attribute	4, 16
-	.attribute	5, "rv64i2p1_m2p0"
-	.file	"builtin_rv64_runtime.c"
-	.globl	print                           # -- Begin function print
-	.p2align	2
-	.type	print,@function
-print:                                  # @print
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	sd	a0, -24(s0)
-	ld	a0, -24(s0)
-	beqz	a0, .LBB0_2
-	j	.LBB0_1
-.LBB0_1:
-	ld	a1, -24(s0)
-	lui	a0, %hi(.L.str)
-	addi	a0, a0, %lo(.L.str)
+	.section	.rodata.str1.8,"aMS",@progbits,1
+	.align	3
+.LBuiltin_C0:
+	.string	"%s"
+	.text
+	.align	2
+	.globl	print
+	.type	print, @function
+print:
+	beq	a0,zero,.LBuiltin_7
+	mv	a1,a0
+	lui	a0,%hi(.LBuiltin_C0)
+	addi	sp,sp,-16
+	addi	a0,a0,%lo(.LBuiltin_C0)
+	sd	ra,8(sp)
 	call	printf
-	j	.LBB0_2
-.LBB0_2:
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+.LBuiltin_7:
 	ret
-.Lfunc_end0:
-	.size	print, .Lfunc_end0-print
-                                        # -- End function
-	.globl	println                         # -- Begin function println
-	.p2align	2
-	.type	println,@function
-println:                                # @println
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	sd	a0, -24(s0)
-	ld	a0, -24(s0)
-	beqz	a0, .LBB1_2
-	j	.LBB1_1
-.LBB1_1:
-	ld	a1, -24(s0)
-	lui	a0, %hi(.L.str.1)
-	addi	a0, a0, %lo(.L.str.1)
+	.size	print, .-print
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C1:
+	.string	"%s\n"
+	.align	3
+.LBuiltin_C2:
+	.string	"\n"
+	.text
+	.align	2
+	.globl	println
+	.type	println, @function
+println:
+	addi	sp,sp,-16
+	sd	ra,8(sp)
+	beq	a0,zero,.LBuiltin_12
+	mv	a1,a0
+	lui	a0,%hi(.LBuiltin_C1)
+	addi	a0,a0,%lo(.LBuiltin_C1)
 	call	printf
-	j	.LBB1_3
-.LBB1_2:
-	lui	a0, %hi(.L.str.2)
-	addi	a0, a0, %lo(.L.str.2)
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+.LBuiltin_12:
+	lui	a0,%hi(.LBuiltin_C2)
+	addi	a0,a0,%lo(.LBuiltin_C2)
 	call	printf
-	j	.LBB1_3
-.LBB1_3:
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end1:
-	.size	println, .Lfunc_end1-println
-                                        # -- End function
-	.globl	printInt                        # -- Begin function printInt
-	.p2align	2
-	.type	printInt,@function
-printInt:                               # @printInt
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-                                        # kill: def $x11 killed $x10
-	sw	a0, -20(s0)
-	lw	a1, -20(s0)
-	lui	a0, %hi(.L.str.3)
-	addi	a0, a0, %lo(.L.str.3)
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+	.size	println, .-println
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C3:
+	.string	"%d"
+	.text
+	.align	2
+	.globl	printInt
+	.type	printInt, @function
+printInt:
+	mv	a1,a0
+	lui	a0,%hi(.LBuiltin_C3)
+	addi	sp,sp,-16
+	addi	a0,a0,%lo(.LBuiltin_C3)
+	sd	ra,8(sp)
 	call	printf
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end2:
-	.size	printInt, .Lfunc_end2-printInt
-                                        # -- End function
-	.globl	printlnInt                      # -- Begin function printlnInt
-	.p2align	2
-	.type	printlnInt,@function
-printlnInt:                             # @printlnInt
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-                                        # kill: def $x11 killed $x10
-	sw	a0, -20(s0)
-	lw	a1, -20(s0)
-	lui	a0, %hi(.L.str.4)
-	addi	a0, a0, %lo(.L.str.4)
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+	.size	printInt, .-printInt
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C4:
+	.string	"%d\n"
+	.text
+	.align	2
+	.globl	printlnInt
+	.type	printlnInt, @function
+printlnInt:
+	mv	a1,a0
+	lui	a0,%hi(.LBuiltin_C4)
+	addi	sp,sp,-16
+	addi	a0,a0,%lo(.LBuiltin_C4)
+	sd	ra,8(sp)
 	call	printf
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end3:
-	.size	printlnInt, .Lfunc_end3-printlnInt
-                                        # -- End function
-	.globl	getString                       # -- Begin function getString
-	.p2align	2
-	.type	getString,@function
-getString:                              # @getString
-# %bb.0:
-	addi	sp, sp, -64
-	sd	ra, 56(sp)                      # 8-byte Folded Spill
-	sd	s0, 48(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 64
-	li	a0, 32
-	sd	a0, -56(s0)                     # 8-byte Folded Spill
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+	.size	printlnInt, .-printlnInt
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C5:
+	.string	"Error: memory allocation failed in getString\n"
+	.text
+	.align	2
+	.globl	getString
+	.type	getString, @function
+getString:
+	addi	sp,sp,-48
+	li	a0,32
+	sd	s1,24(sp)
+	sd	ra,40(sp)
+	sd	s0,32(sp)
+	sd	s2,16(sp)
+	sd	s3,8(sp)
+	sd	s4,0(sp)
 	call	malloc
-	mv	a1, a0
-	ld	a0, -56(s0)                     # 8-byte Folded Reload
-	sd	a1, -24(s0)
-	sd	a0, -32(s0)
-	li	a0, 0
-	sd	a0, -40(s0)
-	ld	a0, -24(s0)
-	bnez	a0, .LBB4_2
-	j	.LBB4_1
-.LBB4_1:
-	li	a0, 1
-	call	exit
-.LBB4_2:
-	j	.LBB4_3
-.LBB4_3:                                # =>This Inner Loop Header: Depth=1
+	mv	s1,a0
+	beq	a0,zero,.LBuiltin_27
+.LBuiltin_20:
+	li	s0,0
+	li	s2,32
+	li	s3,-1
+	li	s4,10
+.LBuiltin_21:
 	call	getchar
-	sw	a0, -44(s0)
-	lw	a0, -44(s0)
-	li	a1, -1
-	beq	a0, a1, .LBB4_5
-	j	.LBB4_4
-.LBB4_4:                                #   in Loop: Header=BB4_3 Depth=1
-	lw	a0, -44(s0)
-	li	a1, 10
-	bne	a0, a1, .LBB4_6
-	j	.LBB4_5
-.LBB4_5:
-	j	.LBB4_11
-.LBB4_6:                                #   in Loop: Header=BB4_3 Depth=1
-	lbu	a0, -44(s0)
-	ld	a1, -24(s0)
-	ld	a2, -40(s0)
-	addi	a3, a2, 1
-	sd	a3, -40(s0)
-	add	a1, a1, a2
-	sb	a0, 0(a1)
-	ld	a0, -40(s0)
-	addi	a0, a0, 1
-	ld	a1, -32(s0)
-	bltu	a0, a1, .LBB4_10
-	j	.LBB4_7
-.LBB4_7:                                #   in Loop: Header=BB4_3 Depth=1
-	ld	a0, -32(s0)
-	slli	a0, a0, 1
-	sd	a0, -32(s0)
-	ld	a0, -24(s0)
-	ld	a1, -32(s0)
+	addi	a4,s0,2
+	add	a5,s1,s0
+	beq	a0,s3,.LBuiltin_22
+.LBuiltin_28:
+	beq	a0,s4,.LBuiltin_22
+	sb	a0,0(a5)
+	addi	s0,s0,1
+	bgtu	s2,a4,.LBuiltin_21
+	slli	s2,s2,1
+	mv	a0,s1
+	mv	a1,s2
 	call	realloc
-	sd	a0, -24(s0)
-	ld	a0, -24(s0)
-	bnez	a0, .LBB4_9
-	j	.LBB4_8
-.LBB4_8:
-	li	a0, 1
+	mv	s1,a0
+	bne	a0,zero,.LBuiltin_21
+	lui	a5,%hi(stderr)
+	ld	a0,%lo(stderr)(a5)
+	lui	a1,%hi(.LBuiltin_C5)
+	addi	a1,a1,%lo(.LBuiltin_C5)
+	call	fprintf
+	li	a0,1
 	call	exit
-.LBB4_9:                                #   in Loop: Header=BB4_3 Depth=1
-	j	.LBB4_10
-.LBB4_10:                               #   in Loop: Header=BB4_3 Depth=1
-	j	.LBB4_3
-.LBB4_11:
-	ld	a0, -24(s0)
-	ld	a1, -40(s0)
-	add	a1, a0, a1
-	li	a0, 0
-	sb	a0, 0(a1)
-	ld	a0, -24(s0)
-	ld	ra, 56(sp)                      # 8-byte Folded Reload
-	ld	s0, 48(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 64
-	ret
-.Lfunc_end4:
-	.size	getString, .Lfunc_end4-getString
-                                        # -- End function
-	.globl	getInt                          # -- Begin function getInt
-	.p2align	2
-	.type	getInt,@function
-getInt:                                 # @getInt
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	lui	a0, %hi(.L.str.3)
-	addi	a0, a0, %lo(.L.str.3)
-	addi	a1, s0, -24
+	call	getchar
+	addi	a4,s0,2
+	add	a5,s1,s0
+	bne	a0,s3,.LBuiltin_28
+.LBuiltin_22:
+	sb	zero,0(a5)
+	ld	ra,40(sp)
+	ld	s0,32(sp)
+	ld	s2,16(sp)
+	ld	s3,8(sp)
+	ld	s4,0(sp)
+	mv	a0,s1
+	ld	s1,24(sp)
+	addi	sp,sp,48
+	jr	ra
+.LBuiltin_27:
+	lui	a5,%hi(stderr)
+	ld	a0,%lo(stderr)(a5)
+	lui	a1,%hi(.LBuiltin_C5)
+	addi	a1,a1,%lo(.LBuiltin_C5)
+	call	fprintf
+	li	a0,1
+	call	exit
+	j	.LBuiltin_20
+	.size	getString, .-getString
+	.align	2
+	.globl	getInt
+	.type	getInt, @function
+getInt:
+	addi	sp,sp,-32
+	lui	a0,%hi(.LBuiltin_C3)
+	addi	a1,sp,12
+	addi	a0,a0,%lo(.LBuiltin_C3)
+	sd	ra,24(sp)
 	call	scanf
-	sw	a0, -28(s0)
-	lw	a0, -28(s0)
-	li	a1, 1
-	beq	a0, a1, .LBB5_2
-	j	.LBB5_1
-.LBB5_1:
-	li	a0, 0
-	sw	a0, -20(s0)
-	j	.LBB5_3
-.LBB5_2:
-	lw	a0, -24(s0)
-	sw	a0, -20(s0)
-	j	.LBB5_3
-.LBB5_3:
-	lw	a0, -20(s0)
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end5:
-	.size	getInt, .Lfunc_end5-getInt
-                                        # -- End function
-	.globl	__builtin_exit                  # -- Begin function __builtin_exit
-	.p2align	2
-	.type	__builtin_exit,@function
-__builtin_exit:                         # @__builtin_exit
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-                                        # kill: def $x11 killed $x10
-	sw	a0, -20(s0)
-	lw	a0, -20(s0)
+	li	a4,1
+	li	a5,0
+	bne	a0,a4,.LBuiltin_30
+	lw	a5,12(sp)
+.LBuiltin_30:
+	ld	ra,24(sp)
+	mv	a0,a5
+	addi	sp,sp,32
+	jr	ra
+	.size	getInt, .-getInt
+	.align	2
+	.globl	__builtin_exit
+	.type	__builtin_exit, @function
+__builtin_exit:
+	addi	sp,sp,-16
+	sd	ra,8(sp)
 	call	exit
-.Lfunc_end6:
-	.size	__builtin_exit, .Lfunc_end6-__builtin_exit
-                                        # -- End function
-	.globl	u32_to_string                   # -- Begin function u32_to_string
-	.p2align	2
-	.type	u32_to_string,@function
-u32_to_string:                          # @u32_to_string
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-                                        # kill: def $x11 killed $x10
-	sw	a0, -20(s0)
-	li	a0, 16
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+	.size	__builtin_exit, .-__builtin_exit
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C6:
+	.string	"%u"
+	.text
+	.align	2
+	.globl	u32_to_string
+	.type	u32_to_string, @function
+u32_to_string:
+	addi	sp,sp,-32
+	sd	s1,8(sp)
+	mv	s1,a0
+	li	a0,16
+	sd	s0,16(sp)
+	sd	ra,24(sp)
 	call	malloc
-	sd	a0, -32(s0)
-	ld	a0, -32(s0)
-	bnez	a0, .LBB7_2
-	j	.LBB7_1
-.LBB7_1:
-	li	a0, 1
-	call	exit
-.LBB7_2:
-	ld	a0, -32(s0)
-	lw	a2, -20(s0)
-	lui	a1, %hi(.L.str.5)
-	addi	a1, a1, %lo(.L.str.5)
+	mv	s0,a0
+	beq	a0,zero,.LBuiltin_39
+.LBuiltin_37:
+	lui	a1,%hi(.LBuiltin_C6)
+	mv	a2,s1
+	mv	a0,s0
+	addi	a1,a1,%lo(.LBuiltin_C6)
 	call	sprintf
-	ld	a0, -32(s0)
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end7:
-	.size	u32_to_string, .Lfunc_end7-u32_to_string
-                                        # -- End function
-	.globl	usize_to_string                 # -- Begin function usize_to_string
-	.p2align	2
-	.type	usize_to_string,@function
-usize_to_string:                        # @usize_to_string
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	sd	a0, -24(s0)
-	li	a0, 32
-	call	malloc
-	sd	a0, -32(s0)
-	ld	a0, -32(s0)
-	bnez	a0, .LBB8_2
-	j	.LBB8_1
-.LBB8_1:
-	li	a0, 1
+	ld	ra,24(sp)
+	mv	a0,s0
+	ld	s0,16(sp)
+	ld	s1,8(sp)
+	addi	sp,sp,32
+	jr	ra
+.LBuiltin_39:
+	li	a0,1
 	call	exit
-.LBB8_2:
-	ld	a0, -32(s0)
-	ld	a2, -24(s0)
-	lui	a1, %hi(.L.str.6)
-	addi	a1, a1, %lo(.L.str.6)
+	j	.LBuiltin_37
+	.size	u32_to_string, .-u32_to_string
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C7:
+	.string	"%lu"
+	.text
+	.align	2
+	.globl	usize_to_string
+	.type	usize_to_string, @function
+usize_to_string:
+	addi	sp,sp,-32
+	sd	s1,8(sp)
+	mv	s1,a0
+	li	a0,32
+	sd	s0,16(sp)
+	sd	ra,24(sp)
+	call	malloc
+	mv	s0,a0
+	beq	a0,zero,.LBuiltin_43
+.LBuiltin_41:
+	lui	a1,%hi(.LBuiltin_C7)
+	mv	a2,s1
+	mv	a0,s0
+	addi	a1,a1,%lo(.LBuiltin_C7)
 	call	sprintf
-	ld	a0, -32(s0)
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
-	ret
-.Lfunc_end8:
-	.size	usize_to_string, .Lfunc_end8-usize_to_string
-                                        # -- End function
-	.globl	string_len                      # -- Begin function string_len
-	.p2align	2
-	.type	string_len,@function
-string_len:                             # @string_len
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	sd	a0, -32(s0)
-	ld	a0, -32(s0)
-	bnez	a0, .LBB9_2
-	j	.LBB9_1
-.LBB9_1:
-	li	a0, 0
-	sd	a0, -24(s0)
-	j	.LBB9_3
-.LBB9_2:
-	ld	a0, -32(s0)
+	ld	ra,24(sp)
+	mv	a0,s0
+	ld	s0,16(sp)
+	ld	s1,8(sp)
+	addi	sp,sp,32
+	jr	ra
+.LBuiltin_43:
+	li	a0,1
+	call	exit
+	j	.LBuiltin_41
+	.size	usize_to_string, .-usize_to_string
+	.align	2
+	.globl	string_len
+	.type	string_len, @function
+string_len:
+	beq	a0,zero,.LBuiltin_46
+	addi	sp,sp,-16
+	sd	ra,8(sp)
 	call	strlen
-	sd	a0, -24(s0)
-	j	.LBB9_3
-.LBB9_3:
-	ld	a0, -24(s0)
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
+	ld	ra,8(sp)
+	addi	sp,sp,16
+	jr	ra
+.LBuiltin_46:
+	li	a0,0
 	ret
-.Lfunc_end9:
-	.size	string_len, .Lfunc_end9-string_len
-                                        # -- End function
-	.globl	string_as_str                   # -- Begin function string_as_str
-	.p2align	2
-	.type	string_as_str,@function
-string_as_str:                          # @string_as_str
-# %bb.0:
-	addi	sp, sp, -32
-	sd	ra, 24(sp)                      # 8-byte Folded Spill
-	sd	s0, 16(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 32
-	sd	a0, -24(s0)
-	ld	a0, -24(s0)
-	ld	ra, 24(sp)                      # 8-byte Folded Reload
-	ld	s0, 16(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 32
+	.size	string_len, .-string_len
+	.align	2
+	.globl	string_as_str
+	.type	string_as_str, @function
+string_as_str:
 	ret
-.Lfunc_end10:
-	.size	string_as_str, .Lfunc_end10-string_as_str
-                                        # -- End function
-	.globl	string_from                     # -- Begin function string_from
-	.p2align	2
-	.type	string_from,@function
-string_from:                            # @string_from
-# %bb.0:
-	addi	sp, sp, -48
-	sd	ra, 40(sp)                      # 8-byte Folded Spill
-	sd	s0, 32(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 48
-	sd	a0, -32(s0)
-	ld	a0, -32(s0)
-	bnez	a0, .LBB11_4
-	j	.LBB11_1
-.LBB11_1:
-	li	a0, 1
+	.size	string_as_str, .-string_as_str
+	.align	2
+	.globl	string_from
+	.type	string_from, @function
+string_from:
+	addi	sp,sp,-32
+	sd	ra,24(sp)
+	sd	s0,16(sp)
+	beq	a0,zero,.LBuiltin_58
+	sd	s1,8(sp)
+	mv	s1,a0
+	call	strlen
+	addi	a0,a0,1
 	call	malloc
-	sd	a0, -40(s0)
-	ld	a0, -40(s0)
-	bnez	a0, .LBB11_3
-	j	.LBB11_2
-.LBB11_2:
-	li	a0, 1
+	mv	s0,a0
+	beq	a0,zero,.LBuiltin_59
+	mv	a1,s1
+	call	strcpy
+	ld	ra,24(sp)
+	mv	a0,s0
+	ld	s0,16(sp)
+	ld	s1,8(sp)
+	addi	sp,sp,32
+	jr	ra
+.LBuiltin_59:
+	li	a0,1
 	call	exit
-.LBB11_3:
-	ld	a1, -40(s0)
-	li	a0, 0
-	sb	a0, 0(a1)
-	ld	a0, -40(s0)
-	sd	a0, -24(s0)
-	j	.LBB11_7
-.LBB11_4:
-	ld	a0, -32(s0)
-	call	strdup
-	sd	a0, -48(s0)
-	ld	a0, -48(s0)
-	bnez	a0, .LBB11_6
-	j	.LBB11_5
-.LBB11_5:
-	li	a0, 1
+	ld	ra,24(sp)
+	mv	a0,s0
+	ld	s0,16(sp)
+	ld	s1,8(sp)
+	addi	sp,sp,32
+	jr	ra
+.LBuiltin_58:
+	li	a0,1
+	call	malloc
+	mv	s0,a0
+	beq	a0,zero,.LBuiltin_60
+	sb	zero,0(s0)
+.LBuiltin_61:
+	ld	ra,24(sp)
+	mv	a0,s0
+	ld	s0,16(sp)
+	addi	sp,sp,32
+	jr	ra
+.LBuiltin_60:
+	li	a0,1
 	call	exit
-.LBB11_6:
-	ld	a0, -48(s0)
-	sd	a0, -24(s0)
-	j	.LBB11_7
-.LBB11_7:
-	ld	a0, -24(s0)
-	ld	ra, 40(sp)                      # 8-byte Folded Reload
-	ld	s0, 32(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 48
-	ret
-.Lfunc_end11:
-	.size	string_from, .Lfunc_end11-string_from
-                                        # -- End function
-	.globl	string_append                   # -- Begin function string_append
-	.p2align	2
-	.type	string_append,@function
-string_append:                          # @string_append
-# %bb.0:
-	addi	sp, sp, -80
-	sd	ra, 72(sp)                      # 8-byte Folded Spill
-	sd	s0, 64(sp)                      # 8-byte Folded Spill
-	addi	s0, sp, 80
-	sd	a0, -24(s0)
-	sd	a1, -32(s0)
-	ld	a0, -24(s0)
-	beqz	a0, .LBB12_2
-	j	.LBB12_1
-.LBB12_1:
-	ld	a0, -32(s0)
-	bnez	a0, .LBB12_3
-	j	.LBB12_2
-.LBB12_2:
-	j	.LBB12_11
-.LBB12_3:
-	ld	a0, -24(s0)
-	ld	a0, 0(a0)
-	sd	a0, -40(s0)
-	ld	a0, -40(s0)
-	beqz	a0, .LBB12_5
-	j	.LBB12_4
-.LBB12_4:
-	ld	a0, -40(s0)
+	sb	zero,0(s0)
+	j	.LBuiltin_61
+	.size	string_from, .-string_from
+	.section	.rodata.str1.8
+	.align	3
+.LBuiltin_C8:
+	.string	"Error: memory allocation failed in append\n"
+	.text
+	.align	2
+	.globl	string_append
+	.type	string_append, @function
+string_append:
+	beq	a0,zero,.LBuiltin_76
+	addi	sp,sp,-48
+	sd	s1,24(sp)
+	sd	ra,40(sp)
+	mv	s1,a1
+	beq	a1,zero,.LBuiltin_62
+	sd	s3,8(sp)
+	ld	s3,0(a0)
+	sd	s0,32(sp)
+	sd	s2,16(sp)
+	mv	s0,a0
+	beq	s3,zero,.LBuiltin_64
+	mv	a0,s3
 	call	strlen
-	sd	a0, -72(s0)                     # 8-byte Folded Spill
-	j	.LBB12_6
-.LBB12_5:
-	li	a0, 0
-	sd	a0, -72(s0)                     # 8-byte Folded Spill
-	j	.LBB12_6
-.LBB12_6:
-	ld	a0, -72(s0)                     # 8-byte Folded Reload
-	sd	a0, -48(s0)
-	ld	a0, -32(s0)
+	mv	s2,a0
+	mv	a0,s1
 	call	strlen
-	sd	a0, -56(s0)
-	ld	a0, -40(s0)
-	ld	a1, -48(s0)
-	ld	a2, -56(s0)
-	add	a1, a1, a2
-	addi	a1, a1, 1
+	add	a1,s2,a0
+	addi	a1,a1,1
+	mv	a0,s3
 	call	realloc
-	sd	a0, -64(s0)
-	ld	a0, -64(s0)
-	bnez	a0, .LBB12_8
-	j	.LBB12_7
-.LBB12_7:
-	li	a0, 1
-	call	exit
-.LBB12_8:
-	ld	a0, -40(s0)
-	bnez	a0, .LBB12_10
-	j	.LBB12_9
-.LBB12_9:
-	ld	a1, -64(s0)
-	li	a0, 0
-	sb	a0, 0(a1)
-	j	.LBB12_10
-.LBB12_10:
-	ld	a0, -64(s0)
-	ld	a1, -32(s0)
+	mv	s2,a0
+	beq	a0,zero,.LBuiltin_79
+.LBuiltin_68:
+	mv	a0,s2
+	mv	a1,s1
 	call	strcat
-	ld	a0, -64(s0)
-	ld	a1, -24(s0)
-	sd	a0, 0(a1)
-	j	.LBB12_11
-.LBB12_11:
-	ld	ra, 72(sp)                      # 8-byte Folded Reload
-	ld	s0, 64(sp)                      # 8-byte Folded Reload
-	addi	sp, sp, 80
+	sd	s2,0(s0)
+	ld	s3,8(sp)
+	ld	s0,32(sp)
+	ld	s2,16(sp)
+.LBuiltin_62:
+	ld	ra,40(sp)
+	ld	s1,24(sp)
+	addi	sp,sp,48
+	jr	ra
+.LBuiltin_64:
+	mv	a0,a1
+	call	strlen
+	addi	a1,a0,1
+	li	a0,0
+	call	realloc
+	mv	s2,a0
+	beq	a0,zero,.LBuiltin_80
+	sb	zero,0(s2)
+	j	.LBuiltin_68
+.LBuiltin_76:
 	ret
-.Lfunc_end12:
-	.size	string_append, .Lfunc_end12-string_append
-                                        # -- End function
-	.type	.L.str,@object                  # @.str
-	.section	.rodata.str1.1,"aMS",@progbits,1
-.L.str:
-	.asciz	"%s"
-	.size	.L.str, 3
-
-	.type	.L.str.1,@object                # @.str.1
-.L.str.1:
-	.asciz	"%s\n"
-	.size	.L.str.1, 4
-
-	.type	.L.str.2,@object                # @.str.2
-.L.str.2:
-	.asciz	"\n"
-	.size	.L.str.2, 2
-
-	.type	.L.str.3,@object                # @.str.3
-.L.str.3:
-	.asciz	"%d"
-	.size	.L.str.3, 3
-
-	.type	.L.str.4,@object                # @.str.4
-.L.str.4:
-	.asciz	"%d\n"
-	.size	.L.str.4, 4
-
-	.type	.L.str.5,@object                # @.str.5
-.L.str.5:
-	.asciz	"%u"
-	.size	.L.str.5, 3
-
-	.type	.L.str.6,@object                # @.str.6
-.L.str.6:
-	.asciz	"%lu"
-	.size	.L.str.6, 4
-
-	.ident	"Ubuntu clang version 18.1.3 (1ubuntu1)"
-	.section	".note.GNU-stack","",@progbits
-	.addrsig
-	.addrsig_sym printf
-	.addrsig_sym malloc
-	.addrsig_sym exit
-	.addrsig_sym getchar
-	.addrsig_sym realloc
-	.addrsig_sym scanf
-	.addrsig_sym sprintf
-	.addrsig_sym strlen
-	.addrsig_sym strdup
-	.addrsig_sym strcat
+.LBuiltin_80:
+	lui	a5,%hi(stderr)
+	ld	a0,%lo(stderr)(a5)
+	lui	a1,%hi(.LBuiltin_C8)
+	addi	a1,a1,%lo(.LBuiltin_C8)
+	call	fprintf
+	li	a0,1
+	call	exit
+	sb	zero,0(s2)
+	j	.LBuiltin_68
+.LBuiltin_79:
+	lui	a5,%hi(stderr)
+	ld	a0,%lo(stderr)(a5)
+	lui	a1,%hi(.LBuiltin_C8)
+	addi	a1,a1,%lo(.LBuiltin_C8)
+	call	fprintf
+	li	a0,1
+	call	exit
+	j	.LBuiltin_68
+	.size	string_append, .-string_append

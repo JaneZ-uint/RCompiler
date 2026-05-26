@@ -16,7 +16,7 @@ public:
 
     void print(){
         // Print header or global directives if needed
-        std::cout << "    .attribute arch, \"rv64i2p1_m2p0\"\n";
+        std::cout << "    .attribute arch, \"rv64i2p1_m2p0_f2p2_d2p2\"\n";
         std::cout << "    .text\n";
         
         for (const auto& block : blocks) {

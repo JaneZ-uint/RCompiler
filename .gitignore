@@ -1,4 +1,5 @@
 build
+build_assert
 .cache
 tmp.rx
 words.md
@@ -20,3 +21,4 @@ test.in
 test.out
 regalloc.md
 debug.md
+test_builtin.s

@@ -119,15 +119,20 @@ for i in $(seq "$START" "$END"); do
         continue
     fi
 
-    # 编译
-    cp "$RX" "$ROOT/tmp.rx"
-    cd "$BUILD"
-    if ! ./RCompiler 2>/dev/null; then
+    # 编译：OJ 接口为 stdin 输入 Rx，stdout 输出用户 asm，stderr 输出 builtin.s
+    cd "$ROOT"
+    if ! make run < "$RX" > "$ROOT/test.s" 2> "$ROOT/test_builtin.s"; then
         echo -e "  ${RED}[CE]${NC}   comprehensive${i} — 编译失败"
         FAIL=$((FAIL + 1))
         FAIL_LIST="$FAIL_LIST $i"
         printf "%-20s %-8s\n" "comprehensive${i}" "CE" >> "$BENCH_FILE"
-        cd "$ROOT"
+        continue
+    fi
+    if [[ ! -s "$ROOT/test.s" ]]; then
+        echo -e "  ${RED}[CE]${NC}   comprehensive${i} — 未生成 ASM"
+        FAIL=$((FAIL + 1))
+        FAIL_LIST="$FAIL_LIST $i"
+        printf "%-20s %-8s\n" "comprehensive${i}" "CE" >> "$BENCH_FILE"
         continue
     fi
     cd "$ROOT"
@@ -139,7 +144,7 @@ for i in $(seq "$START" "$END"); do
 
     if ! timeout "$TIMEOUT" "$REIMU" -s="$REIMU_MEM" \
         -i="$IN_ARG" -o=test.out \
-        -f=test.s,"$BUILTIN" \
+        -f="$ROOT/test.s","$ROOT/test_builtin.s" \
         --all -p="$PROF_TMP" 2>/dev/null; then
         echo -e "  ${RED}[TLE]${NC}  comprehensive${i} — 运行超时或异常"
         FAIL=$((FAIL + 1))
