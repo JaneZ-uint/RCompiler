@@ -173,6 +173,87 @@ public:
         return "__rcompiler_user_" + name;
     }
 
+    void emitAdjustSp(int bytes) {
+        if (bytes >= -2048 && bytes <= 2047) {
+            ASMInstr addi;
+            addi.op = ASMOp::ADDI;
+            addi.rd = Operand(OperandType::REG, 2);
+            addi.rs1 = Operand(OperandType::REG, 2);
+            addi.imm = Operand(OperandType::IMM, bytes);
+            currentBlock->instrs.push_back(addi);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, bytes);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 2);
+            add.rs1 = Operand(OperandType::REG, 2);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+        }
+    }
+
+    void emitStackLoadToReg(int dst, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dst);
+            ld.rs1 = Operand(OperandType::REG, baseReg);
+            ld.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(ld);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 31);
+            add.rs1 = Operand(OperandType::REG, baseReg);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dst);
+            ld.rs1 = Operand(OperandType::REG, 31);
+            ld.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(ld);
+        }
+    }
+
+    void emitStackStoreFromReg(int src, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, src);
+            sd.rs1 = Operand(OperandType::REG, baseReg);
+            sd.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(sd);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 31);
+            add.rs1 = Operand(OperandType::REG, baseReg);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, src);
+            sd.rs1 = Operand(OperandType::REG, 31);
+            sd.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(sd);
+        }
+    }
+
     void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
         if (!targetBlock) {
             return;
@@ -270,15 +351,7 @@ public:
                     storeFromReg(10 + i, irInstr->paramList->paramList[i]);
                 }else{
                     int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
-                    ASMInstr ldInstr;
-                    ldInstr.op = ASMOp::LD;
-                    ldInstr.rd.type = OperandType::REG;
-                    ldInstr.rd.value = 5;
-                    ldInstr.rs1.type = OperandType::REG;
-                    ldInstr.rs1.value = 8; 
-                    ldInstr.imm.type = OperandType::IMM;
-                    ldInstr.imm.value = stackParamOffset;
-                    currentBlock->instrs.push_back(ldInstr);
+                    emitStackLoadToReg(5, 8, stackParamOffset);
                     storeFromReg(5, irInstr->paramList->paramList[i]);
                 }
             }
@@ -920,21 +993,11 @@ public:
         if (totalParamCount > 8) {
             int rawStackBytes = (totalParamCount - 8) * RISCV_XLEN_BYTES;
             int stackBytesNeeded = (rawStackBytes + 15) / 16 * 16;
-            ASMInstr addiSp;
-            addiSp.op = ASMOp::ADDI;
-            addiSp.rd = Operand(OperandType::REG, 2);
-            addiSp.rs1 = Operand(OperandType::REG, 2);
-            addiSp.imm = Operand(OperandType::IMM, -stackBytesNeeded);
-            currentBlock->instrs.push_back(addiSp);
+            emitAdjustSp(-stackBytesNeeded);
 
             for(int i = 8; i < totalParamCount; i++){
                 loadToReg(callOp->pList->paramList[i], 5,true, stackBytesNeeded);
-                ASMInstr sdInstr;
-                sdInstr.op = ASMOp::SD;
-                sdInstr.rs2 = Operand(OperandType::REG, 5); 
-                sdInstr.rs1 = Operand(OperandType::REG, 2); 
-                sdInstr.imm = Operand(OperandType::IMM, (i - 8) * RISCV_XLEN_BYTES);
-                currentBlock->instrs.push_back(sdInstr);
+                emitStackStoreFromReg(5, 2, (i - 8) * RISCV_XLEN_BYTES);
             }
         }
         
@@ -947,12 +1010,7 @@ public:
         if (totalParamCount > 8) {
             int rawStackBytes = (totalParamCount - 8) * RISCV_XLEN_BYTES;
             int stackBytesToClean = (rawStackBytes + 15) / 16 * 16;
-            ASMInstr addiSp;
-            addiSp.op = ASMOp::ADDI;
-            addiSp.rd = Operand(OperandType::REG, 2);
-            addiSp.rs1 = Operand(OperandType::REG, 2);
-            addiSp.imm = Operand(OperandType::IMM, stackBytesToClean);
-            currentBlock->instrs.push_back(addiSp);
+            emitAdjustSp(stackBytesToClean);
         }
         
         if (callOp->retVar) {

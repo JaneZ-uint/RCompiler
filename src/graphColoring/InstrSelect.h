@@ -95,6 +95,87 @@ public:
         return "__rcompiler_user_" + name;
     }
 
+    void emitAdjustSp(int bytes) {
+        if (bytes >= -2048 && bytes <= 2047) {
+            ASMInstr addi;
+            addi.op = ASMOp::ADDI;
+            addi.rd = Operand(OperandType::REG, 2);
+            addi.rs1 = Operand(OperandType::REG, 2);
+            addi.imm = Operand(OperandType::IMM, bytes);
+            currentBlock->instrs.push_back(addi);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, bytes);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 2);
+            add.rs1 = Operand(OperandType::REG, 2);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+        }
+    }
+
+    void emitStackStore(int src, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, src);
+            sd.rs1 = Operand(OperandType::REG, baseReg);
+            sd.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(sd);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 31);
+            add.rs1 = Operand(OperandType::REG, baseReg);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+            ASMInstr sd;
+            sd.op = ASMOp::SD;
+            sd.rs2 = Operand(OperandType::REG, src);
+            sd.rs1 = Operand(OperandType::REG, 31);
+            sd.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(sd);
+        }
+    }
+
+    void emitStackLoad(int dst, int baseReg, int offset) {
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dst);
+            ld.rs1 = Operand(OperandType::REG, baseReg);
+            ld.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(ld);
+        } else {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, 31);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, 31);
+            add.rs1 = Operand(OperandType::REG, baseReg);
+            add.rs2 = Operand(OperandType::REG, 31);
+            currentBlock->instrs.push_back(add);
+            ASMInstr ld;
+            ld.op = ASMOp::LD;
+            ld.rd = Operand(OperandType::REG, dst);
+            ld.rs1 = Operand(OperandType::REG, 31);
+            ld.imm = Operand(OperandType::IMM, 0);
+            currentBlock->instrs.push_back(ld);
+        }
+    }
+
     void select(std::shared_ptr<IRRoot> irRoot) {
         asmBlocks.clear();
         for (auto& func : irRoot->children) {
@@ -162,12 +243,7 @@ public:
                 currentBlock->instrs.push_back(mv);
             } else {
                 int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
-                ASMInstr ld;
-                ld.op = ASMOp::LD;
-                ld.rd = Operand(OperandType::REG, vr);
-                ld.rs1 = Operand(OperandType::REG, 8); // s0
-                ld.imm = Operand(OperandType::IMM, stackParamOffset);
-                currentBlock->instrs.push_back(ld);
+                emitStackLoad(vr, 8, stackParamOffset);
             }
         }
 
@@ -636,12 +712,7 @@ public:
 
             for (int i = 8; i < totalParams; i++) {
                 int src = materialize(op->pList->paramList[i]);
-                ASMInstr sd;
-                sd.op = ASMOp::SD;
-                sd.rs2 = Operand(OperandType::REG, src);
-                sd.rs1 = Operand(OperandType::REG, 2); // sp
-                sd.imm = Operand(OperandType::IMM, (i - 8) * RISCV_XLEN_BYTES - stackBytes);
-                currentBlock->instrs.push_back(sd);
+                emitStackStore(src, 2, (i - 8) * RISCV_XLEN_BYTES - stackBytes);
             }
         }
 
@@ -656,12 +727,7 @@ public:
         }
 
         if (totalParams > 8) {
-            ASMInstr addiSp;
-            addiSp.op = ASMOp::ADDI;
-            addiSp.rd = Operand(OperandType::REG, 2);
-            addiSp.rs1 = Operand(OperandType::REG, 2);
-            addiSp.imm = Operand(OperandType::IMM, -stackBytes);
-            currentBlock->instrs.push_back(addiSp);
+            emitAdjustSp(-stackBytes);
         }
 
         ASMInstr call;
@@ -670,12 +736,7 @@ public:
         currentBlock->instrs.push_back(call);
 
         if (totalParams > 8) {
-            ASMInstr addiSp;
-            addiSp.op = ASMOp::ADDI;
-            addiSp.rd = Operand(OperandType::REG, 2);
-            addiSp.rs1 = Operand(OperandType::REG, 2);
-            addiSp.imm = Operand(OperandType::IMM, stackBytes);
-            currentBlock->instrs.push_back(addiSp);
+            emitAdjustSp(stackBytes);
         }
 
         if (op->retVar) {
