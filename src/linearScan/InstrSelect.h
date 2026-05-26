@@ -726,10 +726,11 @@ public:
         if (totalParams > 8) {
             int rawStackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
             stackBytes = (rawStackBytes + 15) / 16 * 16;
+            emitAdjustSp(-stackBytes);
 
             for (int i = 8; i < totalParams; i++) {
                 int src = materialize(op->pList->paramList[i]);
-                emitStackStore(src, 2, (i - 8) * RISCV_XLEN_BYTES - stackBytes);
+                emitStackStore(src, 2, (i - 8) * RISCV_XLEN_BYTES);
             }
         }
 
@@ -741,10 +742,6 @@ public:
             mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
             mv.rs1 = Operand(OperandType::REG, src);
             currentBlock->instrs.push_back(mv);
-        }
-
-        if (totalParams > 8) {
-            emitAdjustSp(-stackBytes);
         }
 
         ASMInstr call;

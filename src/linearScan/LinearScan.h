@@ -467,8 +467,8 @@ private:
                     newInstrs.push_back(patched);
                     if (rdSpilled) {
                         int slot = vregToSpill[rdVreg];
-                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
-                        emitStore(newInstrs, SCRATCH1, 2, off);
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
+                        emitStore(newInstrs, SCRATCH1, 8, off);
                     }
                     continue;
                 }
@@ -483,10 +483,10 @@ private:
                 for (int r : uses) {
                     if (r >= 32 && vregToSpill.count(r)) {
                         int slot = vregToSpill[r];
-                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
                         int scratch = scratchRegs[scratchIdx++ % 2];
                         spillLoadMap[r] = scratch;
-                        emitLoad(newInstrs, scratch, 2, off);
+                        emitLoad(newInstrs, scratch, 8, off);
                     }
                 }
 
@@ -511,9 +511,9 @@ private:
                 for (int r : defs) {
                     if (r >= 32 && vregToSpill.count(r)) {
                         int slot = vregToSpill[r];
-                        int off = allocaSize + slot * RISCV_XLEN_BYTES;
+                        int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
                         int physUsed = spillDefMap[r];
-                        emitStore(newInstrs, physUsed, 2, off);
+                        emitStore(newInstrs, physUsed, 8, off);
                     }
                 }
             }
