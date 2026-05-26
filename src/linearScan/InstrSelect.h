@@ -316,11 +316,11 @@ public:
         };
 
         switch (op->op) {
-            case IROp::ADD: emit(ASMOp::ADD); break;
-            case IROp::SUB: emit(ASMOp::SUB); break;
-            case IROp::MUL: emit(ASMOp::MUL); break;
-            case IROp::DIV: emit(op->utag ? ASMOp::DIVU : ASMOp::DIV); break;
-            case IROp::MOD: emit(op->utag ? ASMOp::REMU : ASMOp::REM); break;
+            case IROp::ADD: emit(ASMOp::ADDW); break;
+            case IROp::SUB: emit(ASMOp::SUBW); break;
+            case IROp::MUL: emit(ASMOp::MULW); break;
+            case IROp::DIV: emit(op->utag ? ASMOp::DIVUW : ASMOp::DIVW); break;
+            case IROp::MOD: emit(op->utag ? ASMOp::REMUW : ASMOp::REMW); break;
             case IROp::LT:  emit(ASMOp::SLT); break;
             case IROp::GT: {
                 ASMInstr i;
@@ -394,8 +394,8 @@ public:
             case IROp::ANDOP: emit(ASMOp::AND); break;
             case IROp::OROP:  emit(ASMOp::OR); break;
             case IROp::XOROP: emit(ASMOp::XOR); break;
-            case IROp::LEFTSHIFTOP:  emit(ASMOp::SLL); break;
-            case IROp::RIGHTSHIFTOP: emit(ASMOp::SRA); break;
+            case IROp::LEFTSHIFTOP:  emit(ASMOp::SLLW); break;
+            case IROp::RIGHTSHIFTOP: emit(op->utag ? ASMOp::SRLW : ASMOp::SRAW); break;
             default: break;
         }
     }

@@ -77,7 +77,7 @@ private:
                 replaceValue(op->rightValue, constMap, changed);
                 auto lhs = getLiteral(op->leftValue, constMap);
                 auto rhs = getLiteral(op->rightValue, constMap);
-                auto folded = foldBinary(op->op, lhs, rhs);
+                auto folded = foldBinary(op->op, lhs, rhs, op->utag);
                 if (folded && op->result) {
                     constMap[op->result.get()] = *folded;
                     changed = true;
@@ -137,6 +137,20 @@ private:
         return std::make_shared<IRLiteral>(INT_LITERAL, value, value != 0);
     }
 
+    long long toI32(long long value) {
+        value &= 0xffffffffLL;
+        if (value >= 0x80000000LL) value -= 0x100000000LL;
+        return value;
+    }
+
+    unsigned long long toU32(long long value) {
+        return static_cast<unsigned long long>(value) & 0xffffffffULL;
+    }
+
+    LitPtr makeI32(long long value) {
+        return makeInt(toI32(value));
+    }
+
     LitPtr makeBool(bool value) {
         return std::make_shared<IRLiteral>(BOOL_LITERAL, value ? 1 : 0, value);
     }
@@ -146,38 +160,52 @@ private:
         return a->literalType == b->literalType && literalValue(a) == literalValue(b);
     }
 
-    std::optional<LitPtr> foldBinary(IROp op, const LitPtr &lhs, const LitPtr &rhs) {
+    std::optional<LitPtr> foldBinary(IROp op, const LitPtr &lhs, const LitPtr &rhs, bool unsignedTag) {
         if (!lhs || !rhs) return std::nullopt;
         long long l = literalValue(lhs);
         long long r = literalValue(rhs);
+        long long li32 = toI32(l);
+        long long ri32 = toI32(r);
+        unsigned long long lu32 = toU32(l);
+        unsigned long long ru32 = toU32(r);
 
         switch (op) {
-            case ADD: return makeInt(l + r);
-            case SUB: return makeInt(l - r);
-            case MUL: return makeInt(l * r);
+            case ADD: return makeI32(unsignedTag ? lu32 + ru32 : li32 + ri32);
+            case SUB: return makeI32(unsignedTag ? lu32 - ru32 : li32 - ri32);
+            case MUL: return makeI32(unsignedTag ? lu32 * ru32 : li32 * ri32);
             case DIV:
-                if (r == 0) return std::nullopt;
-                return makeInt(l / r);
+                if (unsignedTag) {
+                    if (ru32 == 0) return std::nullopt;
+                    return makeI32(lu32 / ru32);
+                } else {
+                    if (ri32 == 0) return std::nullopt;
+                    return makeI32(li32 / ri32);
+                }
             case MOD:
-                if (r == 0) return std::nullopt;
-                return makeInt(l % r);
-            case EQ: return makeBool(l == r);
-            case NEQ: return makeBool(l != r);
-            case LT: return makeBool(l < r);
-            case GT: return makeBool(l > r);
-            case LEQ: return makeBool(l <= r);
-            case GEQ: return makeBool(l >= r);
-            case LOGICALAND: return makeBool((l != 0) && (r != 0));
-            case LOGICALOR: return makeBool((l != 0) || (r != 0));
-            case XOROP: return makeInt(l ^ r);
-            case OROP: return makeInt(l | r);
-            case ANDOP: return makeInt(l & r);
+                if (unsignedTag) {
+                    if (ru32 == 0) return std::nullopt;
+                    return makeI32(lu32 % ru32);
+                } else {
+                    if (ri32 == 0) return std::nullopt;
+                    return makeI32(li32 % ri32);
+                }
+            case EQ: return makeBool(unsignedTag ? lu32 == ru32 : li32 == ri32);
+            case NEQ: return makeBool(unsignedTag ? lu32 != ru32 : li32 != ri32);
+            case LT: return makeBool(unsignedTag ? lu32 < ru32 : li32 < ri32);
+            case GT: return makeBool(unsignedTag ? lu32 > ru32 : li32 > ri32);
+            case LEQ: return makeBool(unsignedTag ? lu32 <= ru32 : li32 <= ri32);
+            case GEQ: return makeBool(unsignedTag ? lu32 >= ru32 : li32 >= ri32);
+            case LOGICALAND: return makeBool((li32 != 0) && (ri32 != 0));
+            case LOGICALOR: return makeBool((li32 != 0) || (ri32 != 0));
+            case XOROP: return makeI32(li32 ^ ri32);
+            case OROP: return makeI32(li32 | ri32);
+            case ANDOP: return makeI32(li32 & ri32);
             case LEFTSHIFTOP:
-                if (r < 0 || r >= 63) return std::nullopt;
-                return makeInt(l << r);
+                if (ri32 < 0 || ri32 >= 32) return std::nullopt;
+                return makeI32(lu32 << ri32);
             case RIGHTSHIFTOP:
-                if (r < 0 || r >= 63) return std::nullopt;
-                return makeInt(l >> r);
+                if (ri32 < 0 || ri32 >= 32) return std::nullopt;
+                return makeI32(unsignedTag ? lu32 >> ri32 : li32 >> ri32);
             default:
                 return std::nullopt;
         }

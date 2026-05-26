@@ -607,8 +607,11 @@ private:
             // R-type: def rd
             case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
             case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::ADDW: case ASMOp::SUBW: case ASMOp::MULW: case ASMOp::DIVW:
+            case ASMOp::DIVUW: case ASMOp::REMW: case ASMOp::REMUW:
             case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
             case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLLW: case ASMOp::SRLW: case ASMOp::SRAW:
             case ASMOp::SLT: case ASMOp::SLTU:
                 if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
                     defs.push_back(instr.rd.value);
@@ -665,8 +668,11 @@ private:
         switch (instr.op) {
             case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
             case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::ADDW: case ASMOp::SUBW: case ASMOp::MULW: case ASMOp::DIVW:
+            case ASMOp::DIVUW: case ASMOp::REMW: case ASMOp::REMUW:
             case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
             case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLLW: case ASMOp::SRLW: case ASMOp::SRAW:
             case ASMOp::SLT: case ASMOp::SLTU:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);

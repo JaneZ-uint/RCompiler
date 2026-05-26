@@ -65,6 +65,13 @@ private:
             case ASMOp::ADD:  std::cout << "add"; break;
             case ASMOp::SUB:  std::cout << "sub"; break;
             case ASMOp::MUL:  std::cout << "mul"; break;
+            case ASMOp::ADDW: std::cout << "addw"; break;
+            case ASMOp::SUBW: std::cout << "subw"; break;
+            case ASMOp::MULW: std::cout << "mulw"; break;
+            case ASMOp::DIVW: std::cout << "divw"; break;
+            case ASMOp::DIVUW: std::cout << "divuw"; break;
+            case ASMOp::REMW: std::cout << "remw"; break;
+            case ASMOp::REMUW: std::cout << "remuw"; break;
             case ASMOp::DIV:  std::cout << "div"; break;
             case ASMOp::DIVU: std::cout << "divu"; break;
             case ASMOp::REM:  std::cout << "rem"; break;
@@ -76,6 +83,9 @@ private:
             case ASMOp::SLL:  std::cout << "sll"; break;
             case ASMOp::SRL:  std::cout << "srl"; break;
             case ASMOp::SRA:  std::cout << "sra"; break;
+            case ASMOp::SLLW: std::cout << "sllw"; break;
+            case ASMOp::SRLW: std::cout << "srlw"; break;
+            case ASMOp::SRAW: std::cout << "sraw"; break;
             
             case ASMOp::SLT:  std::cout << "slt"; break;
             case ASMOp::SLTU: std::cout << "sltu"; break;

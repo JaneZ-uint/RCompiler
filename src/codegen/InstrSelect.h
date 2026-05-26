@@ -593,20 +593,20 @@ public:
         instr.rs2 = Operand(OperandType::REG, 6);
 
         switch (binaryOp->op) {
-            case IROp::ADD: instr.op = ASMOp::ADD; break;
-            case IROp::SUB: instr.op = ASMOp::SUB; break;
-            case IROp::MUL: instr.op = ASMOp::MUL; break;
+            case IROp::ADD: instr.op = ASMOp::ADDW; break;
+            case IROp::SUB: instr.op = ASMOp::SUBW; break;
+            case IROp::MUL: instr.op = ASMOp::MULW; break;
             case IROp::DIV: {
-                instr.op = ASMOp::DIV;
+                instr.op = ASMOp::DIVW;
                 if(binaryOp->utag){
-                    instr.op = ASMOp::DIVU;
+                    instr.op = ASMOp::DIVUW;
                 }
                 break;
             }
             case IROp::MOD: {
-                instr.op = ASMOp::REM; 
+                instr.op = ASMOp::REMW; 
                 if(binaryOp->utag){
-                    instr.op = ASMOp::REMU;
+                    instr.op = ASMOp::REMUW;
                 }
                 break;
             }
@@ -687,8 +687,8 @@ public:
             case IROp::ANDOP: instr.op = ASMOp::AND; break;
             case IROp::OROP:  instr.op = ASMOp::OR; break;
             case IROp::XOROP: instr.op = ASMOp::XOR; break;
-            case IROp::LEFTSHIFTOP: instr.op = ASMOp::SLL; break;
-            case IROp::RIGHTSHIFTOP: instr.op = ASMOp::SRA; break; // Arithmetic shift right for signed int
+            case IROp::LEFTSHIFTOP: instr.op = ASMOp::SLLW; break;
+            case IROp::RIGHTSHIFTOP: instr.op = binaryOp->utag ? ASMOp::SRLW : ASMOp::SRAW; break;
             default: break;
         }
         currentBlock->instrs.push_back(instr);

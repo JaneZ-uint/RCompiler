@@ -413,3 +413,35 @@ string_append:
 	call	exit
 	j	.LBuiltin_68
 	.size	string_append, .-string_append
+	.text
+	.align	2
+	.globl	memcpy
+	.type	memcpy, @function
+memcpy:
+	mv	a3,a0
+	beq	a2,zero,.LBuiltin_memcpy_done
+.LBuiltin_memcpy_loop:
+	lbu	a4,0(a1)
+	sb	a4,0(a3)
+	addi	a1,a1,1
+	addi	a3,a3,1
+	addi	a2,a2,-1
+	bne	a2,zero,.LBuiltin_memcpy_loop
+.LBuiltin_memcpy_done:
+	ret
+	.size	memcpy, .-memcpy
+	.align	2
+	.globl	memset
+	.type	memset, @function
+memset:
+	mv	a3,a0
+	andi	a1,a1,255
+	beq	a2,zero,.LBuiltin_memset_done
+.LBuiltin_memset_loop:
+	sb	a1,0(a3)
+	addi	a3,a3,1
+	addi	a2,a2,-1
+	bne	a2,zero,.LBuiltin_memset_loop
+.LBuiltin_memset_done:
+	ret
+	.size	memset, .-memset
