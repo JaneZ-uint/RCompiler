@@ -639,19 +639,11 @@ public:
         int totalParams = op->pList->paramList.size();
         int regParams = std::min(totalParams, 8);
 
-        // Move first 8 args to a0-a7
-        for (int i = 0; i < regParams; i++) {
-            int src = materialize(op->pList->paramList[i]);
-            ASMInstr mv;
-            mv.op = ASMOp::MV;
-            mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
-            mv.rs1 = Operand(OperandType::REG, src);
-            currentBlock->instrs.push_back(mv);
-        }
-
         // Stack args (>8)
+        int stackBytes = 0;
         if (totalParams > 8) {
-            int stackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
+            int rawStackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
+            stackBytes = (rawStackBytes + 15) / 16 * 16;
 
             for (int i = 8; i < totalParams; i++) {
                 int src = materialize(op->pList->paramList[i]);
@@ -662,7 +654,19 @@ public:
                 sd.imm = Operand(OperandType::IMM, (i - 8) * RISCV_XLEN_BYTES - stackBytes);
                 currentBlock->instrs.push_back(sd);
             }
+        }
 
+        // Move first 8 args to a0-a7 after stack args have been saved.
+        for (int i = 0; i < regParams; i++) {
+            int src = materialize(op->pList->paramList[i]);
+            ASMInstr mv;
+            mv.op = ASMOp::MV;
+            mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
+            mv.rs1 = Operand(OperandType::REG, src);
+            currentBlock->instrs.push_back(mv);
+        }
+
+        if (totalParams > 8) {
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);
@@ -680,7 +684,6 @@ public:
         currentBlock->instrs.push_back(call);
 
         if (totalParams > 8) {
-            int stackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);

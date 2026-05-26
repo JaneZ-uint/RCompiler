@@ -912,7 +912,8 @@ public:
         }
         
         if (totalParamCount > 8) {
-            int stackBytesNeeded = (totalParamCount - 8) * RISCV_XLEN_BYTES;
+            int rawStackBytes = (totalParamCount - 8) * RISCV_XLEN_BYTES;
+            int stackBytesNeeded = (rawStackBytes + 15) / 16 * 16;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);
@@ -942,7 +943,8 @@ public:
 
         // Clean up stack space for parameters
         if (totalParamCount > 8) {
-            int stackBytesToClean = (totalParamCount - 8) * RISCV_XLEN_BYTES;
+            int rawStackBytes = (totalParamCount - 8) * RISCV_XLEN_BYTES;
+            int stackBytesToClean = (rawStackBytes + 15) / 16 * 16;
             ASMInstr addiSp;
             addiSp.op = ASMOp::ADDI;
             addiSp.rd = Operand(OperandType::REG, 2);
