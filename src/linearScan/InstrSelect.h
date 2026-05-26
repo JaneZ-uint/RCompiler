@@ -86,6 +86,15 @@ public:
         return getVReg(val);
     }
 
+    std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
+        std::string name = func->name;
+        if (func->parentStructType) {
+            name = func->parentStructType->name + "_" + name;
+        }
+        if (name == "main") return name;
+        return "__rcompiler_user_" + name;
+    }
+
     void select(std::shared_ptr<IRRoot> irRoot) {
         asmBlocks.clear();
         for (auto& func : irRoot->children) {
@@ -114,10 +123,7 @@ public:
         currenctExitBlock = myExitBlockID;
         currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
 
-        std::string funcName = irFunc->name;
-        if (irFunc->parentStructType) {
-            funcName = irFunc->parentStructType->name + "_" + funcName;
-        }
+        std::string funcName = asmFunctionName(irFunc);
 
         auto entryBlock = std::make_shared<ASMBlock>(funcName);
         asmBlocks.push_back(entryBlock);
@@ -677,10 +683,7 @@ public:
 
         ASMInstr call;
         call.op = ASMOp::CALL;
-        std::string target = op->function->name;
-        if (op->function->parentStructType)
-            target = op->function->parentStructType->name + "_" + target;
-        call.funcName = target;
+        call.funcName = asmFunctionName(op->function);
         currentBlock->instrs.push_back(call);
 
         if (totalParams > 8) {

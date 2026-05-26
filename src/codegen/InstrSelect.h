@@ -164,6 +164,15 @@ public:
         }
     }
 
+    std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
+        std::string name = func->name;
+        if (func->parentStructType) {
+            name = func->parentStructType->name + "_" + name;
+        }
+        if (name == "main") return name;
+        return "__rcompiler_user_" + name;
+    }
+
     void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
         if (!targetBlock) {
             return;
@@ -238,10 +247,7 @@ public:
         currenctExitBlock = myExitBlockID;
         currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
 
-        std::string funcName = irInstr->name;
-        if (irInstr->parentStructType) {
-            funcName = irInstr->parentStructType->name + "_" + funcName;
-        }
+        std::string funcName = asmFunctionName(irInstr);
 
         std::shared_ptr<ASMBlock> entryBlock = std::make_shared<ASMBlock>(funcName);
         asmBlocks.push_back(entryBlock);
@@ -934,11 +940,7 @@ public:
         
         ASMInstr callInstr;
         callInstr.op = ASMOp::CALL;
-        std::string targetName = callOp->function->name;
-        if (callOp->function->parentStructType) {
-            targetName = callOp->function->parentStructType->name + "_" + targetName;
-        }
-        callInstr.funcName = targetName;
+        callInstr.funcName = asmFunctionName(callOp->function);
         currentBlock->instrs.push_back(callInstr);
 
         // Clean up stack space for parameters
