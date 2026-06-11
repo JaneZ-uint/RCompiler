@@ -90,6 +90,7 @@ public:
     int label_cnt = 0;
     
     std::shared_ptr<IRScope> currentScope;
+    std::shared_ptr<IRFunction> activeIRFunc;
 
     std::shared_ptr<IRRoot> irRoot;
 
@@ -2816,6 +2817,25 @@ public:
                 }else{
                     block->blockList[block->blockList.size() - 1]->instrList.push_back(returnInstr);
                 }
+            } else {
+                auto retVar = std::dynamic_pointer_cast<IRVar>(res);
+                if (retVar && activeIRFunc && activeIRFunc->paramList &&
+                    !activeIRFunc->paramList->paramList.empty()) {
+                    auto memcpyInstr = std::make_shared<IRMemcpy>();
+                    memcpyInstr->size = retVar->type->size;
+                    memcpyInstr->value = retVar;
+                    memcpyInstr->dest = std::dynamic_pointer_cast<IRVar>(
+                        activeIRFunc->paramList->paramList[activeIRFunc->paramList->paramList.size() - 1]);
+                    auto returnInstr = std::make_shared<IRReturn>(
+                        std::make_shared<IRVoidType>(), std::make_shared<IRVar>());
+                    if(block->blockList.empty()){
+                        block->instrList.push_back(memcpyInstr);
+                        block->instrList.push_back(returnInstr);
+                    }else{
+                        block->blockList[block->blockList.size() - 1]->instrList.push_back(memcpyInstr);
+                        block->blockList[block->blockList.size() - 1]->instrList.push_back(returnInstr);
+                    }
+                }
             }
             node.ret = res;
         }else{
@@ -3012,6 +3032,8 @@ public:
                 }
             }
         }
+        auto previousIRFunc = activeIRFunc;
+        activeIRFunc = currentIRFunc;
         for(int i = 0;i < currentIRFunc->paramList->paramList.size();i++){
             auto param = currentIRFunc->paramList->paramList[i];
             if(auto p = std::dynamic_pointer_cast<IRVar>(param)){
@@ -3442,6 +3464,7 @@ public:
             }
         }
         
+        activeIRFunc = previousIRFunc;
         return currentIRFunc;
     }
 
