@@ -226,6 +226,7 @@ private:
         std::shared_ptr<IRType> allocaType;
         std::set<IRBlock*> defBlocks;
         std::set<IRBlock*> useBlocks;
+        bool w64tag = false;
     };
 
     void promoteAllocas(std::shared_ptr<IRFunction> func) {
@@ -238,6 +239,7 @@ private:
                 AllocaInfo info;
                 info.allocaVar = p->var;
                 info.allocaType = p->allocatedType;
+                info.w64tag = p->w64tag;
                 infoMap[p->var.get()] = info;
             }
         });
@@ -357,6 +359,10 @@ private:
                     init->w64tag = true;
                     init->utag = true;
                 }
+            }
+            if (infoMap[av].w64tag) {
+                init->w64tag = true;
+                init->utag = true;
             }
             func->body->instrList.insert(func->body->instrList.begin(), init);
             stacks[av].push_back(undef);
@@ -559,6 +565,10 @@ private:
                             add->w64tag = true;
                             add->utag = true;
                         }
+                    }
+                    if (infoMap[store->address.get()].w64tag || store->w64tag) {
+                        add->w64tag = true;
+                        add->utag = true;
                     }
                     newList.push_back(add);
                     store->storeValue = fresh;

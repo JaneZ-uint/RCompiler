@@ -165,10 +165,12 @@ private:
         }
 
         ValuePtr returnValue = nullptr;
+        bool inlinedHasW64 = false;
         for (auto &instr : callee->body->instrList) {
             if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
                 auto cloned = cloneBinary(op, valueMap);
                 if (!cloned) return {};
+                if (cloned->w64tag) inlinedHasW64 = true;
                 result.push_back(cloned);
             } else if (auto op = std::dynamic_pointer_cast<IRSext>(instr)) {
                 auto cloned = cloneSext(op, valueMap);
@@ -216,6 +218,14 @@ private:
                     assign->w64tag = true;
                     assign->utag = true; // usize/isize: treat as unsigned wide
                 }
+            }
+            // Fallback: usize/isize are registered with bitWidth=32 in this IR,
+            // so the check above never fires.  If the inlined body produced any
+            // 64-bit op, the function works on 64-bit values, so the synthesized
+            // ADD must also be 64-bit or it will silently truncate.
+            if (inlinedHasW64) {
+                assign->w64tag = true;
+                assign->utag = true;
             }
             result.push_back(assign);
         }

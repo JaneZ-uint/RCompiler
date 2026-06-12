@@ -10,6 +10,7 @@ class IRAlloca : public IRNode {
 public:
     std::shared_ptr<IRType> allocatedType;
     std::shared_ptr<IRVar> var;
+    bool w64tag = false; // alloca holds a 64-bit value (usize/isize)
 
     IRAlloca() = default;
     IRAlloca(std::shared_ptr<IRType> at, std::shared_ptr<IRVar> v)

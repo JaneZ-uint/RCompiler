@@ -2232,8 +2232,8 @@ public:
         if(auto *left = dynamic_cast<ExprPath *>(& *node.left)){
             auto leftname = left->pathFirst->pathSegments.identifier;
             auto res = currentScope->lookupConstantSymbol(leftname);
-            int leftnum = 0;
-            int rightnum = 0;
+            long long leftnum = 0;
+            long long rightnum = 0;
             if(res.type != "null"){
                 leftnum = res.value;
                 if(auto *right = dynamic_cast<ExprLiteral *>(& *node.right)){
@@ -2253,8 +2253,8 @@ public:
         if(auto *right = dynamic_cast<ExprPath *>(& *node.right)){
             auto rightname = right->pathFirst->pathSegments.identifier;
             auto res = currentScope->lookupConstantSymbol(rightname);
-            int rightnum = 0;
-            int leftnum = 0;
+            long long rightnum = 0;
+            long long leftnum = 0;
             if(res.type != "null"){
                 rightnum = res.value;
                 if(auto *left = dynamic_cast<ExprLiteral *>(& *node.left)){
@@ -3104,8 +3104,15 @@ public:
                     p->type = ptrType->baseType;
                     currentScope->addValueSymbol(p->varName, p);
                 }else{
-                    currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
-                    currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
+                    auto paramAlloca = std::make_shared<IRAlloca>(p->type, bodyVar);
+                    auto paramStore = std::make_shared<IRStore>(p->type, p, nullptr, bodyVar);
+                    if(p->type == currentScope->lookupTypeSymbol("usize") ||
+                       p->type == currentScope->lookupTypeSymbol("isize")){
+                        paramAlloca->w64tag = true;
+                        paramStore->w64tag = true;
+                    }
+                    currentIRFunc->body->instrList.push_back(paramAlloca);
+                    currentIRFunc->body->instrList.push_back(paramStore);
                     currentScope->addValueSymbol(p->varName, bodyVar);
                 }
             }
@@ -3627,7 +3634,12 @@ public:
         std::shared_ptr<IRType> varType = resolveType(*node.type);
         auto currentVar = std::make_shared<IRVar>(varType,varName, reName);
         //currentScope->addValueSymbol(varName, currentVar);
-        block->instrList.push_back(std::make_shared<IRAlloca>(varType,currentVar));
+        auto allocaInstr = std::make_shared<IRAlloca>(varType,currentVar);
+        if(varType == currentScope->lookupTypeSymbol("usize") ||
+           varType == currentScope->lookupTypeSymbol("isize")){
+            allocaInstr->w64tag = true;
+        }
+        block->instrList.push_back(allocaInstr);
         //todo init expr
         if(node.expression){
             if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
@@ -3735,7 +3747,12 @@ public:
         std::shared_ptr<IRType> varType = resolveType(*node.type);
         auto currentVar = std::make_shared<IRVar>(varType,varName, reName);
         currentScope->addValueSymbol(varName, currentVar);
-        block->instrList.push_back(std::make_shared<IRAlloca>(varType,currentVar));
+        auto allocaInstr2 = std::make_shared<IRAlloca>(varType,currentVar);
+        if(varType == currentScope->lookupTypeSymbol("usize") ||
+           varType == currentScope->lookupTypeSymbol("isize")){
+            allocaInstr2->w64tag = true;
+        }
+        block->instrList.push_back(allocaInstr2);
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
             auto ifBlocks = letIf(*ifExpr, currentVar);
             for(auto & instr : ifBlocks->instrList){

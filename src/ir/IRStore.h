@@ -13,6 +13,7 @@ public:
     std::shared_ptr<IRVar> storeValue;
     std::shared_ptr<IRLiteral> storeLiteral;
     std::shared_ptr<IRVar> address;
+    bool w64tag = false; // 64-bit width tag (usize/isize destination)
     
     IRStore() = default;
     IRStore(std::shared_ptr<IRType> vT,
