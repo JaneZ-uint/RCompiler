@@ -209,6 +209,14 @@ private:
             auto assign = std::make_shared<IRBinaryop>(ADD, call->retVar);
             assign->leftValue = returnValue;
             assign->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+            // Propagate width/signedness from the destination variable so the
+            // synthesized ADD lowers to the correct RV64 width (add vs addw).
+            if (auto intTy = std::dynamic_pointer_cast<IRIntType>(call->retVar->type)) {
+                if (intTy->bitWidth == 64) {
+                    assign->w64tag = true;
+                    assign->utag = true; // usize/isize: treat as unsigned wide
+                }
+            }
             result.push_back(assign);
         }
         return result;

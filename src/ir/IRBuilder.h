@@ -2508,19 +2508,41 @@ public:
                     }
                 }
             }else{
-                // Check if operands are usize literals (both are IRLiteral)
-                bool isUsize = false;
+                // Both operands are literals (no IRVar on either side).
+                // Only mark as usize if BOTH literal lexemes carry the "usize"
+                // suffix. A single-side suffix is ambiguous — the other side
+                // may have been ascast'd or come from a context where width is
+                // ultimately i32. Being conservative here avoids regressions
+                // on long i32 expressions where a stray literal might match.
+                bool leftIsUsize = false;
+                bool rightIsUsize = false;
                 if(auto *leftLit = dynamic_cast<ExprLiteral *>(& *node.left)){
                     if(leftLit->literal.size() >= 5 && leftLit->literal.substr(leftLit->literal.size() - 5) == "usize"){
-                        isUsize = true;
+                        leftIsUsize = true;
                     }
                 }
                 if(auto *rightLit = dynamic_cast<ExprLiteral *>(& *node.right)){
                     if(rightLit->literal.size() >= 5 && rightLit->literal.substr(rightLit->literal.size() - 5) == "usize"){
-                        isUsize = true;
+                        rightIsUsize = true;
                     }
                 }
-                if(isUsize){
+                // Fallback: if either literal value itself exceeds the i32
+                // range, the operation must be done as 64-bit or the upper
+                // bits are silently truncated by addw/subw/mulw.
+                bool valueIsWide = false;
+                if(auto leftLitIR = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
+                    long long v = leftLitIR->intValue;
+                    if(v > 0x7fffffffLL || v < -0x80000000LL) valueIsWide = true;
+                }
+                if(auto rightLitIR = std::dynamic_pointer_cast<IRLiteral>(rightExpr)){
+                    long long v = rightLitIR->intValue;
+                    if(v > 0x7fffffffLL || v < -0x80000000LL) valueIsWide = true;
+                }
+                if(leftIsUsize && rightIsUsize){
+                    resultVar->type = currentScope->lookupTypeSymbol("usize");
+                    binaryInstr->utag = true;
+                    binaryInstr->w64tag = true;
+                } else if(valueIsWide){
                     resultVar->type = currentScope->lookupTypeSymbol("usize");
                     binaryInstr->utag = true;
                     binaryInstr->w64tag = true;

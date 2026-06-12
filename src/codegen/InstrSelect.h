@@ -62,6 +62,19 @@ public:
     }
 
     // Load value from stack (or immediate) into a physical register
+    // Decide whether a value should be spilled/reloaded as a full 64-bit word.
+    // Pointers and 64-bit integers (usize/isize) must use LD/SD to preserve
+    // the upper bits; everything else stays on LW/SW (which sign-extends i32).
+    bool isWide64Slot(const std::shared_ptr<IRNode> &val) {
+        if (auto var = std::dynamic_pointer_cast<IRVar>(val)) {
+            if (auto intTy = std::dynamic_pointer_cast<IRIntType>(var->type)) {
+                return intTy->bitWidth == 64;
+            }
+            if (std::dynamic_pointer_cast<IRPtrType>(var->type)) return true;
+        }
+        return false;
+    }
+
     void loadToReg(std::shared_ptr<IRNode> val, int physReg,bool tag = false,int newOffest = 0) {
         if (auto *lit = dynamic_cast<IRLiteral *>(val.get())) {
             ASMInstr liInstr;
@@ -76,9 +89,11 @@ public:
             if(tag){
                 offset += newOffest;
             }
+            bool wide = isWide64Slot(val);
+            ASMOp loadOp = wide ? ASMOp::LD : ASMOp::LW;
             if (offset >= -2048 and offset <= 2047) {
                 ASMInstr lwInstr;
-                lwInstr.op = ASMOp::LW;
+                lwInstr.op = loadOp;
                 lwInstr.rd.type = OperandType::REG;
                 lwInstr.rd.value = physReg;
                 lwInstr.rs1.type = OperandType::REG;
@@ -107,7 +122,7 @@ public:
                 currentBlock->instrs.push_back(addInstr);
 
                 ASMInstr lwInstr;
-                lwInstr.op = ASMOp::LW;
+                lwInstr.op = loadOp;
                 lwInstr.rd.type = OperandType::REG;
                 lwInstr.rd.value = physReg;
                 lwInstr.rs1.type = OperandType::REG;
@@ -122,9 +137,11 @@ public:
     // Store value from physical register to stack slot for variable
     void storeFromReg(int physReg, std::shared_ptr<IRNode> val) {
         int offset = getStackSlot(val);
+        bool wide = isWide64Slot(val);
+        ASMOp storeOp = wide ? ASMOp::SD : ASMOp::SW;
         if (offset >= -2048 and offset <= 2047) {
             ASMInstr swInstr;
-            swInstr.op = ASMOp::SW;
+            swInstr.op = storeOp;
             swInstr.rs2.type = OperandType::REG;
             swInstr.rs2.value = physReg;
             swInstr.rs1.type = OperandType::REG;
@@ -153,7 +170,7 @@ public:
             currentBlock->instrs.push_back(addInstr);
 
             ASMInstr swInstr;
-            swInstr.op = ASMOp::SW;
+            swInstr.op = storeOp;
             swInstr.rs2.type = OperandType::REG;
             swInstr.rs2.value = physReg;
             swInstr.rs1.type = OperandType::REG;
@@ -825,13 +842,17 @@ public:
             storeFromReg(5, loadOp->tmp);
             return;
         }
+        bool wide = false;
+        if (auto it = std::dynamic_pointer_cast<IRIntType>(loadOp->type)) {
+            wide = (it->bitWidth == 64);
+        }
         ASMInstr lwInstr;
-        lwInstr.op = ASMOp::LW;
+        lwInstr.op = wide ? ASMOp::LD : ASMOp::LW;
         lwInstr.rd = Operand(OperandType::REG, 5);
         lwInstr.rs1 = Operand(OperandType::REG, 5);
         lwInstr.imm = Operand(OperandType::IMM, 0);
         currentBlock->instrs.push_back(lwInstr);
-        
+
         storeFromReg(5, loadOp->tmp);
     }
 
@@ -847,8 +868,12 @@ public:
             loadToReg(storeOp->storeValue, 5); // t0 = value
         }
         loadToReg(storeOp->address, 6);   // t1 = address
+        bool wide = false;
+        if (auto it = std::dynamic_pointer_cast<IRIntType>(storeOp->valueType)) {
+            wide = (it->bitWidth == 64);
+        }
         ASMInstr swInstr;
-        swInstr.op = ASMOp::SW;
+        swInstr.op = wide ? ASMOp::SD : ASMOp::SW;
         swInstr.rs2 = Operand(OperandType::REG, 5); // value
         swInstr.rs1 = Operand(OperandType::REG, 6); // address
         swInstr.imm = Operand(OperandType::IMM, 0);

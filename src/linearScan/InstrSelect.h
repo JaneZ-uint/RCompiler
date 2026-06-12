@@ -492,8 +492,12 @@ public:
             mv.rs1 = Operand(OperandType::REG, addr);
             currentBlock->instrs.push_back(mv);
         } else {
+            bool wide = false;
+            if (auto it = std::dynamic_pointer_cast<IRIntType>(op->type)) {
+                wide = (it->bitWidth == 64);
+            }
             ASMInstr lw;
-            lw.op = ASMOp::LW;
+            lw.op = wide ? ASMOp::LD : ASMOp::LW;
             lw.rd = Operand(OperandType::REG, dst);
             lw.rs1 = Operand(OperandType::REG, addr);
             lw.imm = Operand(OperandType::IMM, 0);
@@ -518,8 +522,12 @@ public:
         else
             val = materialize(op->storeValue);
         int addr = materialize(op->address);
+        bool wide = false;
+        if (auto it = std::dynamic_pointer_cast<IRIntType>(op->valueType)) {
+            wide = (it->bitWidth == 64);
+        }
         ASMInstr sw;
-        sw.op = ASMOp::SW;
+        sw.op = wide ? ASMOp::SD : ASMOp::SW;
         sw.rs2 = Operand(OperandType::REG, val);
         sw.rs1 = Operand(OperandType::REG, addr);
         sw.imm = Operand(OperandType::IMM, 0);

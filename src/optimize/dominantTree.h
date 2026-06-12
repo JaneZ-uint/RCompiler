@@ -350,6 +350,14 @@ private:
             auto init = std::make_shared<IRBinaryop>(ADD, undef);
             init->leftValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
             init->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+            // Preserve width: a 64-bit alloca (usize/isize) must use a 64-bit
+            // ADD so its initial value isn't truncated by addw.
+            if (auto intTy = std::dynamic_pointer_cast<IRIntType>(undef->type)) {
+                if (intTy->bitWidth == 64) {
+                    init->w64tag = true;
+                    init->utag = true;
+                }
+            }
             func->body->instrList.insert(func->body->instrList.begin(), init);
             stacks[av].push_back(undef);
         }
@@ -532,6 +540,26 @@ private:
                     auto add = std::make_shared<IRBinaryop>(ADD, fresh);
                     add->leftValue = store->storeLiteral;
                     add->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+                    // Preserve width for 64-bit types so the literal isn't
+                    // truncated by addw on RV64.  usize/isize are registered
+                    // as IRIntType(32) in the IR but actually 64-bit at the
+                    // ASM level — so the type alone is not enough.  Use the
+                    // literal value as a fallback signal: any literal outside
+                    // the i32 range must come from a 64-bit type, and ADDW
+                    // would destroy its upper bits.
+                    if (auto intTy = std::dynamic_pointer_cast<IRIntType>(fresh->type)) {
+                        if (intTy->bitWidth == 64) {
+                            add->w64tag = true;
+                            add->utag = true;
+                        }
+                    }
+                    if (store->storeLiteral) {
+                        long long v = store->storeLiteral->intValue;
+                        if (v > 0x7fffffffLL || v < -0x80000000LL) {
+                            add->w64tag = true;
+                            add->utag = true;
+                        }
+                    }
                     newList.push_back(add);
                     store->storeValue = fresh;
                 }
