@@ -398,15 +398,15 @@ public:
         };
 
         switch (op->op) {
-            case IROp::ADD: emit(ASMOp::ADDW); break;
-            case IROp::SUB: emit(ASMOp::SUBW); break;
-            case IROp::MUL: emit(ASMOp::MULW); break;
-            case IROp::DIV: emit(op->utag ? ASMOp::DIVUW : ASMOp::DIVW); break;
-            case IROp::MOD: emit(op->utag ? ASMOp::REMUW : ASMOp::REMW); break;
-            case IROp::LT:  emit(ASMOp::SLT); break;
+            case IROp::ADD: emit(op->w64tag ? ASMOp::ADD : ASMOp::ADDW); break;
+            case IROp::SUB: emit(op->w64tag ? ASMOp::SUB : ASMOp::SUBW); break;
+            case IROp::MUL: emit(op->w64tag ? ASMOp::MUL : ASMOp::MULW); break;
+            case IROp::DIV: emit(op->w64tag ? (op->utag ? ASMOp::DIVU : ASMOp::DIV) : (op->utag ? ASMOp::DIVUW : ASMOp::DIVW)); break;
+            case IROp::MOD: emit(op->w64tag ? (op->utag ? ASMOp::REMU : ASMOp::REM) : (op->utag ? ASMOp::REMUW : ASMOp::REMW)); break;
+            case IROp::LT:  emit(op->utag ? ASMOp::SLTU : ASMOp::SLT); break;
             case IROp::GT: {
                 ASMInstr i;
-                i.op = ASMOp::SLT;
+                i.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 i.rd = Operand(OperandType::REG, dst);
                 i.rs1 = Operand(OperandType::REG, rhs);
                 i.rs2 = Operand(OperandType::REG, lhs);
@@ -416,7 +416,7 @@ public:
             case IROp::LEQ: {
                 // a <= b  ⟺  !(b < a)
                 ASMInstr slt;
-                slt.op = ASMOp::SLT;
+                slt.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 slt.rd = Operand(OperandType::REG, dst);
                 slt.rs1 = Operand(OperandType::REG, rhs);
                 slt.rs2 = Operand(OperandType::REG, lhs);
@@ -432,7 +432,7 @@ public:
             case IROp::GEQ: {
                 // a >= b  ⟺  !(a < b)
                 ASMInstr slt;
-                slt.op = ASMOp::SLT;
+                slt.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 slt.rd = Operand(OperandType::REG, dst);
                 slt.rs1 = Operand(OperandType::REG, lhs);
                 slt.rs2 = Operand(OperandType::REG, rhs);
@@ -476,8 +476,8 @@ public:
             case IROp::ANDOP: emit(ASMOp::AND); break;
             case IROp::OROP:  emit(ASMOp::OR); break;
             case IROp::XOROP: emit(ASMOp::XOR); break;
-            case IROp::LEFTSHIFTOP:  emit(ASMOp::SLLW); break;
-            case IROp::RIGHTSHIFTOP: emit(op->utag ? ASMOp::SRLW : ASMOp::SRAW); break;
+            case IROp::LEFTSHIFTOP:  emit(op->w64tag ? ASMOp::SLL : ASMOp::SLLW); break;
+            case IROp::RIGHTSHIFTOP: emit(op->w64tag ? (op->utag ? ASMOp::SRL : ASMOp::SRA) : (op->utag ? ASMOp::SRLW : ASMOp::SRAW)); break;
             default: break;
         }
     }

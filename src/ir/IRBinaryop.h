@@ -48,6 +48,7 @@ public:
     std::shared_ptr<IRVar> result;
     bool utag = false; // unsigned tag
     bool i8tag = false; // i8 tag
+    bool w64tag = false; // 64-bit width tag (usize/isize)
 
     IRBinaryop() = default;
     IRBinaryop(IROp operation,std::shared_ptr<IRVar> res) : IRNode(), op(operation), result(std::move(res)) {}

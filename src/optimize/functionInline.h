@@ -223,6 +223,7 @@ private:
         cloned->rightValue = mapValue(op->rightValue, valueMap);
         cloned->utag = op->utag;
         cloned->i8tag = op->i8tag;
+        cloned->w64tag = op->w64tag;
         if (!cloned->leftValue || !cloned->rightValue) return nullptr;
         valueMap[op->result.get()] = clonedResult;
         return cloned;

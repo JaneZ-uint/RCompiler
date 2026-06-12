@@ -672,33 +672,35 @@ public:
         instr.rs2 = Operand(OperandType::REG, 6);
 
         switch (binaryOp->op) {
-            case IROp::ADD: instr.op = ASMOp::ADDW; break;
-            case IROp::SUB: instr.op = ASMOp::SUBW; break;
-            case IROp::MUL: instr.op = ASMOp::MULW; break;
+            case IROp::ADD: instr.op = binaryOp->w64tag ? ASMOp::ADD : ASMOp::ADDW; break;
+            case IROp::SUB: instr.op = binaryOp->w64tag ? ASMOp::SUB : ASMOp::SUBW; break;
+            case IROp::MUL: instr.op = binaryOp->w64tag ? ASMOp::MUL : ASMOp::MULW; break;
             case IROp::DIV: {
-                instr.op = ASMOp::DIVW;
-                if(binaryOp->utag){
-                    instr.op = ASMOp::DIVUW;
+                if(binaryOp->w64tag){
+                    instr.op = binaryOp->utag ? ASMOp::DIVU : ASMOp::DIV;
+                } else {
+                    instr.op = binaryOp->utag ? ASMOp::DIVUW : ASMOp::DIVW;
                 }
                 break;
             }
             case IROp::MOD: {
-                instr.op = ASMOp::REMW; 
-                if(binaryOp->utag){
-                    instr.op = ASMOp::REMUW;
+                if(binaryOp->w64tag){
+                    instr.op = binaryOp->utag ? ASMOp::REMU : ASMOp::REM;
+                } else {
+                    instr.op = binaryOp->utag ? ASMOp::REMUW : ASMOp::REMW;
                 }
                 break;
             }
-            case IROp::LT:  instr.op = ASMOp::SLT; break;
+            case IROp::LT:  instr.op = binaryOp->utag ? ASMOp::SLTU : ASMOp::SLT; break;
             case IROp::GT:
                 // a > b  <=>  b < a
-                instr.op = ASMOp::SLT;
+                instr.op = binaryOp->utag ? ASMOp::SLTU : ASMOp::SLT;
                 instr.rs1 = Operand(OperandType::REG, 6); // rhs
                 instr.rs2 = Operand(OperandType::REG, 5); // lhs
                 break;
             case IROp::LEQ: {
                                 ASMInstr sltInstr;
-                                sltInstr.op = ASMOp::SLT;
+                                sltInstr.op = binaryOp->utag ? ASMOp::SLTU : ASMOp::SLT;
                                 sltInstr.rd = Operand(OperandType::REG, 5);
                                 sltInstr.rs1 = Operand(OperandType::REG, 6); // rhs
                                 sltInstr.rs2 = Operand(OperandType::REG, 5); // lhs
@@ -715,7 +717,7 @@ public:
                             }
             case IROp::GEQ: {
                                 ASMInstr sltInstr;
-                                sltInstr.op = ASMOp::SLT;
+                                sltInstr.op = binaryOp->utag ? ASMOp::SLTU : ASMOp::SLT;
                                 sltInstr.rd = Operand(OperandType::REG, 5);
                                 sltInstr.rs1 = Operand(OperandType::REG, 5); // lhs
                                 sltInstr.rs2 = Operand(OperandType::REG, 6); // rhs
@@ -766,8 +768,15 @@ public:
             case IROp::ANDOP: instr.op = ASMOp::AND; break;
             case IROp::OROP:  instr.op = ASMOp::OR; break;
             case IROp::XOROP: instr.op = ASMOp::XOR; break;
-            case IROp::LEFTSHIFTOP: instr.op = ASMOp::SLLW; break;
-            case IROp::RIGHTSHIFTOP: instr.op = binaryOp->utag ? ASMOp::SRLW : ASMOp::SRAW; break;
+            case IROp::LEFTSHIFTOP: instr.op = binaryOp->w64tag ? ASMOp::SLL : ASMOp::SLLW; break;
+            case IROp::RIGHTSHIFTOP: {
+                if(binaryOp->w64tag){
+                    instr.op = binaryOp->utag ? ASMOp::SRL : ASMOp::SRA;
+                } else {
+                    instr.op = binaryOp->utag ? ASMOp::SRLW : ASMOp::SRAW;
+                }
+                break;
+            }
             default: break;
         }
         currentBlock->instrs.push_back(instr);

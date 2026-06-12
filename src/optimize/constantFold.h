@@ -77,7 +77,7 @@ private:
                 replaceValue(op->rightValue, constMap, changed);
                 auto lhs = getLiteral(op->leftValue, constMap);
                 auto rhs = getLiteral(op->rightValue, constMap);
-                auto folded = foldBinary(op->op, lhs, rhs, op->utag);
+                auto folded = foldBinary(op->op, lhs, rhs, op->utag, op->w64tag);
                 if (folded && op->result) {
                     constMap[op->result.get()] = *folded;
                     changed = true;
@@ -160,10 +160,16 @@ private:
         return a->literalType == b->literalType && literalValue(a) == literalValue(b);
     }
 
-    std::optional<LitPtr> foldBinary(IROp op, const LitPtr &lhs, const LitPtr &rhs, bool unsignedTag) {
+    std::optional<LitPtr> foldBinary(IROp op, const LitPtr &lhs, const LitPtr &rhs, bool unsignedTag, bool wide64 = false) {
         if (!lhs || !rhs) return std::nullopt;
         long long l = literalValue(lhs);
         long long r = literalValue(rhs);
+
+        // For 64-bit wide operations (usize), skip constant folding to avoid truncation
+        if (wide64) {
+            return std::nullopt;
+        }
+
         long long li32 = toI32(l);
         long long ri32 = toI32(r);
         unsigned long long lu32 = toU32(l);

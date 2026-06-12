@@ -2490,16 +2490,43 @@ public:
             if(leftExpr && dynamic_cast<IRVar *>(& *leftExpr)){
                 auto *leftVar = dynamic_cast<IRVar *>(& *leftExpr);
                 resultVar->type = leftVar->type;
-                if(leftVar->type  == currentScope->lookupTypeSymbol("u32")){
+                if(leftVar->type  == currentScope->lookupTypeSymbol("u32") || leftVar->type == currentScope->lookupTypeSymbol("usize")){
                     binaryInstr->utag = true;
+                    if(leftVar->type == currentScope->lookupTypeSymbol("usize")){
+                        binaryInstr->w64tag = true;
+                    }
                 }else if(leftVar->type == currentScope->lookupTypeSymbol("BOOL")){
                     islftBOOL = true;
                 }
             }else if(rightExpr && dynamic_cast<IRVar *>(& *rightExpr)){
                 auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr);
                 resultVar->type = rightVar->type;
+                if(rightVar->type == currentScope->lookupTypeSymbol("u32") || rightVar->type == currentScope->lookupTypeSymbol("usize")){
+                    binaryInstr->utag = true;
+                    if(rightVar->type == currentScope->lookupTypeSymbol("usize")){
+                        binaryInstr->w64tag = true;
+                    }
+                }
             }else{
-                resultVar->type = currentScope->lookupTypeSymbol("i32");
+                // Check if operands are usize literals (both are IRLiteral)
+                bool isUsize = false;
+                if(auto *leftLit = dynamic_cast<ExprLiteral *>(& *node.left)){
+                    if(leftLit->literal.size() >= 5 && leftLit->literal.substr(leftLit->literal.size() - 5) == "usize"){
+                        isUsize = true;
+                    }
+                }
+                if(auto *rightLit = dynamic_cast<ExprLiteral *>(& *node.right)){
+                    if(rightLit->literal.size() >= 5 && rightLit->literal.substr(rightLit->literal.size() - 5) == "usize"){
+                        isUsize = true;
+                    }
+                }
+                if(isUsize){
+                    resultVar->type = currentScope->lookupTypeSymbol("usize");
+                    binaryInstr->utag = true;
+                    binaryInstr->w64tag = true;
+                } else {
+                    resultVar->type = currentScope->lookupTypeSymbol("i32");
+                }
             }
             if(islftBOOL){
                 if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
