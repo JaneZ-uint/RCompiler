@@ -58,10 +58,10 @@ int main(){
     mem2reg.optimize(code_generator.irRoot);
 
     JaneZ::DominantTree domTree;
-    domTree.optimize(code_generator.irRoot);
+    // domTree.optimize(code_generator.irRoot);
 
     JaneZ::FunctionInline functionInline;
-    // functionInline.optimize(code_generator.irRoot);
+    functionInline.optimize(code_generator.irRoot);
 
     JaneZ::ConstantFold constantFold;
     constantFold.optimize(code_generator.irRoot);
