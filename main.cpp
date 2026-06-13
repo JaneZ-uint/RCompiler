@@ -64,7 +64,7 @@ int main(){
     functionInline.optimize(code_generator.irRoot);
 
     JaneZ::ConstantFold constantFold;
-    constantFold.optimize(code_generator.irRoot);
+    // constantFold.optimize(code_generator.irRoot);
 
     //codegen
     JaneZ::regalloc cg;
