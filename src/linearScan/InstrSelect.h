@@ -874,18 +874,51 @@ public:
     void selectZext(std::shared_ptr<IRZext> op) {
         int src = materialize(op->value);
         int dst = getVReg(op->result);
-        ASMInstr mv; mv.op = ASMOp::MV;
-        mv.rd = Operand(OperandType::REG, dst);
-        mv.rs1 = Operand(OperandType::REG, src);
-        currentBlock->instrs.push_back(mv);
+        // 32-bit -> 64-bit zero extension: slli + srli by 32.
+        // Use the destination as scratch.
+        bool from32 = (op->originalType && op->originalType->size <= 4);
+        bool to64 = (op->targetType && op->targetType->size == 8);
+        if(from32 && to64){
+            ASMInstr sl; sl.op = ASMOp::SLLI;
+            sl.rd = Operand(OperandType::REG, dst);
+            sl.rs1 = Operand(OperandType::REG, src);
+            sl.imm = Operand(OperandType::IMM, 32);
+            currentBlock->instrs.push_back(sl);
+            ASMInstr sr; sr.op = ASMOp::SRLI;
+            sr.rd = Operand(OperandType::REG, dst);
+            sr.rs1 = Operand(OperandType::REG, dst);
+            sr.imm = Operand(OperandType::IMM, 32);
+            currentBlock->instrs.push_back(sr);
+        }else{
+            ASMInstr mv; mv.op = ASMOp::MV;
+            mv.rd = Operand(OperandType::REG, dst);
+            mv.rs1 = Operand(OperandType::REG, src);
+            currentBlock->instrs.push_back(mv);
+        }
     }
     void selectSext(std::shared_ptr<IRSext> op) {
         int src = materialize(op->value);
         int dst = getVReg(op->result);
-        ASMInstr mv; mv.op = ASMOp::MV;
-        mv.rd = Operand(OperandType::REG, dst);
-        mv.rs1 = Operand(OperandType::REG, src);
-        currentBlock->instrs.push_back(mv);
+        // 32-bit -> 64-bit sign extension: slli 32 then srai 32.
+        bool from32 = (op->originalType && op->originalType->size <= 4);
+        bool to64 = (op->targetType && op->targetType->size == 8);
+        if(from32 && to64){
+            ASMInstr sl; sl.op = ASMOp::SLLI;
+            sl.rd = Operand(OperandType::REG, dst);
+            sl.rs1 = Operand(OperandType::REG, src);
+            sl.imm = Operand(OperandType::IMM, 32);
+            currentBlock->instrs.push_back(sl);
+            ASMInstr sr; sr.op = ASMOp::SRAI;
+            sr.rd = Operand(OperandType::REG, dst);
+            sr.rs1 = Operand(OperandType::REG, dst);
+            sr.imm = Operand(OperandType::IMM, 32);
+            currentBlock->instrs.push_back(sr);
+        }else{
+            ASMInstr mv; mv.op = ASMOp::MV;
+            mv.rd = Operand(OperandType::REG, dst);
+            mv.rs1 = Operand(OperandType::REG, src);
+            currentBlock->instrs.push_back(mv);
+        }
     }
 };
 

@@ -2387,22 +2387,95 @@ public:
         }
         auto leftExpr = node.left->ret;
         if(auto *rightCast = dynamic_cast<ExprPath *>(& *node.right)){
-            if(rightCast->pathFirst->pathSegments.identifier == "usize" ){
+            if(rightCast->pathFirst->pathSegments.identifier == "usize" ||
+               rightCast->pathFirst->pathSegments.identifier == "isize"){
+                std::string targetName = rightCast->pathFirst->pathSegments.identifier;
+                auto targetTy = currentScope->lookupTypeSymbol(targetName);
+                if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
+                    // Already 64-bit: just keep value (retype not needed,
+                    // downstream binop tagging handles usize/isize identically
+                    // for arithmetic). usize<->isize have same bit width.
+                    if(leftvar->type == currentScope->lookupTypeSymbol("usize") ||
+                       leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                        node.ret = leftExpr;
+                        node.is_lvalue = true;
+                        return block;
+                    }
+                    // 32-bit -> 64-bit: must zero/sign extend.
+                    // Source signedness: i32 -> sign-extend; u32/bool/BOOL/char -> zero-extend.
+                    bool srcSigned = (leftvar->type == currentScope->lookupTypeSymbol("i32"));
+                    auto castVar = std::make_shared<IRVar>();
+                    castVar->type = targetTy;
+                    if(srcSigned){
+                        auto castInstr = std::make_shared<IRSext>();
+                        castInstr->originalType = leftvar->type;
+                        castInstr->targetType = targetTy;
+                        castInstr->value = leftvar;
+                        castInstr->result = castVar;
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(castInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(castInstr);
+                        }
+                    }else{
+                        auto castInstr = std::make_shared<IRZext>();
+                        castInstr->originalType = leftvar->type;
+                        castInstr->targetType = targetTy;
+                        castInstr->value = leftvar;
+                        castInstr->result = castVar;
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(castInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(castInstr);
+                        }
+                    }
+                    node.ret = castVar;
+                    node.is_lvalue = true;
+                    return block;
+                }else if(auto leftLit = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
+                    node.ret = leftLit;
+                    node.is_lvalue = true;
+                    return block;
+                }
                 node.ret = leftExpr;
                 node.is_lvalue = true;
                 return block;
             }else if(rightCast->pathFirst->pathSegments.identifier == "i32" || rightCast->pathFirst->pathSegments.identifier == "u32"){
+                std::string targetName = rightCast->pathFirst->pathSegments.identifier;
+                auto targetTy = currentScope->lookupTypeSymbol(targetName);
                 if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
-                    if(leftvar->type == currentScope->lookupTypeSymbol("i32") || leftvar->type == currentScope->lookupTypeSymbol("usize") || leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                    // 64-bit -> 32-bit: emit a Zext/Sext-as-MV so the new
+                    // IRVar (with target type) actually gets a VReg with the
+                    // (lower-32-bit) value via MV in the backend. Downstream
+                    // 32-bit ops (addw/mulw/sw) implicitly truncate.
+                    if(leftvar->type == currentScope->lookupTypeSymbol("usize") ||
+                       leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                        auto castVar = std::make_shared<IRVar>();
+                        castVar->type = targetTy;
+                        auto castInstr = std::make_shared<IRZext>();
+                        castInstr->originalType = leftvar->type;
+                        castInstr->targetType = targetTy;
+                        castInstr->value = leftvar;
+                        castInstr->result = castVar;
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(castInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(castInstr);
+                        }
+                        node.ret = castVar;
+                        node.is_lvalue = true;
+                        return block;
+                    }
+                    if(leftvar->type == currentScope->lookupTypeSymbol("i32") || leftvar->type == currentScope->lookupTypeSymbol("u32")){
                         node.ret = leftExpr;
                         node.is_lvalue = true;
                         return block;
                     }else{
                         auto castVar = std::make_shared<IRVar>();
-                        castVar->type = currentScope->lookupTypeSymbol("i32");
+                        castVar->type = targetTy;
                         auto castInstr = std::make_shared<IRZext>();
                         castInstr->originalType = leftvar->type;
-                        castInstr->targetType = currentScope->lookupTypeSymbol("i32");
+                        castInstr->targetType = targetTy;
                         castInstr->value = leftvar;
                         castInstr->result = castVar;
                         if(block->blockList.size() == 0){
