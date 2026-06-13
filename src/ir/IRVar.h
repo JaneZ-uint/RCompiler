@@ -18,6 +18,7 @@ public:
     bool isSelf = false;
     std::shared_ptr<IRVar> baseVar = nullptr; // ptr type
     bool isUsed = true;
+    bool isW64Stack = false; // address of an 8-byte stack slot (usize/isize alloca)
 
     IRVar(){
         serial = ir_cnt++;

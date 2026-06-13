@@ -34,10 +34,10 @@ class IRIntType : public IRType {
 public:
     int bitWidth;
 
-    IRIntType(int bw) : IRType(BaseType::INT,4), bitWidth(bw) {}
+    IRIntType(int bw) : IRType(BaseType::INT, bw == 64 ? 8 : 4), bitWidth(bw) {}
     ~IRIntType() = default;
     void accept(IRVisitor &visitor) override {
-        visitor.visit(*this);   
+        visitor.visit(*this);
     }
 };
 

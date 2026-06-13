@@ -45,8 +45,8 @@ public:
         globalScope = std::make_shared<IRScope>();
         globalScope->addTypeSymbol("i32", std::make_shared<IRIntType>(32));
         globalScope->addTypeSymbol("u32", std::make_shared<IRIntType>(32));
-        globalScope->addTypeSymbol("isize", std::make_shared<IRIntType>(32));
-        globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(32));
+        globalScope->addTypeSymbol("isize", std::make_shared<IRIntType>(64));
+        globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(64));
         globalScope->addTypeSymbol("bool", std::make_shared<IRIntType>(8));
         globalScope->addTypeSymbol("BOOL", std::make_shared<IRIntType>(1));
         globalScope->addTypeSymbol("char", std::make_shared<IRIntType>(32));

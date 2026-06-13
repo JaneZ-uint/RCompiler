@@ -211,6 +211,9 @@ public:
                     loadInstr->tmp = tmpVar;
                     loadInstr->addressVar = var;
                     loadInstr->type = var->type;
+                    if(var->isW64Stack){
+                        loadInstr->w64tag = true;
+                    }
                     if(ret->blockList.empty()){
                         ret->instrList.push_back(loadInstr);
                     }else{
@@ -415,6 +418,17 @@ public:
                 if(literal->literalType == INT_LITERAL){
                     assignList.push_back(literal->intValue);
                     arrayType = currentScope->lookupTypeSymbol("i32");
+                    // Detect suffix on the literal string to choose element type
+                    if(auto *astLit = dynamic_cast<ExprLiteral *>(& *node.arrayExpr[0])){
+                        const std::string &s = astLit->literal;
+                        if(s.size() >= 5 && s.compare(s.size()-5, 5, "usize") == 0){
+                            arrayType = currentScope->lookupTypeSymbol("usize");
+                        }else if(s.size() >= 5 && s.compare(s.size()-5, 5, "isize") == 0){
+                            arrayType = currentScope->lookupTypeSymbol("isize");
+                        }else if(s.size() >= 3 && s.compare(s.size()-3, 3, "u32") == 0){
+                            arrayType = currentScope->lookupTypeSymbol("u32");
+                        }
+                    }
                 }else if(literal->literalType == BOOL_LITERAL){
                     if(literal->intValue != 0){
                         assignList.push_back(1);
@@ -468,6 +482,10 @@ public:
                     storeInstr->valueType = resVar->type;
                     storeInstr->address = getptrInstr->res;
                     storeInstr->storeLiteral = literal;
+                    if(arrayType == currentScope->lookupTypeSymbol("usize") ||
+                       arrayType == currentScope->lookupTypeSymbol("isize")){
+                        storeInstr->w64tag = true;
+                    }
                     if(block->blockList.empty()){
                         block->instrList.push_back(getptrInstr);
                         block->instrList.push_back(storeInstr);
@@ -488,6 +506,10 @@ public:
                     storeInstr->valueType = resVar->type;
                     storeInstr->address = getptrInstr->res;
                     storeInstr->storeValue = var;
+                    if(arrayType == currentScope->lookupTypeSymbol("usize") ||
+                       arrayType == currentScope->lookupTypeSymbol("isize")){
+                        storeInstr->w64tag = true;
+                    }
                     if(block->blockList.empty()){
                         block->instrList.push_back(getptrInstr);
                         block->instrList.push_back(storeInstr);
@@ -2470,6 +2492,9 @@ public:
                     }
                     storeInstr->address = leftvar;
                     storeInstr->valueType = leftvar->type;
+                    if(leftvar->isW64Stack){
+                        storeInstr->w64tag = true;
+                    }
                     /*if(leftvar->type  == currentScope->lookupTypeSymbol("BOOL")){
                         storeInstr->valueType = currentScope->lookupTypeSymbol("bool");
                     }*/
@@ -2675,6 +2700,15 @@ public:
                 }
             }
             node.ret = node.right->ret;
+            // Propagate w64 storage tag from pointer's pointee type
+            if(auto retVar = std::dynamic_pointer_cast<IRVar>(node.ret)){
+                if(auto ptr = std::dynamic_pointer_cast<IRPtrType>(retVar->type)){
+                    if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
+                       ptr->baseType == currentScope->lookupTypeSymbol("isize")){
+                        retVar->isW64Stack = true;
+                    }
+                }
+            }
         }else if(node.op == NOT){
             auto rightInstrs = visit(*node.right);
             if(rightInstrs){
@@ -3144,6 +3178,11 @@ public:
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
                     p->type = ptrType->baseType;
+                    // The dereferenced storage is 8 bytes if pointee is usize/isize
+                    if(ptrType->baseType == currentScope->lookupTypeSymbol("usize") ||
+                       ptrType->baseType == currentScope->lookupTypeSymbol("isize")){
+                        p->isW64Stack = true;
+                    }
                     currentScope->addValueSymbol(p->varName, p);
                 }else{
                     auto paramAlloca = std::make_shared<IRAlloca>(p->type, bodyVar);
@@ -3152,6 +3191,7 @@ public:
                        p->type == currentScope->lookupTypeSymbol("isize")){
                         paramAlloca->w64tag = true;
                         paramStore->w64tag = true;
+                        bodyVar->isW64Stack = true;
                     }
                     currentIRFunc->body->instrList.push_back(paramAlloca);
                     currentIRFunc->body->instrList.push_back(paramStore);
@@ -3680,6 +3720,7 @@ public:
         if(varType == currentScope->lookupTypeSymbol("usize") ||
            varType == currentScope->lookupTypeSymbol("isize")){
             allocaInstr->w64tag = true;
+            currentVar->isW64Stack = true;
         }
         block->instrList.push_back(allocaInstr);
         //todo init expr
@@ -3730,6 +3771,9 @@ public:
                         }
                     }
                     storeInstr->address = currentVar;
+                    if(currentVar->isW64Stack){
+                        storeInstr->w64tag = true;
+                    }
                     if(block->blockList.size() ==0){
                         block->instrList.push_back(storeInstr);
                     }else{
@@ -3744,6 +3788,7 @@ public:
                         storeInstr->storeValue = var;
                     }
                     storeInstr->address = currentVar;
+                    storeInstr->w64tag = true; // pointer is 64-bit
                     if(block->blockList.size() ==0){
                         block->instrList.push_back(storeInstr);
                     }else{

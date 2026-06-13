@@ -332,6 +332,7 @@ public:
     void processAlloca(std::shared_ptr<IRAlloca> alloca) {
         int size = alloca->allocatedType->size;
         if (size == 0) size = 4;
+        if (alloca->w64tag) size = 8;
         getAllocaSlot(alloca->var, size);
     }
 
