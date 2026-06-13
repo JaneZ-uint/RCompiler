@@ -496,6 +496,7 @@ public:
             if (auto it = std::dynamic_pointer_cast<IRIntType>(op->type)) {
                 wide = (it->bitWidth == 64);
             }
+            if (op->w64tag) wide = true;
             ASMInstr lw;
             lw.op = wide ? ASMOp::LD : ASMOp::LW;
             lw.rd = Operand(OperandType::REG, dst);
@@ -526,6 +527,7 @@ public:
         if (auto it = std::dynamic_pointer_cast<IRIntType>(op->valueType)) {
             wide = (it->bitWidth == 64);
         }
+        if (op->w64tag) wide = true;
         ASMInstr sw;
         sw.op = wide ? ASMOp::SD : ASMOp::SW;
         sw.rs2 = Operand(OperandType::REG, val);

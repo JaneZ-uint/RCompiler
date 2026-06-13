@@ -11,6 +11,7 @@ public:
     std::shared_ptr<IRVar> tmp;
     std::shared_ptr<IRVar> addressVar;
     std::shared_ptr<IRType> type;
+    bool w64tag = false; // 64-bit width tag (usize/isize destination)
 
     IRLoad() = default;
     IRLoad(std::shared_ptr<IRVar> lV,
