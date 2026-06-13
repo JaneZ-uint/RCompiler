@@ -211,22 +211,13 @@ private:
             auto assign = std::make_shared<IRBinaryop>(ADD, call->retVar);
             assign->leftValue = returnValue;
             assign->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
-            // Propagate width/signedness from the destination variable so the
-            // synthesized ADD lowers to the correct RV64 width (add vs addw).
-            if (auto intTy = std::dynamic_pointer_cast<IRIntType>(call->retVar->type)) {
-                if (intTy->bitWidth == 64) {
-                    assign->w64tag = true;
-                    assign->utag = true; // usize/isize: treat as unsigned wide
-                }
-            }
-            // Fallback: usize/isize are registered with bitWidth=32 in this IR,
-            // so the check above never fires.  If the inlined body produced any
-            // 64-bit op, the function works on 64-bit values, so the synthesized
-            // ADD must also be 64-bit or it will silently truncate.
-            if (inlinedHasW64) {
-                assign->w64tag = true;
-                assign->utag = true;
-            }
+            // The synthesized ADD is effectively a mov from returnValue into
+            // retVar.  Lower it as a 64-bit add so the upper bits of usize/
+            // isize values survive — addw would truncate.  For i32, the lower
+            // 32 bits are identical and subsequent uses re-sign-extend, so
+            // tagging w64 unconditionally is safe.
+            assign->w64tag = true;
+            assign->utag = true;
             result.push_back(assign);
         }
         return result;
