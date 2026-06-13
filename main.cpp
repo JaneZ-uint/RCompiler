@@ -61,10 +61,10 @@ int main(){
     domTree.optimize(code_generator.irRoot);
 
     JaneZ::FunctionInline functionInline;
-    functionInline.optimize(code_generator.irRoot);
+    // functionInline.optimize(code_generator.irRoot);
 
     JaneZ::ConstantFold constantFold;
-    // constantFold.optimize(code_generator.irRoot);
+    constantFold.optimize(code_generator.irRoot);
 
     //codegen
     JaneZ::regalloc cg;
