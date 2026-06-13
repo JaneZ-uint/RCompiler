@@ -336,7 +336,7 @@ public:
             auto resVar = std::make_shared<IRVar>();
             if(node.type->ret && dynamic_cast<IRLiteral *>(& *node.type->ret)){
                 auto *literal = dynamic_cast<IRLiteral *>(& *node.type->ret);
-                int init;
+                long long int init;
                 if(literal->literalType == BOOL_LITERAL){
                     arrayVar->type = std::make_shared<IRArrayType>(currentScope->lookupTypeSymbol("bool"), size);
                     if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
@@ -355,6 +355,25 @@ public:
                     }
                     init = literal->intValue;
                     resVar->type = currentScope->lookupTypeSymbol("i32");
+                    // Detect suffix on the literal string to choose element type
+                    if(auto *astLit = dynamic_cast<ExprLiteral *>(& *node.type)){
+                        const std::string &s = astLit->literal;
+                        std::shared_ptr<IRType> chosen = nullptr;
+                        if(s.size() >= 5 && s.compare(s.size()-5, 5, "usize") == 0){
+                            chosen = currentScope->lookupTypeSymbol("usize");
+                        }else if(s.size() >= 5 && s.compare(s.size()-5, 5, "isize") == 0){
+                            chosen = currentScope->lookupTypeSymbol("isize");
+                        }else if(s.size() >= 3 && s.compare(s.size()-3, 3, "u32") == 0){
+                            chosen = currentScope->lookupTypeSymbol("u32");
+                        }
+                        if(chosen){
+                            arrayVar->type = std::make_shared<IRArrayType>(chosen, size);
+                            if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
+                                caculateArraySize(arraytp);
+                            }
+                            resVar->type = chosen;
+                        }
+                    }
                 }
                 block->instrList.push_back(std::make_shared<IRAlloca>(arrayVar->type,arrayVar)); 
                 //resVar->type = currentScope->lookupTypeSymbol("i32");
@@ -365,6 +384,10 @@ public:
                 storeInstr->valueType = resVar->type;
                 storeInstr->address = getptrInstr->res;
                 storeInstr->storeLiteral = std::make_shared<IRLiteral>(INT_LITERAL, init);
+                if(resVar->type == currentScope->lookupTypeSymbol("usize") ||
+                   resVar->type == currentScope->lookupTypeSymbol("isize")){
+                    storeInstr->w64tag = true;
+                }
                 assignBlock->instrList.push_back(storeInstr);
             }else if(auto var = std::dynamic_pointer_cast<IRVar>(node.type->ret)){
                 arrayVar->type = std::make_shared<IRArrayType>(var->type, size);
@@ -410,7 +433,7 @@ public:
             node.ret = arrayVar;
         } else {
             int size = node.arrayExpr.size();
-            std::vector<int> assignList;
+            std::vector<long long int> assignList;
             auto arrayType = std::make_shared<IRType>();
             auto exprInstrs = visit(*node.arrayExpr[0]);
             if(node.arrayExpr[0]->ret && dynamic_cast<IRLiteral *>(& *node.arrayExpr[0]->ret)){
