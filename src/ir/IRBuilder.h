@@ -525,21 +525,39 @@ public:
                     auto resVar = std::make_shared<IRVar>();
                     resVar->type = arrayType;
                     getptrInstr->res = resVar;
-                    auto storeInstr = std::make_shared<IRStore>();
-                    storeInstr->valueType = resVar->type;
-                    storeInstr->address = getptrInstr->res;
-                    storeInstr->storeValue = var;
-                    if(arrayType == currentScope->lookupTypeSymbol("usize") ||
-                       arrayType == currentScope->lookupTypeSymbol("isize")){
-                        storeInstr->w64tag = true;
-                    }
-                    if(block->blockList.empty()){
-                        block->instrList.push_back(getptrInstr);
-                        block->instrList.push_back(storeInstr);
+                    // For aggregate element types (nested array / struct), use memcpy.
+                    bool isAggregate = std::dynamic_pointer_cast<IRArrayType>(var->type) ||
+                                       std::dynamic_pointer_cast<IRStructType>(var->type);
+                    if(isAggregate){
+                        auto memcpyInstr = std::make_shared<IRMemcpy>();
+                        memcpyInstr->dest = getptrInstr->res;
+                        memcpyInstr->value = var;
+                        memcpyInstr->size = var->type->size;
+                        if(block->blockList.empty()){
+                            block->instrList.push_back(getptrInstr);
+                            block->instrList.push_back(memcpyInstr);
+                        }else{
+                            auto lastBlock = block->blockList[block->blockList.size() - 1];
+                            lastBlock->instrList.push_back(getptrInstr);
+                            lastBlock->instrList.push_back(memcpyInstr);
+                        }
                     }else{
-                        auto lastBlock = block->blockList[block->blockList.size() - 1];
-                        lastBlock->instrList.push_back(getptrInstr);
-                        lastBlock->instrList.push_back(storeInstr);
+                        auto storeInstr = std::make_shared<IRStore>();
+                        storeInstr->valueType = resVar->type;
+                        storeInstr->address = getptrInstr->res;
+                        storeInstr->storeValue = var;
+                        if(arrayType == currentScope->lookupTypeSymbol("usize") ||
+                           arrayType == currentScope->lookupTypeSymbol("isize")){
+                            storeInstr->w64tag = true;
+                        }
+                        if(block->blockList.empty()){
+                            block->instrList.push_back(getptrInstr);
+                            block->instrList.push_back(storeInstr);
+                        }else{
+                            auto lastBlock = block->blockList[block->blockList.size() - 1];
+                            lastBlock->instrList.push_back(getptrInstr);
+                            lastBlock->instrList.push_back(storeInstr);
+                        }
                     }
                 }
             }
