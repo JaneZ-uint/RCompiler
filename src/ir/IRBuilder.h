@@ -2410,6 +2410,15 @@ public:
                 }
                 binaryInstr->leftValue = loadvar;
                 binaryInstr->rightValue = rightExpr;
+                // Tag width for usize/u32 so codegen emits 64-bit ops.
+                if(leftvar->type == currentScope->lookupTypeSymbol("usize")){
+                    binaryInstr->utag = true;
+                    binaryInstr->w64tag = true;
+                }else if(leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                    binaryInstr->w64tag = true;
+                }else if(leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                    binaryInstr->utag = true;
+                }
                 auto resultVar = std::make_shared<IRVar>();
                 resultVar->type = leftvar->type;
                 binaryInstr->result = resultVar;
@@ -2417,6 +2426,10 @@ public:
                 binaryStoreInstr->storeValue = resultVar;
                 binaryStoreInstr->address = leftvar;
                 binaryStoreInstr->valueType = leftvar->type;
+                if(leftvar->type == currentScope->lookupTypeSymbol("usize") ||
+                   leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                    binaryStoreInstr->w64tag = true;
+                }
                 if(block->blockList.size() == 0){
                     block->instrList.push_back(loadInstr);
                     block->instrList.push_back(binaryInstr);
@@ -2495,6 +2508,8 @@ public:
                     if(leftVar->type == currentScope->lookupTypeSymbol("usize")){
                         binaryInstr->w64tag = true;
                     }
+                }else if(leftVar->type == currentScope->lookupTypeSymbol("isize")){
+                    binaryInstr->w64tag = true;
                 }else if(leftVar->type == currentScope->lookupTypeSymbol("BOOL")){
                     islftBOOL = true;
                 }
@@ -2506,6 +2521,8 @@ public:
                     if(rightVar->type == currentScope->lookupTypeSymbol("usize")){
                         binaryInstr->w64tag = true;
                     }
+                }else if(rightVar->type == currentScope->lookupTypeSymbol("isize")){
+                    binaryInstr->w64tag = true;
                 }
             }else{
                 // Both operands are literals (no IRVar on either side).
@@ -2526,6 +2543,22 @@ public:
                         rightIsUsize = true;
                     }
                 }
+                // Detect const symbols on either side that resolve to usize/isize.
+                // The early constant-folding shortcuts at the top of visit()
+                // already created IRLiterals for these; here we recover the
+                // 64-bit width from the AST so the binary op is tagged w64.
+                if(auto *leftPath = dynamic_cast<ExprPath *>(& *node.left)){
+                    if(leftPath->pathSecond == nullptr){
+                        auto cs = currentScope->lookupConstantSymbol(leftPath->pathFirst->pathSegments.identifier);
+                        if(cs.type == "usize" || cs.type == "isize") leftIsUsize = true;
+                    }
+                }
+                if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
+                    if(rightPath->pathSecond == nullptr){
+                        auto cs = currentScope->lookupConstantSymbol(rightPath->pathFirst->pathSegments.identifier);
+                        if(cs.type == "usize" || cs.type == "isize") rightIsUsize = true;
+                    }
+                }
                 // Fallback: if either literal value itself exceeds the i32
                 // range, the operation must be done as 64-bit or the upper
                 // bits are silently truncated by addw/subw/mulw.
@@ -2538,7 +2571,7 @@ public:
                     long long v = rightLitIR->intValue;
                     if(v > 0x7fffffffLL || v < -0x80000000LL) valueIsWide = true;
                 }
-                if(leftIsUsize && rightIsUsize){
+                if((leftIsUsize && rightIsUsize) || (leftIsUsize && std::dynamic_pointer_cast<IRLiteral>(rightExpr)) || (rightIsUsize && std::dynamic_pointer_cast<IRLiteral>(leftExpr))){
                     resultVar->type = currentScope->lookupTypeSymbol("usize");
                     binaryInstr->utag = true;
                     binaryInstr->w64tag = true;
@@ -2711,7 +2744,7 @@ public:
                 node.ret = res;
                 node.is_lvalue = true;
             }else{
-                if(auto rightRet = std::dynamic_pointer_cast<IRVar>(right)){ 
+                if(auto rightRet = std::dynamic_pointer_cast<IRVar>(right)){
                     auto subInstr = std::make_shared<IRBinaryop>();
                     subInstr->leftValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
                     subInstr->rightValue = rightRet;
@@ -2719,6 +2752,15 @@ public:
                     auto resultVar = std::make_shared<IRVar>();
                     resultVar->type = rightRet->type;
                     subInstr->result = resultVar;
+                    // Tag width for usize/isize so codegen emits 64-bit ops.
+                    if(rightRet->type == currentScope->lookupTypeSymbol("usize") ||
+                       rightRet->type == currentScope->lookupTypeSymbol("isize")){
+                        subInstr->w64tag = true;
+                    }
+                    if(rightRet->type == currentScope->lookupTypeSymbol("usize") ||
+                       rightRet->type == currentScope->lookupTypeSymbol("u32")){
+                        subInstr->utag = true;
+                    }
                     if(block->blockList.empty()){
                         block->instrList.push_back(subInstr);
                     }else{
