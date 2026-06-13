@@ -863,7 +863,18 @@ std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
         /*if(std::stoll(literal) > 2147483647){
             throw std::runtime_error("Integer out of range.");
         }*/
-        long long int integer = std::stoll(literal);
+        // Use stoull first to accept the full u64 range (e.g. usize literals
+        // > LLONG_MAX such as 9_300_000_000_000_000_000usize). Bit-cast to
+        // long long so the bit pattern is preserved. Fall back to stoll for
+        // small values to keep behavior identical there.
+        long long int integer;
+        try {
+            unsigned long long uval = std::stoull(literal);
+            integer = static_cast<long long>(uval);
+        } catch (const std::out_of_range &) {
+            // Truly larger than u64 — preserve previous behavior (rethrow).
+            throw;
+        }
         return std::make_shared<ExprLiteral>(std::move(literal),type,integer);
     }
     return std::make_shared<ExprLiteral>(std::move(literal),type);
