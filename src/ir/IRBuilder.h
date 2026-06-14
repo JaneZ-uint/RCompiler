@@ -100,6 +100,64 @@ public:
 
     ~IRBuilder() = default;
 
+    std::shared_ptr<IRType> inferIntLiteralExprType(Expression *expr){
+        if(auto *lit = dynamic_cast<ExprLiteral *>(expr)){
+            const std::string &s = lit->literal;
+            if(s.size() >= 5 && s.compare(s.size() - 5, 5, "usize") == 0){
+                return currentScope->lookupTypeSymbol("usize");
+            }
+            if(s.size() >= 5 && s.compare(s.size() - 5, 5, "isize") == 0){
+                return currentScope->lookupTypeSymbol("isize");
+            }
+            if(s.size() >= 3 && s.compare(s.size() - 3, 3, "u32") == 0){
+                return currentScope->lookupTypeSymbol("u32");
+            }
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<IRType> inferIfPhiType(ExprIf &node,
+                                           const std::shared_ptr<IRValue>& firstState,
+                                           const std::shared_ptr<IRValue>& secondState){
+        if(auto firstVar = std::dynamic_pointer_cast<IRVar>(firstState)){
+            return firstVar->type;
+        }
+        if(auto secondVar = std::dynamic_pointer_cast<IRVar>(secondState)){
+            return secondVar->type;
+        }
+        std::shared_ptr<IRType> thenType = nullptr;
+        std::shared_ptr<IRType> elseType = nullptr;
+        if(node.thenBlock && node.thenBlock->ExpressionWithoutBlock){
+            thenType = inferIntLiteralExprType(node.thenBlock->ExpressionWithoutBlock.get());
+        }
+        if(node.elseBlock){
+            if(auto *elseblk = dynamic_cast<ExprBlock *>(& *node.elseBlock)){
+                if(elseblk->ExpressionWithoutBlock){
+                    elseType = inferIntLiteralExprType(elseblk->ExpressionWithoutBlock.get());
+                }
+            }else if(auto *elseIf = dynamic_cast<ExprIf *>(& *node.elseBlock)){
+                if(auto elseVar = std::dynamic_pointer_cast<IRVar>(elseIf->ret)){
+                    elseType = elseVar->type;
+                }
+            }
+        }
+        if(thenType){
+            return thenType;
+        }
+        if(elseType){
+            return elseType;
+        }
+        auto firstLiteral = std::dynamic_pointer_cast<IRLiteral>(firstState);
+        auto secondLiteral = std::dynamic_pointer_cast<IRLiteral>(secondState);
+        if(firstLiteral && firstLiteral->intValue > 0x7fffffffLL){
+            return currentScope->lookupTypeSymbol("usize");
+        }
+        if(secondLiteral && secondLiteral->intValue > 0x7fffffffLL){
+            return currentScope->lookupTypeSymbol("usize");
+        }
+        return currentScope->lookupTypeSymbol("i32");
+    }
+
     //AST 
     void visit(ASTNode &node){
         if(auto *p = dynamic_cast<ASTRootNode *>(& node)){
@@ -1499,13 +1557,7 @@ public:
         block->blockList.push_back(mergeBlock);
         auto PHIInstr = std::make_shared<IRPHI>();
         auto resVar = std::make_shared<IRVar>();
-        if(auto firstVar = std::dynamic_pointer_cast<IRVar>(firstState)){
-            resVar->type = firstVar->type;
-        }else if(auto secondVar = std::dynamic_pointer_cast<IRVar>(secondState)){
-            resVar->type = secondVar->type;
-        }else{
-            resVar->type = currentScope->lookupTypeSymbol("i32");
-        }
+        resVar->type = inferIfPhiType(node, firstState, secondState);
         PHIInstr->result = resVar;
         PHIInstr->firstState = firstState;
         PHIInstr->secondState = secondState;
