@@ -2422,6 +2422,27 @@ public:
                     }else{
                         elseBlock->blockList[elseBlock->blockList.size() - 1]->instrList.push_back(std::make_shared<IRBr>(endBlock));
                     }
+                }else if(auto *elseIf = dynamic_cast<ExprIf *>(& *rightIf->elseBlock)){
+                    ExprOpbinary nestedAssign(node.left, ASSIGN, rightIf->elseBlock);
+                    nestedAssign.left->is_lvalue = true;
+                    auto elseInstrs = ifRightProcess(nestedAssign);
+                    if(elseInstrs){
+                        if(elseBlock->blockList.size() == 0){
+                            for(auto & instr : elseInstrs->instrList){
+                                elseBlock->instrList.push_back(instr);
+                            }
+                            for(auto & blk : elseInstrs->blockList){
+                                elseBlock->blockList.push_back(blk);
+                            }
+                        }else{
+                            for(auto & instr : elseInstrs->instrList){
+                                elseBlock->blockList[elseBlock->blockList.size() - 1]->instrList.push_back(instr);
+                            }
+                            for(auto & blk : elseInstrs->blockList){
+                                elseBlock->blockList.push_back(blk);
+                            }
+                        }
+                    }
                 }
             }
             block->blockList.push_back(thenBlock);
@@ -2432,8 +2453,29 @@ public:
             for(auto & blk : elseBlock->blockList){
                 block->blockList.push_back(blk);
             }
+            if(leftvar){
+                if(auto *inttype = dynamic_cast<IRIntType *>(& *leftvar->type)){
+                    auto resultVar = std::make_shared<IRVar>();
+                    resultVar->type = leftvar->type;
+                    auto loadInstr = std::make_shared<IRLoad>();
+                    loadInstr->addressVar = leftvar;
+                    loadInstr->tmp = resultVar;
+                    loadInstr->type = leftvar->type;
+                    if(leftvar->isW64Stack){
+                        loadInstr->w64tag = true;
+                    }
+                    if(leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                        loadInstr->utag = true;
+                    }
+                    endBlock->instrList.push_back(loadInstr);
+                    node.ret = resultVar;
+                }else{
+                    node.ret = leftvar;
+                }
+            }
             block->blockList.push_back(endBlock);
         }
+        node.is_lvalue = true;
         return block;
     }
 
