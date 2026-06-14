@@ -112,6 +112,10 @@ public:
             if(s.size() >= 3 && s.compare(s.size() - 3, 3, "u32") == 0){
                 return currentScope->lookupTypeSymbol("u32");
             }
+        }else if(auto *unary = dynamic_cast<ExprOpunary *>(expr)){
+            if(unary->op == NEGATE){
+                return inferIntLiteralExprType(unary->right.get());
+            }
         }
         return nullptr;
     }
@@ -154,6 +158,12 @@ public:
         }
         if(secondLiteral && secondLiteral->intValue > 0x7fffffffLL){
             return currentScope->lookupTypeSymbol("usize");
+        }
+        if(firstLiteral && firstLiteral->intValue < -0x80000000LL){
+            return currentScope->lookupTypeSymbol("isize");
+        }
+        if(secondLiteral && secondLiteral->intValue < -0x80000000LL){
+            return currentScope->lookupTypeSymbol("isize");
         }
         return currentScope->lookupTypeSymbol("i32");
     }
