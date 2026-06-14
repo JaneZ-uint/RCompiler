@@ -2251,7 +2251,54 @@ public:
                         }
                     }
                 }
-                condVar = std::dynamic_pointer_cast<IRVar>(rightIf->condition->ret);
+                if(auto var = std::dynamic_pointer_cast<IRVar>(rightIf->condition->ret)){
+                    if(var->type == currentScope->lookupTypeSymbol("BOOL")){
+                        condVar = var;
+                    }else{
+                        auto cmpInstr = std::make_shared<IRBinaryop>();
+                        cmpInstr->op = NEQ;
+                        cmpInstr->leftValue = var;
+                        cmpInstr->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+                        auto cmpVar = std::make_shared<IRVar>();
+                        cmpVar->type = currentScope->lookupTypeSymbol("BOOL");
+                        cmpInstr->result = cmpVar;
+                        if(var->type == currentScope->lookupTypeSymbol("bool")){
+                            cmpInstr->i8tag = true;
+                        }
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(cmpInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(cmpInstr);
+                        }
+                        condVar = cmpVar;
+                    }
+                }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(rightIf->condition->ret)){
+                    if(literal->literalType == BOOL_LITERAL){
+                        condVar->type = currentScope->lookupTypeSymbol("BOOL");
+                        auto allocInstr = std::make_shared<IRAlloca>(condVar->type, condVar);
+                        auto storeInstr = std::make_shared<IRStore>();
+                        storeInstr->address = condVar;
+                        storeInstr->storeLiteral = std::make_shared<IRLiteral>(BOOL_LITERAL, literal->intValue);
+                        storeInstr->valueType = condVar->type;
+                        auto loadVar = std::make_shared<IRVar>();
+                        loadVar->type = condVar->type;
+                        auto loadInstr = std::make_shared<IRLoad>();
+                        loadInstr->addressVar = condVar;
+                        loadInstr->tmp = loadVar;
+                        loadInstr->type = condVar->type;
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(allocInstr);
+                            block->instrList.push_back(storeInstr);
+                            block->instrList.push_back(loadInstr);
+                        }else{
+                            auto lastBlock = block->blockList[block->blockList.size() - 1];
+                            lastBlock->instrList.push_back(allocInstr);
+                            lastBlock->instrList.push_back(storeInstr);
+                            lastBlock->instrList.push_back(loadInstr);
+                        }
+                        condVar = loadVar;
+                    }
+                }
             }
             auto thenBlock = std::make_shared<IRBlock>();
             auto elseBlock = std::make_shared<IRBlock>();
