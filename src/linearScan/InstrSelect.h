@@ -90,8 +90,8 @@ public:
         if (auto* lit = dynamic_cast<IRLiteral*>(val.get())) {
             long long imm = lit->intValue;
             if (auto intType = std::dynamic_pointer_cast<IRIntType>(expectedType)) {
-                if (intType->isUnsigned && intType->bitWidth == 32) {
-                    imm = static_cast<long long>(static_cast<unsigned long long>(imm) & 0xffffffffULL);
+                if (intType->bitWidth == 32) {
+                    imm = normalize32Immediate(imm, intType->isUnsigned);
                 }
             }
             int vr = freshVReg();
@@ -121,6 +121,14 @@ public:
             }
         }
         return vr;
+    }
+
+    long long normalize32Immediate(long long value, bool isUnsigned) {
+        long long low = static_cast<long long>(static_cast<unsigned long long>(value) & 0xffffffffULL);
+        if (!isUnsigned && (low & 0x80000000LL)) {
+            low -= 0x100000000LL;
+        }
+        return low;
     }
 
     std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
@@ -243,6 +251,18 @@ public:
         sr.rs1 = Operand(OperandType::REG, reg);
         sr.imm = Operand(OperandType::IMM, 32);
         currentBlock->instrs.push_back(sr);
+    }
+
+    void emitNormalizeTo32(int reg, std::shared_ptr<IRType> targetType) {
+        bool isUnsigned = false;
+        if (auto intType = std::dynamic_pointer_cast<IRIntType>(targetType)) {
+            isUnsigned = intType->isUnsigned;
+        }
+        if (isUnsigned) {
+            emitZeroExtend32(reg);
+        } else {
+            emitSignExtend32(reg);
+        }
     }
 
     void select(std::shared_ptr<IRRoot> irRoot) {
@@ -995,6 +1015,13 @@ public:
         mv.rd = Operand(OperandType::REG, dst);
         mv.rs1 = Operand(OperandType::REG, src);
         currentBlock->instrs.push_back(mv);
+        if (op->targetType && op->targetType->type == BaseType::INT) {
+            if (auto intType = std::dynamic_pointer_cast<IRIntType>(op->targetType)) {
+                if (intType->bitWidth == 32) {
+                    emitNormalizeTo32(dst, op->targetType);
+                }
+            }
+        }
     }
     void selectZext(std::shared_ptr<IRZext> op) {
         int src = materialize(op->value);
@@ -1019,6 +1046,13 @@ public:
             mv.rd = Operand(OperandType::REG, dst);
             mv.rs1 = Operand(OperandType::REG, src);
             currentBlock->instrs.push_back(mv);
+            if (op->targetType && op->targetType->type == BaseType::INT) {
+                if (auto intType = std::dynamic_pointer_cast<IRIntType>(op->targetType)) {
+                    if (intType->bitWidth == 32) {
+                        emitNormalizeTo32(dst, op->targetType);
+                    }
+                }
+            }
         }
     }
     void selectSext(std::shared_ptr<IRSext> op) {
@@ -1043,6 +1077,13 @@ public:
             mv.rd = Operand(OperandType::REG, dst);
             mv.rs1 = Operand(OperandType::REG, src);
             currentBlock->instrs.push_back(mv);
+            if (op->targetType && op->targetType->type == BaseType::INT) {
+                if (auto intType = std::dynamic_pointer_cast<IRIntType>(op->targetType)) {
+                    if (intType->bitWidth == 32) {
+                        emitNormalizeTo32(dst, op->targetType);
+                    }
+                }
+            }
         }
     }
 };

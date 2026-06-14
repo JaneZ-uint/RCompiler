@@ -116,6 +116,18 @@ public:
         return info;
     }
 
+    long long normalizeLiteralForIntType(long long value, std::shared_ptr<IRType> targetType) {
+        auto intType = std::dynamic_pointer_cast<IRIntType>(targetType);
+        if(!intType || intType->bitWidth != 32){
+            return value;
+        }
+        long long low = static_cast<long long>(static_cast<unsigned long long>(value) & 0xffffffffULL);
+        if(!intType->isUnsigned && (low & 0x80000000LL)){
+            low -= 0x100000000LL;
+        }
+        return low;
+    }
+
     constInfo requireConstInfo(const std::string &name) {
         if(name.empty()){
             throw std::runtime_error("IRBuilder: empty constant name");
@@ -2695,6 +2707,9 @@ public:
                     node.is_lvalue = true;
                     return block;
                 }else if(auto leftLit = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
+                    if(targetTy){
+                        leftLit = std::make_shared<IRLiteral>(leftLit->literalType, normalizeLiteralForIntType(leftLit->intValue, targetTy), leftLit->boolValue);
+                    }
                     node.ret = leftLit;
                     node.is_lvalue = true;
                     return block;
@@ -2750,6 +2765,9 @@ public:
                         return block;
                     }
                 }else if(auto leftLiteral = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
+                    if(targetTy){
+                        leftLiteral = std::make_shared<IRLiteral>(leftLiteral->literalType, normalizeLiteralForIntType(leftLiteral->intValue, targetTy), leftLiteral->boolValue);
+                    }
                     node.ret = leftLiteral;
                     node.is_lvalue = true;
                     return block;
