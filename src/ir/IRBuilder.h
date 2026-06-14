@@ -100,6 +100,71 @@ public:
 
     ~IRBuilder() = default;
 
+    constInfo constInfoFromDecl(ItemConstDecl &node) {
+        constInfo info{node.value, "null"};
+        if(auto *p = dynamic_cast<Type *>(& *node.type)){
+            if(p->type == I32){
+                info.type = "i32";
+            }else if(p->type == U32){
+                info.type = "u32";
+            }else if(p->type == ISIZE){
+                info.type = "isize";
+            }else if(p->type == USIZE){
+                info.type = "usize";
+            }
+        }
+        return info;
+    }
+
+    constInfo requireConstInfo(const std::string &name) {
+        if(name.empty()){
+            throw std::runtime_error("IRBuilder: empty constant name");
+        }
+        auto info = currentScope->lookupConstantSymbol(name);
+        if(info.type == "null"){
+            throw std::runtime_error("IRBuilder: constant not found: " + name);
+        }
+        return info;
+    }
+
+    constInfo requireConstInfo(ExprPath *path) {
+        if(!path || !path->pathFirst){
+            throw std::runtime_error("IRBuilder: malformed constant path");
+        }
+        if(path->pathFirst->pathSegments.type != IDENTIFIER){
+            throw std::runtime_error("IRBuilder: malformed constant path");
+        }
+        std::string name = path->pathFirst->pathSegments.identifier;
+        if(name.empty()){
+            throw std::runtime_error("IRBuilder: empty constant name");
+        }
+        if(path->pathSecond){
+            if(path->pathSecond->pathSegments.type != IDENTIFIER ||
+               path->pathSecond->pathSegments.identifier.empty()){
+                throw std::runtime_error("IRBuilder: malformed associated constant path");
+            }
+            name += "::" + path->pathSecond->pathSegments.identifier;
+        }
+        return requireConstInfo(name);
+    }
+
+    void addAssociatedConstants(ItemImplDecl &node) {
+        if(!node.identifier.empty()){
+            return;
+        }
+        auto *target = dynamic_cast<Path *>(& *node.targetType);
+        if(!target || target->pathSegments.type != IDENTIFIER || target->pathSegments.identifier.empty()){
+            return;
+        }
+        const std::string typeName = target->pathSegments.identifier;
+        for(auto &constItem : node.item_trait_const){
+            const std::string qualifiedName = typeName + "::" + constItem->identifier;
+            if(currentScope->constant_table.find(qualifiedName) == currentScope->constant_table.end()){
+                currentScope->addConstantSymbol(qualifiedName, constInfoFromDecl(*constItem));
+            }
+        }
+    }
+
     std::shared_ptr<IRType> inferIntLiteralExprType(Expression *expr){
         if(auto *lit = dynamic_cast<ExprLiteral *>(expr)){
             const std::string &s = lit->literal;
@@ -193,6 +258,11 @@ public:
         }
         currentScope = globalBuilder.globalScope;
         irRoot = std::make_shared<IRRoot>();
+        for(auto & item : node.child){
+            if(auto *impl = dynamic_cast<ItemImplDecl *>(& *item)){
+                addAssociatedConstants(*impl);
+            }
+        }
         for(auto & item : node.child){
             //auto 
             auto irItem = visit(*item);
@@ -2481,10 +2551,12 @@ public:
 
     std::shared_ptr<IRBlock> visit(ExprOpbinary &node){
         if(auto *left = dynamic_cast<ExprPath *>(& *node.left)){
-            auto leftname = left->pathFirst->pathSegments.identifier;
-            auto res = currentScope->lookupConstantSymbol(leftname);
             long long leftnum = 0;
             long long rightnum = 0;
+            constInfo res{0, "null"};
+            try {
+                res = requireConstInfo(left);
+            } catch (const std::runtime_error &) {}
             if(res.type != "null"){
                 leftnum = res.value;
                 if(auto *right = dynamic_cast<ExprLiteral *>(& *node.right)){
@@ -2502,10 +2574,12 @@ public:
             }
         }
         if(auto *right = dynamic_cast<ExprPath *>(& *node.right)){
-            auto rightname = right->pathFirst->pathSegments.identifier;
-            auto res = currentScope->lookupConstantSymbol(rightname);
             long long rightnum = 0;
             long long leftnum = 0;
+            constInfo res{0, "null"};
+            try {
+                res = requireConstInfo(right);
+            } catch (const std::runtime_error &) {}
             if(res.type != "null"){
                 rightnum = res.value;
                 if(auto *left = dynamic_cast<ExprLiteral *>(& *node.left)){
@@ -2882,16 +2956,16 @@ public:
                 // already created IRLiterals for these; here we recover the
                 // 64-bit width from the AST so the binary op is tagged w64.
                 if(auto *leftPath = dynamic_cast<ExprPath *>(& *node.left)){
-                    if(leftPath->pathSecond == nullptr){
-                        auto cs = currentScope->lookupConstantSymbol(leftPath->pathFirst->pathSegments.identifier);
+                    try {
+                        auto cs = requireConstInfo(leftPath);
                         if(cs.type == "usize" || cs.type == "isize") leftIsUsize = true;
-                    }
+                    } catch (const std::runtime_error &) {}
                 }
                 if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
-                    if(rightPath->pathSecond == nullptr){
-                        auto cs = currentScope->lookupConstantSymbol(rightPath->pathFirst->pathSegments.identifier);
+                    try {
+                        auto cs = requireConstInfo(rightPath);
                         if(cs.type == "usize" || cs.type == "isize") rightIsUsize = true;
-                    }
+                    } catch (const std::runtime_error &) {}
                 }
                 // Fallback: if either literal value itself exceeds the i32
                 // range, the operation must be done as 64-bit or the upper
@@ -3143,9 +3217,11 @@ public:
             if(varSymbol){
                 node.ret = varSymbol;
             }
-            auto constSymbol = currentScope->lookupConstantSymbol(varName);
-            if(constSymbol.type != "null"){
-                node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
+            if(!varName.empty()){
+                auto constSymbol = currentScope->lookupConstantSymbol(varName);
+                if(constSymbol.type != "null"){
+                    node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
+                }
             }
             auto funcSymbol = currentScope->lookupFunctionSymbol(varName);
             if(funcSymbol){
@@ -3158,11 +3234,13 @@ public:
         }else if(node.pathSecond){
             std::string structName = node.pathFirst->pathSegments.identifier;
             std::string memberName = node.pathSecond->pathSegments.identifier;
-            auto constSymbol = currentScope->lookupConstantSymbol(structName + "::" + memberName);
-            if(constSymbol.type != "null"){
-                node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
-                node.is_lvalue = true;
-                return block;
+            if(!structName.empty() && !memberName.empty()){
+                auto constSymbol = currentScope->lookupConstantSymbol(structName + "::" + memberName);
+                if(constSymbol.type != "null"){
+                    node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
+                    node.is_lvalue = true;
+                    return block;
+                }
             }
             if(auto *structTypeSymbol = currentScope->lookupTypeSymbol(structName).get()){
                 if(auto *structType = dynamic_cast<IRStructType *>(& *structTypeSymbol)){
@@ -4474,47 +4552,27 @@ public:
             if(auto *literal = dynamic_cast<ExprLiteral *>(& *node.expr)){
                 size = literal->integer;
             }else if(auto *path = dynamic_cast<ExprPath *>(& *node.expr)){
-                if(path->pathFirst->pathSegments.type == IDENTIFIER){
-                    std::string constName = path->pathFirst->pathSegments.identifier;
-                    constInfo res = currentScope->lookupConstantSymbol(constName);
-                    size = res.value;
-                }
+                size = requireConstInfo(path).value;
             }else if(auto *opbinary = dynamic_cast<ExprOpbinary *>(& *node.expr)){
                 if(opbinary->op == PLUS){
                     if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
-                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = left->pathFirst->pathSegments.identifier;
-                            constInfo res = currentScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(left).value;
                     }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
                         size += leftLiteral->integer;
                     }
                     if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
-                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = right->pathFirst->pathSegments.identifier;
-                            constInfo res = currentScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(right).value;
                     }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
                         size += rightLiteral->integer;
                     }
                 }else if(opbinary->op == MINUS){
                     if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
-                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = left->pathFirst->pathSegments.identifier;
-                            constInfo res = currentScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(left).value;
                     }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
                         size += leftLiteral->integer;
                     }
                     if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
-                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = right->pathFirst->pathSegments.identifier;
-                            constInfo res = currentScope->lookupConstantSymbol(constName);
-                            size -= res.value;
-                        }
+                        size -= requireConstInfo(right).value;
                     }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
                         size -= rightLiteral->integer;
                     }

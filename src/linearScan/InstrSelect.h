@@ -106,6 +106,18 @@ public:
         if (auto intType = std::dynamic_pointer_cast<IRIntType>(expectedType)) {
             if (intType->isUnsigned && intType->bitWidth == 32) {
                 emitZeroExtend32(vr);
+            } else if (intType->bitWidth == 64) {
+                if (auto var = std::dynamic_pointer_cast<IRVar>(val)) {
+                    if (auto srcType = std::dynamic_pointer_cast<IRIntType>(var->type)) {
+                        if (srcType->bitWidth == 32) {
+                            if (srcType->isUnsigned) {
+                                emitZeroExtend32(vr);
+                            } else {
+                                emitSignExtend32(vr);
+                            }
+                        }
+                    }
+                }
             }
         }
         return vr;
@@ -211,6 +223,22 @@ public:
 
         ASMInstr sr;
         sr.op = ASMOp::SRLI;
+        sr.rd = Operand(OperandType::REG, reg);
+        sr.rs1 = Operand(OperandType::REG, reg);
+        sr.imm = Operand(OperandType::IMM, 32);
+        currentBlock->instrs.push_back(sr);
+    }
+
+    void emitSignExtend32(int reg) {
+        ASMInstr sl;
+        sl.op = ASMOp::SLLI;
+        sl.rd = Operand(OperandType::REG, reg);
+        sl.rs1 = Operand(OperandType::REG, reg);
+        sl.imm = Operand(OperandType::IMM, 32);
+        currentBlock->instrs.push_back(sl);
+
+        ASMInstr sr;
+        sr.op = ASMOp::SRAI;
         sr.rd = Operand(OperandType::REG, reg);
         sr.rs1 = Operand(OperandType::REG, reg);
         sr.imm = Operand(OperandType::IMM, 32);

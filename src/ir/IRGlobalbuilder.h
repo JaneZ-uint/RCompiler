@@ -41,6 +41,67 @@ public:
 
     ~IRGlobalBuilder() = default;
 
+    constInfo constInfoFromDecl(ItemConstDecl &node) {
+        constInfo info{node.value, "null"};
+        if(auto *p = dynamic_cast<Type *>(& *node.type)){
+            //only primitive const for now
+            if(p->type == I32){
+                info.type = "i32";
+            }else if(p->type == U32){
+                info.type = "u32";
+            }else if(p->type == ISIZE){
+                info.type = "isize";
+            }else if(p->type == USIZE){
+                info.type = "usize";
+            }
+        }
+        return info;
+    }
+
+    constInfo requireConstInfo(const std::string &name) {
+        if(name.empty()){
+            throw std::runtime_error("IRGlobalBuilder: empty constant name");
+        }
+        auto info = globalScope->lookupConstantSymbol(name);
+        if(info.type == "null"){
+            throw std::runtime_error("IRGlobalBuilder: constant not found: " + name);
+        }
+        return info;
+    }
+
+    constInfo requireConstInfo(ExprPath *path) {
+        if(!path || !path->pathFirst){
+            throw std::runtime_error("IRGlobalBuilder: malformed constant path");
+        }
+        if(path->pathFirst->pathSegments.type != IDENTIFIER ||
+           path->pathFirst->pathSegments.identifier.empty()){
+            throw std::runtime_error("IRGlobalBuilder: malformed constant path");
+        }
+        std::string name = path->pathFirst->pathSegments.identifier;
+        if(path->pathSecond){
+            if(path->pathSecond->pathSegments.type != IDENTIFIER ||
+               path->pathSecond->pathSegments.identifier.empty()){
+                throw std::runtime_error("IRGlobalBuilder: malformed associated constant path");
+            }
+            name += "::" + path->pathSecond->pathSegments.identifier;
+        }
+        return requireConstInfo(name);
+    }
+
+    void addAssociatedConstants(ItemImplDecl &node) {
+        auto *target = dynamic_cast<Path *>(& *node.targetType);
+        if(!target || target->pathSegments.type != IDENTIFIER || target->pathSegments.identifier.empty()){
+            return;
+        }
+        const std::string typeName = target->pathSegments.identifier;
+        for(auto &constItem : node.item_trait_const){
+            const std::string qualifiedName = typeName + "::" + constItem->identifier;
+            if(globalScope->constant_table.find(qualifiedName) == globalScope->constant_table.end()){
+                globalScope->addConstantSymbol(qualifiedName, constInfoFromDecl(*constItem));
+            }
+        }
+    }
+
     void visit(ASTRootNode &node){
         globalScope = std::make_shared<IRScope>();
         globalScope->addTypeSymbol("i32", std::make_shared<IRIntType>(32));
@@ -55,10 +116,31 @@ public:
         globalScope->addTypeSymbol("void", std::make_shared<IRVoidType>());
 
         //Wait to add more functions like print, println, etc.
+        implList.clear();
 
         for(auto& item : node.child){
             if(auto *p = dynamic_cast<ItemImplDecl *>(& *item)){
                 implList.push_back(std::static_pointer_cast<ItemImplDecl>(item));
+                continue;
+            }
+            if(auto *p = dynamic_cast<ItemConstDecl *>(& *item)){
+                visit(*p);
+                continue;
+            }
+            if(auto *p = dynamic_cast<ItemEnumDecl *>(& *item)){
+                visit(*p);
+                continue;
+            }
+        }
+
+        for(auto& implItem : implList){
+            addAssociatedConstants(*implItem);
+        }
+
+        for(auto& item : node.child){
+            if(dynamic_cast<ItemImplDecl *>(& *item) ||
+               dynamic_cast<ItemConstDecl *>(& *item) ||
+               dynamic_cast<ItemEnumDecl *>(& *item)){
                 continue;
             }
             visit(*item);
@@ -86,21 +168,7 @@ public:
     }
 
     void visit(ItemConstDecl &node){
-        constInfo info;
-        if(auto *p = dynamic_cast<Type *>(& *node.type)){
-            //only primitive const for now
-            if(p->type == I32){
-                info.type = "i32";
-            }else if(p->type == U32){
-                info.type = "u32";
-            }else if(p->type == ISIZE){
-                info.type = "isize";
-            }else if(p->type == USIZE){
-                info.type = "usize";
-            }
-        }
-        info.value = node.value;
-        globalScope->addConstantSymbol(node.identifier, info);
+        globalScope->addConstantSymbol(node.identifier, constInfoFromDecl(node));
     }
 
     void visit(ItemEnumDecl &node){
@@ -359,47 +427,27 @@ public:
             if(auto *literal = dynamic_cast<ExprLiteral *>(& *node.expr)){
                 size = literal->integer;
             }else if(auto *path = dynamic_cast<ExprPath *>(& *node.expr)){
-                if(path->pathFirst->pathSegments.type == IDENTIFIER){
-                    std::string constName = path->pathFirst->pathSegments.identifier;
-                    constInfo res = globalScope->lookupConstantSymbol(constName);
-                    size = res.value;
-                }
+                size = requireConstInfo(path).value;
             }else if(auto *opbinary = dynamic_cast<ExprOpbinary *>(& *node.expr)){
                 if(opbinary->op == PLUS){
                     if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
-                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = left->pathFirst->pathSegments.identifier;
-                            constInfo res = globalScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(left).value;
                     }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
                         size += leftLiteral->integer;
                     }
                     if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
-                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = right->pathFirst->pathSegments.identifier;
-                            constInfo res = globalScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(right).value;
                     }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
                         size += rightLiteral->integer;
                     }
                 }else if(opbinary->op == MINUS){
                     if(auto *left = dynamic_cast<ExprPath *>(& *opbinary->left)){
-                        if(left->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = left->pathFirst->pathSegments.identifier;
-                            constInfo res = globalScope->lookupConstantSymbol(constName);
-                            size += res.value;
-                        }
+                        size += requireConstInfo(left).value;
                     }else if(auto *leftLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->left)){
                         size += leftLiteral->integer;
                     }
                     if(auto *right = dynamic_cast<ExprPath *>(& *opbinary->right)){
-                        if(right->pathFirst->pathSegments.type == IDENTIFIER){
-                            std::string constName = right->pathFirst->pathSegments.identifier;
-                            constInfo res = globalScope->lookupConstantSymbol(constName);
-                            size -= res.value;
-                        }
+                        size -= requireConstInfo(right).value;
                     }else if(auto *rightLiteral = dynamic_cast<ExprLiteral *>(& *opbinary->right)){
                         size -= rightLiteral->integer;
                     }
