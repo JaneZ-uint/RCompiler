@@ -2681,6 +2681,7 @@ public:
             }
         }else if(op == ASSIGNEQ){
             if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
+                std::shared_ptr<IRValue> assignResult = rightExpr;
                 if(auto *intType = dynamic_cast<IRIntType *>(& *leftvar->type)){
                     auto storeInstr = std::make_shared<IRStore>();
                     auto zextvar = std::make_shared<IRVar>();
@@ -2697,14 +2698,17 @@ public:
                             }else{
                                 block->blockList[block->blockList.size() - 1]->instrList.push_back(zextInstr);
                             }
+                            assignResult = zextvar;
                         }else{
                             zextvar = rightBOOL;
                         }
                     }
                     if(auto rightLiteral = std::dynamic_pointer_cast<IRLiteral>(rightExpr)){
                         storeInstr->storeLiteral = rightLiteral;
+                        assignResult = rightLiteral;
                     }else if(auto rightVar = std::dynamic_pointer_cast<IRVar>(rightExpr)){
                         storeInstr->storeValue = zextvar;
+                        assignResult = zextvar;
                     }
                     storeInstr->address = leftvar;
                     storeInstr->valueType = leftvar->type;
@@ -2732,7 +2736,7 @@ public:
                         block->blockList[block->blockList.size() - 1]->instrList.push_back(memcpyInstr);
                     }
                 }
-                node.ret = leftvar;
+                node.ret = assignResult;
             }
         }else{
             auto binaryInstr = std::make_shared<IRBinaryop>();
