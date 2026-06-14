@@ -3,7 +3,7 @@ build_assert
 .cache
 tmp.rx
 words.md
-RCompiler-Testcases
+RCompiler-Testcases/
 Test.md
 plan.md
 AGENTS.md

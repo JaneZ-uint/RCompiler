@@ -1346,6 +1346,9 @@ public:
                 if(!elseblk->ExpressionWithoutBlock){
                     return visit(node);
                 }
+            }else if(dynamic_cast<ExprIf *>(& *node.elseBlock)){
+                // else-if is still an expression here; keep it in the PHI path
+                // instead of lowering it as a statement-level return.
             }else{
                 return visit(node);
             }
@@ -1446,6 +1449,25 @@ public:
                         secondState = var;
                     }
                 }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(elseblk->ExpressionWithoutBlock->ret)){
+                    secondState = literal;
+                }
+            }else if(auto *elseIf = dynamic_cast<ExprIf *>(& *node.elseBlock)){
+                auto elseInstrs = normalVisit(*elseIf);
+                if(elseInstrs){
+                    for(auto & instr : elseInstrs->instrList){
+                        elseBlock->instrList.push_back(instr);
+                    }
+                    if(elseInstrs->blockList.size() >0){
+                        for(auto &blk: elseInstrs->blockList){
+                            elseBlock->blockList.push_back(blk);
+                        }
+                    }
+                }
+                if(auto var = std::dynamic_pointer_cast<IRVar>(elseIf->ret)){
+                    if(auto *intType = dynamic_cast<IRIntType *>(& *var->type)){
+                        secondState = var;
+                    }
+                }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(elseIf->ret)){
                     secondState = literal;
                 }
             }
