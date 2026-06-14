@@ -4058,6 +4058,7 @@ public:
         if(varType == currentScope->lookupTypeSymbol("usize") ||
            varType == currentScope->lookupTypeSymbol("isize")){
             allocaInstr2->w64tag = true;
+            currentVar->isW64Stack = true;
         }
         block->instrList.push_back(allocaInstr2);
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
@@ -4088,23 +4089,42 @@ public:
                     condBlock->blockList.push_back(blk);
                 }
             }
-            if(auto var = std::dynamic_pointer_cast<IRVar>(node.condition->ret)){
-                if(var->type == currentScope->lookupTypeSymbol("BOOL")){
-                    condVar = var;
-                }else{
-                    auto cmpInstr = std::make_shared<IRBinaryop>();
-                    cmpInstr->op = NEQ;
-                    cmpInstr->leftValue = var;
-                    cmpInstr->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
-                    auto cmpvar = std::make_shared<IRVar>();
-                    cmpvar->type = currentScope->lookupTypeSymbol("BOOL");
-                    cmpInstr->result = cmpvar;
-                    if(var->type == currentScope->lookupTypeSymbol("bool")){
-                        cmpInstr->i8tag = true;
-                    }
-                    condBlock->instrList.push_back(cmpInstr);
-                    condVar = cmpvar;
+        }
+        if(auto var = std::dynamic_pointer_cast<IRVar>(node.condition->ret)){
+            if(var->type == currentScope->lookupTypeSymbol("BOOL")){
+                condVar = var;
+            }else{
+                auto cmpInstr = std::make_shared<IRBinaryop>();
+                cmpInstr->op = NEQ;
+                cmpInstr->leftValue = var;
+                cmpInstr->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+                auto cmpvar = std::make_shared<IRVar>();
+                cmpvar->type = currentScope->lookupTypeSymbol("BOOL");
+                cmpInstr->result = cmpvar;
+                if(var->type == currentScope->lookupTypeSymbol("bool")){
+                    cmpInstr->i8tag = true;
                 }
+                condBlock->instrList.push_back(cmpInstr);
+                condVar = cmpvar;
+            }
+        }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.condition->ret)){
+            if(literal->literalType == BOOL_LITERAL){
+                condVar->type = currentScope->lookupTypeSymbol("BOOL");
+                auto allocInstr = std::make_shared<IRAlloca>(condVar->type, condVar);
+                auto storeInstr = std::make_shared<IRStore>();
+                storeInstr->address = condVar;
+                storeInstr->storeLiteral = std::make_shared<IRLiteral>(BOOL_LITERAL, literal->intValue);
+                storeInstr->valueType = condVar->type;
+                auto loadVar = std::make_shared<IRVar>();
+                loadVar->type = condVar->type;
+                auto loadInstr = std::make_shared<IRLoad>();
+                loadInstr->addressVar = condVar;
+                loadInstr->tmp = loadVar;
+                loadInstr->type = condVar->type;
+                condBlock->instrList.push_back(allocInstr);
+                condBlock->instrList.push_back(storeInstr);
+                condBlock->instrList.push_back(loadInstr);
+                condVar = loadVar;
             }
         }
         for(auto & instr : condBlock->instrList){
@@ -4182,6 +4202,9 @@ public:
                         storeInstr->storeValue = var;
                     }
                     storeInstr->address = currentVar;
+                    if(currentVar->isW64Stack){
+                        storeInstr->w64tag = true;
+                    }
                     thenBlock->instrList.push_back(storeInstr);
                 }else{
                     auto memcpyInstr = std::make_shared<IRMemcpy>();
@@ -4237,6 +4260,9 @@ public:
                             storeInstr->storeValue = var;
                         }
                         storeInstr->address = currentVar;
+                        if(currentVar->isW64Stack){
+                            storeInstr->w64tag = true;
+                        }
                         elseBlock->instrList.push_back(storeInstr);
                     }else{
                         auto memcpyInstr = std::make_shared<IRMemcpy>();
