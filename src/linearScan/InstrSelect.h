@@ -881,16 +881,21 @@ public:
             }
         }
 
-        // Move first 8 args to a0-a7 after stack args have been saved.
+        // Stage register args first. Later materialization can allocate or
+        // clobber a0-a7, so only move into ABI registers after all sources are ready.
+        std::vector<int> regArgSources;
+        regArgSources.reserve(regParams);
         for (int i = 0; i < regParams; i++) {
             auto expectedType = (op->function && i < (int)op->function->typeList.size())
                 ? op->function->typeList[i]
                 : nullptr;
-            int src = materializeAs(op->pList->paramList[i], expectedType);
+            regArgSources.push_back(materializeAs(op->pList->paramList[i], expectedType));
+        }
+        for (int i = 0; i < regParams; i++) {
             ASMInstr mv;
             mv.op = ASMOp::MV;
             mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
-            mv.rs1 = Operand(OperandType::REG, src);
+            mv.rs1 = Operand(OperandType::REG, regArgSources[i]);
             currentBlock->instrs.push_back(mv);
         }
 
