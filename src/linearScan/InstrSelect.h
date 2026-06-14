@@ -86,6 +86,31 @@ public:
         return getVReg(val);
     }
 
+    int materializeAs(std::shared_ptr<IRNode> val, std::shared_ptr<IRType> expectedType) {
+        if (auto* lit = dynamic_cast<IRLiteral*>(val.get())) {
+            long long imm = lit->intValue;
+            if (auto intType = std::dynamic_pointer_cast<IRIntType>(expectedType)) {
+                if (intType->isUnsigned && intType->bitWidth == 32) {
+                    imm = static_cast<long long>(static_cast<unsigned long long>(imm) & 0xffffffffULL);
+                }
+            }
+            int vr = freshVReg();
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, vr);
+            li.imm = Operand(OperandType::IMM, imm);
+            currentBlock->instrs.push_back(li);
+            return vr;
+        }
+        int vr = materialize(val);
+        if (auto intType = std::dynamic_pointer_cast<IRIntType>(expectedType)) {
+            if (intType->isUnsigned && intType->bitWidth == 32) {
+                emitZeroExtend32(vr);
+            }
+        }
+        return vr;
+    }
+
     std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
         std::string name = func->name;
         if (func->parentStructType) {
@@ -174,6 +199,22 @@ public:
             ld.imm = Operand(OperandType::IMM, 0);
             currentBlock->instrs.push_back(ld);
         }
+    }
+
+    void emitZeroExtend32(int reg) {
+        ASMInstr sl;
+        sl.op = ASMOp::SLLI;
+        sl.rd = Operand(OperandType::REG, reg);
+        sl.rs1 = Operand(OperandType::REG, reg);
+        sl.imm = Operand(OperandType::IMM, 32);
+        currentBlock->instrs.push_back(sl);
+
+        ASMInstr sr;
+        sr.op = ASMOp::SRLI;
+        sr.rd = Operand(OperandType::REG, reg);
+        sr.rs1 = Operand(OperandType::REG, reg);
+        sr.imm = Operand(OperandType::IMM, 32);
+        currentBlock->instrs.push_back(sr);
     }
 
     void select(std::shared_ptr<IRRoot> irRoot) {
@@ -388,6 +429,12 @@ public:
         int lhs = materialize(op->leftValue);
         int rhs = materialize(op->rightValue);
         int dst = getVReg(op->result);
+        bool zextU32Result = op->utag && !op->w64tag &&
+                             op->result && op->result->type &&
+                             op->result->type->type == BaseType::INT &&
+                             std::dynamic_pointer_cast<IRIntType>(op->result->type) &&
+                             std::dynamic_pointer_cast<IRIntType>(op->result->type)->bitWidth == 32 &&
+                             std::dynamic_pointer_cast<IRIntType>(op->result->type)->isUnsigned;
 
         auto emit = [&](ASMOp asmOp) {
             ASMInstr i;
@@ -399,11 +446,26 @@ public:
         };
 
         switch (op->op) {
-            case IROp::ADD: emit(op->w64tag ? ASMOp::ADD : ASMOp::ADDW); break;
-            case IROp::SUB: emit(op->w64tag ? ASMOp::SUB : ASMOp::SUBW); break;
-            case IROp::MUL: emit(op->w64tag ? ASMOp::MUL : ASMOp::MULW); break;
-            case IROp::DIV: emit(op->w64tag ? (op->utag ? ASMOp::DIVU : ASMOp::DIV) : (op->utag ? ASMOp::DIVUW : ASMOp::DIVW)); break;
-            case IROp::MOD: emit(op->w64tag ? (op->utag ? ASMOp::REMU : ASMOp::REM) : (op->utag ? ASMOp::REMUW : ASMOp::REMW)); break;
+            case IROp::ADD:
+                emit(op->w64tag ? ASMOp::ADD : ASMOp::ADDW);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::SUB:
+                emit(op->w64tag ? ASMOp::SUB : ASMOp::SUBW);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::MUL:
+                emit(op->w64tag ? ASMOp::MUL : ASMOp::MULW);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::DIV:
+                emit(op->w64tag ? (op->utag ? ASMOp::DIVU : ASMOp::DIV) : (op->utag ? ASMOp::DIVUW : ASMOp::DIVW));
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::MOD:
+                emit(op->w64tag ? (op->utag ? ASMOp::REMU : ASMOp::REM) : (op->utag ? ASMOp::REMUW : ASMOp::REMW));
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
             case IROp::LT:  emit(op->utag ? ASMOp::SLTU : ASMOp::SLT); break;
             case IROp::GT: {
                 ASMInstr i;
@@ -474,11 +536,26 @@ public:
                 currentBlock->instrs.push_back(snez);
                 break;
             }
-            case IROp::ANDOP: emit(ASMOp::AND); break;
-            case IROp::OROP:  emit(ASMOp::OR); break;
-            case IROp::XOROP: emit(ASMOp::XOR); break;
-            case IROp::LEFTSHIFTOP:  emit(op->w64tag ? ASMOp::SLL : ASMOp::SLLW); break;
-            case IROp::RIGHTSHIFTOP: emit(op->w64tag ? (op->utag ? ASMOp::SRL : ASMOp::SRA) : (op->utag ? ASMOp::SRLW : ASMOp::SRAW)); break;
+            case IROp::ANDOP:
+                emit(ASMOp::AND);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::OROP:
+                emit(ASMOp::OR);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::XOROP:
+                emit(ASMOp::XOR);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::LEFTSHIFTOP:
+                emit(op->w64tag ? ASMOp::SLL : ASMOp::SLLW);
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
+            case IROp::RIGHTSHIFTOP:
+                emit(op->w64tag ? (op->utag ? ASMOp::SRL : ASMOp::SRA) : (op->utag ? ASMOp::SRLW : ASMOp::SRAW));
+                if (zextU32Result) emitZeroExtend32(dst);
+                break;
             default: break;
         }
     }
@@ -496,10 +573,11 @@ public:
             bool wide = false;
             if (auto it = std::dynamic_pointer_cast<IRIntType>(op->type)) {
                 wide = (it->bitWidth == 64);
+                if (it->bitWidth == 32 && it->isUnsigned) op->utag = true;
             }
             if (op->w64tag) wide = true;
             ASMInstr lw;
-            lw.op = wide ? ASMOp::LD : ASMOp::LW;
+            lw.op = wide ? ASMOp::LD : (op->utag ? ASMOp::LWU : ASMOp::LW);
             lw.rd = Operand(OperandType::REG, dst);
             lw.rs1 = Operand(OperandType::REG, addr);
             lw.imm = Operand(OperandType::IMM, 0);
@@ -712,9 +790,16 @@ public:
     void selectReturn(std::shared_ptr<IRReturn> op) {
         int val;
         if (op->returnLiteral)
-            val = materialize(op->returnLiteral);
+            val = materializeAs(op->returnLiteral, op->returnType);
         else
             val = materialize(op->returnValue);
+        if (!op->returnLiteral) {
+            if (auto intType = std::dynamic_pointer_cast<IRIntType>(op->returnType)) {
+                if (intType->isUnsigned && intType->bitWidth == 32) {
+                    emitZeroExtend32(val);
+                }
+            }
+        }
         // mv a0, val
         ASMInstr mv;
         mv.op = ASMOp::MV;
@@ -740,14 +825,20 @@ public:
             emitAdjustSp(-stackBytes);
 
             for (int i = 8; i < totalParams; i++) {
-                int src = materialize(op->pList->paramList[i]);
+                auto expectedType = (op->function && i < (int)op->function->typeList.size())
+                    ? op->function->typeList[i]
+                    : nullptr;
+                int src = materializeAs(op->pList->paramList[i], expectedType);
                 emitStackStore(src, 2, (i - 8) * RISCV_XLEN_BYTES);
             }
         }
 
         // Move first 8 args to a0-a7 after stack args have been saved.
         for (int i = 0; i < regParams; i++) {
-            int src = materialize(op->pList->paramList[i]);
+            auto expectedType = (op->function && i < (int)op->function->typeList.size())
+                ? op->function->typeList[i]
+                : nullptr;
+            int src = materializeAs(op->pList->paramList[i], expectedType);
             ASMInstr mv;
             mv.op = ASMOp::MV;
             mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
@@ -771,6 +862,12 @@ public:
             mv.rd = Operand(OperandType::REG, dst);
             mv.rs1 = Operand(OperandType::REG, 10); // a0
             currentBlock->instrs.push_back(mv);
+            if (op->retVar->type && op->retVar->type->type == BaseType::INT) {
+                auto intType = std::dynamic_pointer_cast<IRIntType>(op->retVar->type);
+                if (intType && intType->bitWidth == 32 && intType->isUnsigned) {
+                    emitZeroExtend32(dst);
+                }
+            }
         }
     }
 

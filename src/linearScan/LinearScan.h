@@ -624,7 +624,7 @@ private:
                     defs.push_back(instr.rd.value);
                 break;
             // Load: def rd
-            case ASMOp::LW: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::LW: case ASMOp::LWU: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
                 if (instr.rd.type == OperandType::REG && instr.rd.value != 0)
                     defs.push_back(instr.rd.value);
                 break;
@@ -685,7 +685,7 @@ private:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
                 break;
-            case ASMOp::LW: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::LW: case ASMOp::LWU: case ASMOp::LD: case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
                 if (instr.rs1.type == OperandType::REG && instr.rs1.value != 0)
                     uses.push_back(instr.rs1.value);
                 break;

@@ -110,6 +110,7 @@ private:
             case ASMOp::LD:   std::cout << "ld"; break;
             case ASMOp::LBU:  std::cout << "lbu"; break;
             case ASMOp::LHU:  std::cout << "lhu"; break;
+            case ASMOp::LWU:  std::cout << "lwu"; break;
             
             case ASMOp::SB:   std::cout << "sb"; break;
             case ASMOp::SH:   std::cout << "sh"; break;
@@ -167,7 +168,7 @@ private:
             std::cout << getRegName(instr.rs2.value) << ", " 
                       << instr.imm.value << "(" << getRegName(instr.rs1.value) << ")";
         }
-        else if (instr.op == ASMOp::LW || instr.op == ASMOp::LD || instr.op == ASMOp::LB || instr.op == ASMOp::LH || 
+        else if (instr.op == ASMOp::LW || instr.op == ASMOp::LWU || instr.op == ASMOp::LD || instr.op == ASMOp::LB || instr.op == ASMOp::LH ||
                  instr.op == ASMOp::LBU || instr.op == ASMOp::LHU) {
             // I-type (load): lw rd, imm(rs1)
             std::cout << getRegName(instr.rd.value) << ", " 

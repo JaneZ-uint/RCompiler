@@ -60,6 +60,7 @@ enum class ASMOp{
     LH,
     LHU,
     LW,
+    LWU,
     LD,
     SB,
     SH,

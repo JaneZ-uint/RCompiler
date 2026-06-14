@@ -33,8 +33,12 @@ public:
 class IRIntType : public IRType {
 public:
     int bitWidth;
+    bool isUnsigned = false;
 
-    IRIntType(int bw) : IRType(BaseType::INT, bw == 64 ? 8 : 4), bitWidth(bw) {}
+    IRIntType(int bw, bool isUnsigned = false)
+        : IRType(BaseType::INT, bw == 64 ? 8 : 4),
+          bitWidth(bw),
+          isUnsigned(isUnsigned) {}
     ~IRIntType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);

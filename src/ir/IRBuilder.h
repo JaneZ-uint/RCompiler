@@ -214,6 +214,9 @@ public:
                     if(var->isW64Stack){
                         loadInstr->w64tag = true;
                     }
+                    if(var->type == currentScope->lookupTypeSymbol("u32")){
+                        loadInstr->utag = true;
+                    }
                     if(ret->blockList.empty()){
                         ret->instrList.push_back(loadInstr);
                     }else{
@@ -2054,6 +2057,18 @@ public:
                     secondBlock->blockList[secondBlock->blockList.size() - 1]->instrList.push_back(cmpInstr);
                 }
             }
+        }else if(auto rightLiteral = std::dynamic_pointer_cast<IRLiteral>(node.right->ret)){
+            secondRes->type = currentScope->lookupTypeSymbol("BOOL");
+            auto materializeInstr = std::make_shared<IRBinaryop>();
+            materializeInstr->op = ADD;
+            materializeInstr->leftValue = rightLiteral;
+            materializeInstr->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
+            materializeInstr->result = secondRes;
+            if(secondBlock->blockList.size() == 0){
+                secondBlock->instrList.push_back(materializeInstr);
+            }else{
+                secondBlock->blockList[secondBlock->blockList.size() - 1]->instrList.push_back(materializeInstr);
+            }
         }
         auto endBlock = std::make_shared<IRBlock>();
         auto firstLastblock = std::make_shared<IRBlock>();
@@ -2526,6 +2541,9 @@ public:
                 loadInstr->addressVar = leftvar;
                 loadInstr->tmp = loadvar;
                 loadInstr->type = leftvar->type;
+                if(leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                    loadInstr->utag = true;
+                }
                 auto binaryInstr = std::make_shared<IRBinaryop>();
                 if(op == ADD_EQ){
                     binaryInstr->op = ADD;

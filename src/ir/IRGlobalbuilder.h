@@ -44,14 +44,14 @@ public:
     void visit(ASTRootNode &node){
         globalScope = std::make_shared<IRScope>();
         globalScope->addTypeSymbol("i32", std::make_shared<IRIntType>(32));
-        globalScope->addTypeSymbol("u32", std::make_shared<IRIntType>(32));
+        globalScope->addTypeSymbol("u32", std::make_shared<IRIntType>(32, true));
         globalScope->addTypeSymbol("isize", std::make_shared<IRIntType>(64));
-        globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(64));
-        globalScope->addTypeSymbol("bool", std::make_shared<IRIntType>(8));
-        globalScope->addTypeSymbol("BOOL", std::make_shared<IRIntType>(1));
-        globalScope->addTypeSymbol("char", std::make_shared<IRIntType>(32));
-        globalScope->addTypeSymbol("String", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8)));
-        globalScope->addTypeSymbol("str", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8)));
+        globalScope->addTypeSymbol("usize", std::make_shared<IRIntType>(64, true));
+        globalScope->addTypeSymbol("bool", std::make_shared<IRIntType>(8, true));
+        globalScope->addTypeSymbol("BOOL", std::make_shared<IRIntType>(1, true));
+        globalScope->addTypeSymbol("char", std::make_shared<IRIntType>(32, true));
+        globalScope->addTypeSymbol("String", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8, true)));
+        globalScope->addTypeSymbol("str", std::make_shared<IRPtrType>(std::make_shared<IRIntType>(8, true)));
         globalScope->addTypeSymbol("void", std::make_shared<IRVoidType>());
 
         //Wait to add more functions like print, println, etc.
