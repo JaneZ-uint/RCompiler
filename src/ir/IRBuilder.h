@@ -197,6 +197,55 @@ public:
         return nullptr;
     }
 
+    std::shared_ptr<IRType> inferConstPathType(Expression *expr){
+        if(auto *path = dynamic_cast<ExprPath *>(expr)){
+            try {
+                auto cs = requireConstInfo(path);
+                if(cs.type == "usize" || cs.type == "isize" ||
+                   cs.type == "u32" || cs.type == "i32"){
+                    return currentScope->lookupTypeSymbol(cs.type);
+                }
+            } catch (const std::runtime_error &) {}
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<IRType> inferIntValueType(std::shared_ptr<IRValue> value, Expression *expr){
+        if(auto var = std::dynamic_pointer_cast<IRVar>(value)){
+            return var->type;
+        }
+        if(auto explicitType = inferIntLiteralExprType(expr)){
+            return explicitType;
+        }
+        if(auto constType = inferConstPathType(expr)){
+            return constType;
+        }
+        if(auto lit = std::dynamic_pointer_cast<IRLiteral>(value)){
+            if(lit->literalType == BOOL_LITERAL){
+                return currentScope->lookupTypeSymbol("BOOL");
+            }
+            if(lit->intValue > 0x7fffffffLL || lit->intValue < -0x80000000LL){
+                return currentScope->lookupTypeSymbol("usize");
+            }
+            return currentScope->lookupTypeSymbol("i32");
+        }
+        return nullptr;
+    }
+
+    bool isUnsignedIntType(std::shared_ptr<IRType> type){
+        if(auto intType = std::dynamic_pointer_cast<IRIntType>(type)){
+            return intType->isUnsigned;
+        }
+        return false;
+    }
+
+    bool isInt64Type(std::shared_ptr<IRType> type){
+        if(auto intType = std::dynamic_pointer_cast<IRIntType>(type)){
+            return intType->bitWidth == 64;
+        }
+        return false;
+    }
+
     std::shared_ptr<IRType> inferIfPhiType(ExprIf &node,
                                            const std::shared_ptr<IRValue>& firstState,
                                            const std::shared_ptr<IRValue>& secondState){
@@ -2922,88 +2971,27 @@ public:
             binaryInstr->rightValue = rightExpr;
             auto resultVar = std::make_shared<IRVar>();
             bool islftBOOL = false;
-            if(leftExpr && dynamic_cast<IRVar *>(& *leftExpr)){
-                auto *leftVar = dynamic_cast<IRVar *>(& *leftExpr);
-                resultVar->type = leftVar->type;
-                if(leftVar->type  == currentScope->lookupTypeSymbol("u32") || leftVar->type == currentScope->lookupTypeSymbol("usize")){
-                    binaryInstr->utag = true;
-                    if(leftVar->type == currentScope->lookupTypeSymbol("usize")){
-                        binaryInstr->w64tag = true;
-                    }
-                }else if(leftVar->type == currentScope->lookupTypeSymbol("isize")){
-                    binaryInstr->w64tag = true;
-                }else if(leftVar->type == currentScope->lookupTypeSymbol("BOOL")){
-                    islftBOOL = true;
-                }
-            }else if(rightExpr && dynamic_cast<IRVar *>(& *rightExpr)){
-                auto *rightVar = dynamic_cast<IRVar *>(& *rightExpr);
-                resultVar->type = rightVar->type;
-                if(rightVar->type == currentScope->lookupTypeSymbol("u32") || rightVar->type == currentScope->lookupTypeSymbol("usize")){
-                    binaryInstr->utag = true;
-                    if(rightVar->type == currentScope->lookupTypeSymbol("usize")){
-                        binaryInstr->w64tag = true;
-                    }
-                }else if(rightVar->type == currentScope->lookupTypeSymbol("isize")){
-                    binaryInstr->w64tag = true;
-                }
+            auto leftType = inferIntValueType(leftExpr, node.left.get());
+            auto rightType = inferIntValueType(rightExpr, node.right.get());
+            if(leftType == currentScope->lookupTypeSymbol("BOOL")){
+                islftBOOL = true;
+            }
+            bool wide = isInt64Type(leftType) || isInt64Type(rightType);
+            bool unsignedOp = isUnsignedIntType(leftType) || isUnsignedIntType(rightType);
+            if(wide){
+                resultVar->type = unsignedOp ? currentScope->lookupTypeSymbol("usize")
+                                             : currentScope->lookupTypeSymbol("isize");
+                binaryInstr->w64tag = true;
+                binaryInstr->utag = unsignedOp;
+            }else if(unsignedOp){
+                resultVar->type = currentScope->lookupTypeSymbol("u32");
+                binaryInstr->utag = true;
+            }else if(leftType){
+                resultVar->type = leftType;
+            }else if(rightType){
+                resultVar->type = rightType;
             }else{
-                // Both operands are literals (no IRVar on either side).
-                // Only mark as usize if BOTH literal lexemes carry the "usize"
-                // suffix. A single-side suffix is ambiguous — the other side
-                // may have been ascast'd or come from a context where width is
-                // ultimately i32. Being conservative here avoids regressions
-                // on long i32 expressions where a stray literal might match.
-                bool leftIsUsize = false;
-                bool rightIsUsize = false;
-                if(auto *leftLit = dynamic_cast<ExprLiteral *>(& *node.left)){
-                    if(leftLit->literal.size() >= 5 && leftLit->literal.substr(leftLit->literal.size() - 5) == "usize"){
-                        leftIsUsize = true;
-                    }
-                }
-                if(auto *rightLit = dynamic_cast<ExprLiteral *>(& *node.right)){
-                    if(rightLit->literal.size() >= 5 && rightLit->literal.substr(rightLit->literal.size() - 5) == "usize"){
-                        rightIsUsize = true;
-                    }
-                }
-                // Detect const symbols on either side that resolve to usize/isize.
-                // The early constant-folding shortcuts at the top of visit()
-                // already created IRLiterals for these; here we recover the
-                // 64-bit width from the AST so the binary op is tagged w64.
-                if(auto *leftPath = dynamic_cast<ExprPath *>(& *node.left)){
-                    try {
-                        auto cs = requireConstInfo(leftPath);
-                        if(cs.type == "usize" || cs.type == "isize") leftIsUsize = true;
-                    } catch (const std::runtime_error &) {}
-                }
-                if(auto *rightPath = dynamic_cast<ExprPath *>(& *node.right)){
-                    try {
-                        auto cs = requireConstInfo(rightPath);
-                        if(cs.type == "usize" || cs.type == "isize") rightIsUsize = true;
-                    } catch (const std::runtime_error &) {}
-                }
-                // Fallback: if either literal value itself exceeds the i32
-                // range, the operation must be done as 64-bit or the upper
-                // bits are silently truncated by addw/subw/mulw.
-                bool valueIsWide = false;
-                if(auto leftLitIR = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
-                    long long v = leftLitIR->intValue;
-                    if(v > 0x7fffffffLL || v < -0x80000000LL) valueIsWide = true;
-                }
-                if(auto rightLitIR = std::dynamic_pointer_cast<IRLiteral>(rightExpr)){
-                    long long v = rightLitIR->intValue;
-                    if(v > 0x7fffffffLL || v < -0x80000000LL) valueIsWide = true;
-                }
-                if((leftIsUsize && rightIsUsize) || (leftIsUsize && std::dynamic_pointer_cast<IRLiteral>(rightExpr)) || (rightIsUsize && std::dynamic_pointer_cast<IRLiteral>(leftExpr))){
-                    resultVar->type = currentScope->lookupTypeSymbol("usize");
-                    binaryInstr->utag = true;
-                    binaryInstr->w64tag = true;
-                } else if(valueIsWide){
-                    resultVar->type = currentScope->lookupTypeSymbol("usize");
-                    binaryInstr->utag = true;
-                    binaryInstr->w64tag = true;
-                } else {
-                    resultVar->type = currentScope->lookupTypeSymbol("i32");
-                }
+                resultVar->type = currentScope->lookupTypeSymbol("i32");
             }
             if(islftBOOL){
                 if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
