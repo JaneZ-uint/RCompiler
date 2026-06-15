@@ -855,6 +855,14 @@ public:
     }
 
     void selectReturn(std::shared_ptr<IRReturn> op) {
+        if (op->returnType && op->returnType->type == BaseType::VOID) {
+            ASMInstr j;
+            j.op = ASMOp::J;
+            j.label = Operand(OperandType::LABEL, currenctExitBlock);
+            currentBlock->instrs.push_back(j);
+            return;
+        }
+
         int val;
         if (op->returnLiteral)
             val = materializeAs(op->returnLiteral, op->returnType);
@@ -928,6 +936,10 @@ public:
         }
 
         if (op->retVar) {
+            if (op->retVar->type &&
+                (op->retVar->type->type == BaseType::STRUCT || op->retVar->type->type == BaseType::ARRAY)) {
+                return;
+            }
             int dst = getVReg(op->retVar);
             ASMInstr mv;
             mv.op = ASMOp::MV;
