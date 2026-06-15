@@ -1317,12 +1317,16 @@ public:
                     }
                 }else{
                     auto returnInstr = std::make_shared<IRReturn>();
+                    auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
+                                            std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                        ? activeIRFunc->retType
+                        : nullptr;
                     if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
                         returnInstr->returnValue = var;
-                        returnInstr->returnType = var->type;
+                        returnInstr->returnType = expectedRetType ? expectedRetType : var->type;
                     }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.thenBlock->ExpressionWithoutBlock->ret)){
                         returnInstr->returnLiteral = literal;
-                        returnInstr->returnType = currentScope->lookupTypeSymbol("i32");
+                        returnInstr->returnType = expectedRetType ? expectedRetType : currentScope->lookupTypeSymbol("i32");
                     }
                     if(thenBlock->blockList.empty()){
                         thenBlock->instrList.push_back(returnInstr);
@@ -1480,12 +1484,16 @@ public:
                         }
                     }else{
                         auto returnInstr = std::make_shared<IRReturn>();
+                        auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
+                                                std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                            ? activeIRFunc->retType
+                            : nullptr;
                         if(auto var = std::dynamic_pointer_cast<IRVar>(blockExpr->ExpressionWithoutBlock->ret)){
                             returnInstr->returnValue = var;
-                            returnInstr->returnType = var->type;
+                            returnInstr->returnType = expectedRetType ? expectedRetType : var->type;
                         }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(blockExpr->ExpressionWithoutBlock->ret)){
                             returnInstr->returnLiteral = literal;
-                            returnInstr->returnType = currentScope->lookupTypeSymbol("i32");
+                            returnInstr->returnType = expectedRetType ? expectedRetType : currentScope->lookupTypeSymbol("i32");
                         }
                         if(elseBlock->blockList.empty()){
                             elseBlock->instrList.push_back(returnInstr);
@@ -3321,14 +3329,18 @@ public:
             }
             if(isReturn){
                 auto returnInstr = std::make_shared<IRReturn>();
+                auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
+                                        std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                    ? activeIRFunc->retType
+                    : nullptr;
                 if(auto irVar = std::dynamic_pointer_cast<IRVar>(res)){
                     if(irVar->type == currentScope->lookupTypeSymbol("BOOL")){
                         //need zext
                         auto zextVar = std::make_shared<IRVar>();
-                        zextVar->type = currentScope->lookupTypeSymbol("bool");
+                        zextVar->type = expectedRetType ? expectedRetType : currentScope->lookupTypeSymbol("bool");
                         auto zextInstr = std::make_shared<IRZext>();
                         zextInstr->originalType = irVar->type;
-                        zextInstr->targetType = currentScope->lookupTypeSymbol("bool");
+                        zextInstr->targetType = zextVar->type;
                         zextInstr->value = irVar;
                         zextInstr->result = zextVar;
                         if(block->blockList.empty()){
@@ -3336,14 +3348,16 @@ public:
                         }else{
                             block->blockList[block->blockList.size() - 1]->instrList.push_back(zextInstr);
                         }
-                        returnInstr->returnType = currentScope->lookupTypeSymbol("bool");
+                        returnInstr->returnType = zextVar->type;
                         returnInstr->returnValue = zextVar;
                     }else{
-                        returnInstr->returnType = irVar->type;
+                        returnInstr->returnType = expectedRetType ? expectedRetType : irVar->type;
                         returnInstr->returnValue = irVar;
                     }
                 }else if(auto irLiteral = std::dynamic_pointer_cast<IRLiteral>(res)){
-                    if(irLiteral->literalType == BOOL_LITERAL){
+                    if(expectedRetType){
+                        returnInstr->returnType = expectedRetType;
+                    }else if(irLiteral->literalType == BOOL_LITERAL){
                         returnInstr->returnType = currentScope->lookupTypeSymbol("bool");
                     }else{
                         returnInstr->returnType = currentScope->lookupTypeSymbol("i32");

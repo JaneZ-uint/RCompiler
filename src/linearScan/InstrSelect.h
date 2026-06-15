@@ -859,7 +859,7 @@ public:
         if (op->returnLiteral)
             val = materializeAs(op->returnLiteral, op->returnType);
         else
-            val = materialize(op->returnValue);
+            val = materializeAs(op->returnValue, op->returnType);
         if (!op->returnLiteral) {
             if (auto intType = std::dynamic_pointer_cast<IRIntType>(op->returnType)) {
                 if (intType->isUnsigned && intType->bitWidth == 32) {
