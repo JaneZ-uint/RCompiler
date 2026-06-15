@@ -72,6 +72,54 @@ static std::unordered_map<tokenType,bindingPower> bindingPowerMap = {
     //TODO 
 };
 
+static bool endsWith(const std::string &value, const std::string &suffix) {
+    return value.size() >= suffix.size()
+        && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+static unsigned long long parseIntegerLiteralBits(const std::string &literal) {
+    std::string digits = literal;
+    const std::vector<std::string> suffixes = {"usize", "isize", "u32", "i32"};
+    for(const auto &suffix : suffixes) {
+        if(endsWith(digits, suffix)) {
+            digits.erase(digits.size() - suffix.size());
+            break;
+        }
+    }
+
+    int base = 10;
+    size_t start = 0;
+    if(digits.size() >= 2 && digits[0] == '0') {
+        if(digits[1] == 'x' || digits[1] == 'X') {
+            base = 16;
+            start = 2;
+        } else if(digits[1] == 'o' || digits[1] == 'O') {
+            base = 8;
+            start = 2;
+        } else if(digits[1] == 'b' || digits[1] == 'B') {
+            base = 2;
+            start = 2;
+        }
+    }
+
+    std::string normalized;
+    for(size_t i = start; i < digits.size(); ++i) {
+        if(digits[i] != '_') {
+            normalized += digits[i];
+        }
+    }
+    if(normalized.empty()) {
+        throw std::runtime_error("Invalid Integer Literal.");
+    }
+
+    size_t parsed = 0;
+    unsigned long long value = std::stoull(normalized, &parsed, base);
+    if(parsed != normalized.size()) {
+        throw std::runtime_error("Invalid Integer Literal.");
+    }
+    return value;
+}
+
 binaryOp Parser::getBinaryOp(tokenType current){
     switch (current) {
         case kPLUS:{
@@ -860,21 +908,8 @@ std::shared_ptr<ExprLiteral> Parser::parse_expr_literal() {
     }
     currentPos ++;
     if(type == INTEGER_LITERAL){
-        /*if(std::stoll(literal) > 2147483647){
-            throw std::runtime_error("Integer out of range.");
-        }*/
-        // Use stoull first to accept the full u64 range (e.g. usize literals
-        // > LLONG_MAX such as 9_300_000_000_000_000_000usize). Bit-cast to
-        // long long so the bit pattern is preserved. Fall back to stoll for
-        // small values to keep behavior identical there.
-        long long int integer;
-        try {
-            unsigned long long uval = std::stoull(literal);
-            integer = static_cast<long long>(uval);
-        } catch (const std::out_of_range &) {
-            // Truly larger than u64 — preserve previous behavior (rethrow).
-            throw;
-        }
+        unsigned long long uval = parseIntegerLiteralBits(literal);
+        long long int integer = static_cast<long long>(uval);
         return std::make_shared<ExprLiteral>(std::move(literal),type,integer);
     }
     return std::make_shared<ExprLiteral>(std::move(literal),type);

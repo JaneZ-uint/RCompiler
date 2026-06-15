@@ -1727,10 +1727,6 @@ public:
             node.ret = std::make_shared<IRLiteral>(BOOL_LITERAL,0);
         }else{
             node.ret = std::make_shared<IRLiteral>(INT_LITERAL,node.integer);
-            if(node.literal[0] == '0' && (node.literal[1] == 'x' || node.literal[1] == 'X')){
-                std::string hexPart = node.literal.substr(2);
-                node.ret = std::make_shared<IRLiteral>(INT_LITERAL, std::stoul(hexPart, nullptr, 16));
-            }
         }
         node.is_lvalue = true;
         return nullptr;

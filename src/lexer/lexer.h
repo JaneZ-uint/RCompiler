@@ -506,7 +506,7 @@ private:
     }
 
     bool checkIntegerliteral(std::string current){
-        std::regex integerRegex(R"((\b(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|\d+)(?:(i32)?|(isize)?|(u32)?|(usize)?)\b))");
+        std::regex integerRegex(R"((\b(?:0[xX][0-9a-fA-F](?:_?[0-9a-fA-F])*|0[oO][0-7](?:_?[0-7])*|0[bB][01](?:_?[01])*|[0-9](?:_?[0-9])*)(?:i32|isize|u32|usize)?\b))");
         if(!std::regex_match(current,integerRegex)){
             return false;  
         }
