@@ -342,6 +342,8 @@ private:
         cloned->isSelf = var->isSelf;
         cloned->baseVar = var->baseVar;
         cloned->isUsed = var->isUsed;
+        cloned->isW64Stack = var->isW64Stack;
+        cloned->isPtrStorage = var->isPtrStorage;
         return cloned;
     }
 };

@@ -58,8 +58,8 @@ class IRPtrType : public IRType {
 public:
     std::shared_ptr<IRType> baseType;
 
-    IRPtrType(): IRType(BaseType::PTR), baseType(nullptr) {}
-    IRPtrType(std::shared_ptr<IRType> bt) : IRType(BaseType::PTR), baseType(std::move(bt)) {}
+    IRPtrType(): IRType(BaseType::PTR, 8), baseType(nullptr) {}
+    IRPtrType(std::shared_ptr<IRType> bt) : IRType(BaseType::PTR, 8), baseType(std::move(bt)) {}
     ~IRPtrType() = default;
     void accept(IRVisitor &visitor) override {
         visitor.visit(*this);   

@@ -612,11 +612,20 @@ public:
         int addr = materialize(op->addressVar);
         int dst = getVReg(op->tmp);
         if (op->type->type == BaseType::PTR) {
-            ASMInstr mv;
-            mv.op = ASMOp::MV;
-            mv.rd = Operand(OperandType::REG, dst);
-            mv.rs1 = Operand(OperandType::REG, addr);
-            currentBlock->instrs.push_back(mv);
+            if (op->addressVar && op->addressVar->isPtrStorage) {
+                ASMInstr ld;
+                ld.op = ASMOp::LD;
+                ld.rd = Operand(OperandType::REG, dst);
+                ld.rs1 = Operand(OperandType::REG, addr);
+                ld.imm = Operand(OperandType::IMM, 0);
+                currentBlock->instrs.push_back(ld);
+            } else {
+                ASMInstr mv;
+                mv.op = ASMOp::MV;
+                mv.rd = Operand(OperandType::REG, dst);
+                mv.rs1 = Operand(OperandType::REG, addr);
+                currentBlock->instrs.push_back(mv);
+            }
         } else {
             bool wide = false;
             if (auto it = std::dynamic_pointer_cast<IRIntType>(op->type)) {
@@ -636,12 +645,22 @@ public:
     void selectStore(std::shared_ptr<IRStore> op) {
         if (op->valueType->type == BaseType::PTR) {
             int val = materialize(op->storeValue);
-            int dst = getVReg(op->address);
-            ASMInstr mv;
-            mv.op = ASMOp::MV;
-            mv.rd = Operand(OperandType::REG, dst);
-            mv.rs1 = Operand(OperandType::REG, val);
-            currentBlock->instrs.push_back(mv);
+            if (op->address && op->address->isPtrStorage) {
+                int addr = materialize(op->address);
+                ASMInstr sd;
+                sd.op = ASMOp::SD;
+                sd.rs2 = Operand(OperandType::REG, val);
+                sd.rs1 = Operand(OperandType::REG, addr);
+                sd.imm = Operand(OperandType::IMM, 0);
+                currentBlock->instrs.push_back(sd);
+            } else {
+                int dst = getVReg(op->address);
+                ASMInstr mv;
+                mv.op = ASMOp::MV;
+                mv.rd = Operand(OperandType::REG, dst);
+                mv.rs1 = Operand(OperandType::REG, val);
+                currentBlock->instrs.push_back(mv);
+            }
             return;
         }
         int val;

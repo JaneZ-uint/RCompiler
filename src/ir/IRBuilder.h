@@ -426,10 +426,13 @@ public:
                 }else if(auto ptrtype = std::dynamic_pointer_cast<IRPtrType>(var->type)){
                     auto loadInstr = std::make_shared<IRLoad>();
                     auto tmpVar = std::make_shared<IRVar>();
-                    tmpVar->type = ptrtype->baseType;
+                    tmpVar->type = var->isPtrStorage ? var->type : ptrtype->baseType;
                     loadInstr->tmp = tmpVar;
                     loadInstr->addressVar = var;
                     loadInstr->type = ptrtype;
+                    if(var->isPtrStorage){
+                        loadInstr->w64tag = true;
+                    }
                     if(ret->blockList.empty()){
                         ret->instrList.push_back(loadInstr);
                     }else{
@@ -1046,6 +1049,9 @@ public:
                         getptrInstr->type = structType;
                         auto resVar = std::make_shared<IRVar>();
                         resVar->type = member.second;
+                        if(std::dynamic_pointer_cast<IRPtrType>(member.second)){
+                            resVar->isPtrStorage = true;
+                        }
                         getptrInstr->res = resVar;
                         if(block->blockList.empty()){
                             block->instrList.push_back(getptrInstr);
@@ -1067,6 +1073,9 @@ public:
                             getptrInstr->type = ptrType->baseType;
                             auto resVar = std::make_shared<IRVar>();
                             resVar->type = member.second;
+                            if(std::dynamic_pointer_cast<IRPtrType>(member.second)){
+                                resVar->isPtrStorage = true;
+                            }
                             getptrInstr->res = resVar;
                             if(block->blockList.empty()){
                                 block->instrList.push_back(getptrInstr);
@@ -3085,8 +3094,23 @@ public:
                 }
             }
             node.ret = node.right->ret;
-            // Propagate w64 storage tag from pointer's pointee type
             if(auto retVar = std::dynamic_pointer_cast<IRVar>(node.ret)){
+                if(retVar->isPtrStorage){
+                    auto loadInstr = std::make_shared<IRLoad>();
+                    auto ptrValue = std::make_shared<IRVar>();
+                    ptrValue->type = retVar->type;
+                    loadInstr->tmp = ptrValue;
+                    loadInstr->addressVar = retVar;
+                    loadInstr->type = retVar->type;
+                    loadInstr->w64tag = true;
+                    if(block->blockList.empty()){
+                        block->instrList.push_back(loadInstr);
+                    }else{
+                        block->blockList[block->blockList.size() - 1]->instrList.push_back(loadInstr);
+                    }
+                    node.ret = ptrValue;
+                    retVar = ptrValue;
+                }
                 if(auto ptr = std::dynamic_pointer_cast<IRPtrType>(retVar->type)){
                     if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
                        ptr->baseType == currentScope->lookupTypeSymbol("isize")){
@@ -3424,6 +3448,9 @@ public:
                             getptrInstr->base = structVar;
                             auto ptrres = std::make_shared<IRVar>();
                             ptrres->type = q->memberTypes[i].second;
+                            if(std::dynamic_pointer_cast<IRPtrType>(ptrres->type)){
+                                ptrres->isPtrStorage = true;
+                            }
                             getptrInstr->res = ptrres;
                             if(auto initLiteral = std::dynamic_pointer_cast<IRLiteral>(fieldInit.expr->ret)){
                                 auto storeInstr = std::make_shared<IRStore>();
@@ -3443,6 +3470,19 @@ public:
                                     storeInstr->valueType = q->memberTypes[i].second;
                                     storeInstr->storeValue = initVar;
                                     storeInstr->address = ptrres;
+                                    if(block->blockList.empty()){
+                                        block->instrList.push_back(getptrInstr);
+                                        block->instrList.push_back(storeInstr);
+                                    }else{
+                                        block->blockList[block->blockList.size() - 1]->instrList.push_back(getptrInstr);
+                                        block->blockList[block->blockList.size() - 1]->instrList.push_back(storeInstr);
+                                    }
+                                }else if(auto *ptrType = dynamic_cast<IRPtrType *>(& *q->memberTypes[i].second)){
+                                    auto storeInstr = std::make_shared<IRStore>();
+                                    storeInstr->valueType = q->memberTypes[i].second;
+                                    storeInstr->storeValue = initVar;
+                                    storeInstr->address = ptrres;
+                                    storeInstr->w64tag = true;
                                     if(block->blockList.empty()){
                                         block->instrList.push_back(getptrInstr);
                                         block->instrList.push_back(storeInstr);
@@ -4178,6 +4218,7 @@ public:
                     }
                     storeInstr->address = currentVar;
                     storeInstr->w64tag = true; // pointer is 64-bit
+                    currentVar->isPtrStorage = true;
                     if(block->blockList.size() ==0){
                         block->instrList.push_back(storeInstr);
                     }else{

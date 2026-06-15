@@ -19,6 +19,7 @@ public:
     std::shared_ptr<IRVar> baseVar = nullptr; // ptr type
     bool isUsed = true;
     bool isW64Stack = false; // address of an 8-byte stack slot (usize/isize alloca)
+    bool isPtrStorage = false; // address of a stack/field slot that stores a pointer value
 
     IRVar(){
         serial = ir_cnt++;
