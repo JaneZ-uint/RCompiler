@@ -2806,7 +2806,43 @@ public:
                         return block;
                     }
                     if(leftvar->type == currentScope->lookupTypeSymbol("i32") || leftvar->type == currentScope->lookupTypeSymbol("u32")){
-                        node.ret = leftExpr;
+                        bool srcSigned = (leftvar->type == currentScope->lookupTypeSymbol("i32"));
+                        bool tgtSigned = (targetName == "i32");
+                        if(srcSigned == tgtSigned){
+                            node.ret = leftExpr;
+                            node.is_lvalue = true;
+                            return block;
+                        }
+                        // i32<->u32 cast: must re-normalize high 32 bits because
+                        // the bit pattern of the low 32 may have its top bit
+                        // set, and downstream 64-bit ops (sub for EQ/NEQ, slt
+                        // for compare, ld/sd of stack args) rely on a consistent
+                        // sign/zero-extended representation. No-op cast would
+                        // leak dirty high bits across the type boundary.
+                        auto castVar = std::make_shared<IRVar>();
+                        castVar->type = targetTy;
+                        std::shared_ptr<IRNode> castInstr;
+                        if(tgtSigned){
+                            auto sextInstr = std::make_shared<IRSext>();
+                            sextInstr->originalType = leftvar->type;
+                            sextInstr->targetType = targetTy;
+                            sextInstr->value = leftvar;
+                            sextInstr->result = castVar;
+                            castInstr = sextInstr;
+                        }else{
+                            auto zextInstr = std::make_shared<IRZext>();
+                            zextInstr->originalType = leftvar->type;
+                            zextInstr->targetType = targetTy;
+                            zextInstr->value = leftvar;
+                            zextInstr->result = castVar;
+                            castInstr = zextInstr;
+                        }
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(castInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(castInstr);
+                        }
+                        node.ret = castVar;
                         node.is_lvalue = true;
                         return block;
                     }else{
