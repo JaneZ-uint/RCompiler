@@ -389,14 +389,17 @@ private:
                     [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
             } else {
                 LiveInterval* spill = nullptr;
-                if (!active.empty()) {
-                    spill = active.back();
+                for (auto it = active.rbegin(); it != active.rend(); ++it) {
+                    if ((*it)->end > iv.end && !isBlocked((*it)->physReg, iv.start, iv.end)) {
+                        spill = *it;
+                        break;
+                    }
                 }
-                if (spill && spill->end > iv.end) {
+                if (spill) {
                     iv.physReg = spill->physReg;
                     spill->physReg = -1;
                     spill->spillSlot = nextSpillSlot++;
-                    active.pop_back();
+                    active.erase(std::remove(active.begin(), active.end(), spill), active.end());
                     active.push_back(&iv);
                     std::sort(active.begin(), active.end(),
                         [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
