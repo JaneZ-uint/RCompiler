@@ -3429,6 +3429,8 @@ public:
                     retVar = ptrValue;
                 }
                 if(auto ptr = std::dynamic_pointer_cast<IRPtrType>(retVar->type)){
+                    retVar->type = ptr->baseType;
+                    retVar->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(ptr->baseType) != nullptr;
                     if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
                        ptr->baseType == currentScope->lookupTypeSymbol("isize")){
                         retVar->isW64Stack = true;
@@ -3957,6 +3959,9 @@ public:
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
                     p->type = ptrType->baseType;
+                    if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
+                        p->isPtrStorage = true;
+                    }
                     // The dereferenced storage is 8 bytes if pointee is usize/isize
                     if(ptrType->baseType == currentScope->lookupTypeSymbol("usize") ||
                        ptrType->baseType == currentScope->lookupTypeSymbol("isize")){
