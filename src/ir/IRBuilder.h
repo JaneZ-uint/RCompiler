@@ -2234,7 +2234,17 @@ public:
         }
         auto funcname = node.PathExprSegment->pathSegments.identifier;
         if(auto objvar = std::dynamic_pointer_cast<IRVar>(node.expr->ret)){
-            if(auto structtype = std::dynamic_pointer_cast<IRStructType>(objvar->type)){
+            std::shared_ptr<IRVar> methodObj = objvar;
+            std::shared_ptr<IRStructType> structtype = std::dynamic_pointer_cast<IRStructType>(methodObj->type);
+            if(!structtype){
+                if(methodObj->isPtrStorage && std::dynamic_pointer_cast<IRPtrType>(methodObj->type)){
+                    methodObj = valueFromPtrStorage(methodObj, block);
+                }
+                if(auto ptrType = std::dynamic_pointer_cast<IRPtrType>(methodObj->type)){
+                    structtype = std::dynamic_pointer_cast<IRStructType>(ptrType->baseType);
+                }
+            }
+            if(structtype){
                 for(int i = 0;i < structtype->memberFunctions.size();i ++){
                     if(structtype->memberFunctions[i]->name == funcname){
                         auto currentIRFunc = structtype->memberFunctions[i];
@@ -2243,7 +2253,7 @@ public:
                         currentCallInstr->pList = std::make_shared<IRParam>();
                         //first param is self
                         if(auto *currentPtrType = dynamic_cast<IRPtrType *>(& *currentIRFunc->typeList[0])){
-                            currentCallInstr->pList->paramList.push_back(objvar);
+                            currentCallInstr->pList->paramList.push_back(methodObj);
                         }else{
                             auto memcpyInstr = std::make_shared<IRMemcpy>();
                             auto selfVar = std::make_shared<IRVar>();
@@ -2254,7 +2264,7 @@ public:
                                 block->blockList[block->blockList.size() - 1]->instrList.push_back(std::make_shared<IRAlloca>(selfVar->type, selfVar));
                             }
                             memcpyInstr->dest = selfVar;
-                            memcpyInstr->value = objvar;
+                            memcpyInstr->value = methodObj;
                             memcpyInstr->size = selfVar->type->size;
                             if(block->blockList.size() == 0){
                                 block->instrList.push_back(memcpyInstr);
