@@ -4007,8 +4007,8 @@ public:
                         std::string funcName = p->identifier;
                         std::shared_ptr<IRParam> irParam =  std::make_shared<IRParam>();
                         std::vector<std::shared_ptr<IRType>> typeList;
-                        if(node.fnParameters.SelfParam.isShortSelf){
-                            if(node.fnParameters.SelfParam.short_self.is_and){
+                        if(p->fnParameters.SelfParam.isShortSelf){
+                            if(p->fnParameters.SelfParam.short_self.is_and){
                                 auto selfParam = std::make_shared<IRVar>();
                                 selfParam->varName = "self";
                                 selfParam->reName  = "self";
