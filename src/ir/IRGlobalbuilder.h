@@ -271,7 +271,15 @@ public:
                                     selfParam->isSelf = true;
                                     paramList->paramList.push_back(selfParam);
                                 }
-                            } 
+                            }else if(itemFn->fnParameters.SelfParam.type_self.type){
+                                auto selfParam = std::make_shared<IRVar>();
+                                selfParam->varName = "self";
+                                selfParam->reName = "self";
+                                selfParam->type = resolveType(*itemFn->fnParameters.SelfParam.type_self.type);
+                                typeList.push_back(selfParam->type);
+                                selfParam->isSelf = true;
+                                paramList->paramList.push_back(selfParam);
+                            }
                             if(itemFn->fnParameters.FunctionParam.size() > 0){
                                 for(auto& param : itemFn->fnParameters.FunctionParam){
                                     auto currentVar = std::make_shared<IRVar>();

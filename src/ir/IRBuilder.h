@@ -4023,6 +4023,13 @@ public:
                                 typeList.push_back(selfParam->type);
                                 irParam->paramList.push_back(selfParam);
                             }
+                        }else if(p->fnParameters.SelfParam.type_self.type){
+                            auto selfParam = std::make_shared<IRVar>();
+                            selfParam->varName = "self";
+                            selfParam->reName  = "self";
+                            selfParam->type = resolveType(*p->fnParameters.SelfParam.type_self.type);
+                            typeList.push_back(selfParam->type);
+                            irParam->paramList.push_back(selfParam);
                         }
                         if(!p->fnParameters.FunctionParam.empty()){
                             for(auto & param : p->fnParameters.FunctionParam){
