@@ -1609,12 +1609,14 @@ public:
         }
         auto thenBlock = std::make_shared<IRBlock>();
         auto firstState = std::make_shared<IRValue>();
+        std::shared_ptr<IRVar> firstAggregate = nullptr;
         if(node.thenBlock){
             bool origLvalue = node.thenBlock->ExpressionWithoutBlock->is_lvalue;
             auto thenInstrs1 = visit(*node.thenBlock->ExpressionWithoutBlock);
             node.thenBlock->ExpressionWithoutBlock->is_lvalue = origLvalue;
             if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
-                if(auto *tp = dynamic_cast<IRStructType *>(& *var->type)){
+                if(std::dynamic_pointer_cast<IRStructType>(var->type) ||
+                   std::dynamic_pointer_cast<IRArrayType>(var->type)){
                     node.thenBlock->ExpressionWithoutBlock->is_lvalue = true;
                 }
             }
@@ -1632,6 +1634,9 @@ public:
             if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
                 if(auto *intType = dynamic_cast<IRIntType *>(& *var->type)){
                     firstState = var;
+                }else if(std::dynamic_pointer_cast<IRStructType>(var->type) ||
+                         std::dynamic_pointer_cast<IRArrayType>(var->type)){
+                    firstAggregate = var;
                 }
             }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.thenBlock->ExpressionWithoutBlock->ret)){
                 firstState = literal;
@@ -1639,13 +1644,15 @@ public:
         }
         auto elseBlock = std::make_shared<IRBlock>();
         auto secondState = std::make_shared<IRValue>();
+        std::shared_ptr<IRVar> secondAggregate = nullptr;
         if(node.elseBlock){
             if(auto *elseblk = dynamic_cast<ExprBlock *>(& *node.elseBlock)){
                 bool origLvalue = elseblk->ExpressionWithoutBlock->is_lvalue;
                 auto elseInstrs1 = visit(*elseblk->ExpressionWithoutBlock);
                 elseblk->ExpressionWithoutBlock->is_lvalue = origLvalue;
                 if(auto var = std::dynamic_pointer_cast<IRVar>(elseblk->ExpressionWithoutBlock->ret)){
-                    if(auto *tp = dynamic_cast<IRStructType *>(& *var->type)){
+                    if(std::dynamic_pointer_cast<IRStructType>(var->type) ||
+                       std::dynamic_pointer_cast<IRArrayType>(var->type)){
                         elseblk->ExpressionWithoutBlock->is_lvalue = true;
                     }
                 }
@@ -1663,6 +1670,9 @@ public:
                 if(auto var = std::dynamic_pointer_cast<IRVar>(elseblk->ExpressionWithoutBlock->ret)){
                     if(auto *intType = dynamic_cast<IRIntType *>(& *var->type)){
                         secondState = var;
+                    }else if(std::dynamic_pointer_cast<IRStructType>(var->type) ||
+                             std::dynamic_pointer_cast<IRArrayType>(var->type)){
+                        secondAggregate = var;
                     }
                 }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(elseblk->ExpressionWithoutBlock->ret)){
                     secondState = literal;
@@ -1682,6 +1692,9 @@ public:
                 if(auto var = std::dynamic_pointer_cast<IRVar>(elseIf->ret)){
                     if(auto *intType = dynamic_cast<IRIntType *>(& *var->type)){
                         secondState = var;
+                    }else if(std::dynamic_pointer_cast<IRStructType>(var->type) ||
+                             std::dynamic_pointer_cast<IRArrayType>(var->type)){
+                        secondAggregate = var;
                     }
                 }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(elseIf->ret)){
                     secondState = literal;
@@ -1689,6 +1702,27 @@ public:
             }
         }
         auto mergeBlock = std::make_shared<IRBlock>();
+        std::shared_ptr<IRType> aggregateType = nullptr;
+        if(firstAggregate && (std::dynamic_pointer_cast<IRStructType>(firstAggregate->type) ||
+                              std::dynamic_pointer_cast<IRArrayType>(firstAggregate->type))){
+            aggregateType = firstAggregate->type;
+        }else if(secondAggregate && (std::dynamic_pointer_cast<IRStructType>(secondAggregate->type) ||
+                                     std::dynamic_pointer_cast<IRArrayType>(secondAggregate->type))){
+            aggregateType = secondAggregate->type;
+        }
+        std::shared_ptr<IRVar> aggregateResult = nullptr;
+        if(aggregateType){
+            aggregateResult = std::make_shared<IRVar>();
+            aggregateResult->type = aggregateType;
+            block->instrList.push_back(std::make_shared<IRAlloca>(aggregateType, aggregateResult));
+        }
+        auto appendToLast = [](std::shared_ptr<IRBlock> target, std::shared_ptr<IRNode> instr){
+            if(target->blockList.empty()){
+                target->instrList.push_back(instr);
+            }else{
+                target->blockList[target->blockList.size() - 1]->instrList.push_back(instr);
+            }
+        };
         if(block->blockList.size() ==0){
             block->instrList.push_back(std::make_shared<IRBr>(condVar, thenBlock, elseBlock));
         }else{
@@ -1698,21 +1732,32 @@ public:
         for(auto &blk : thenBlock->blockList){
             block->blockList.push_back(blk);
         }
-        if(thenBlock->blockList.size() == 0){
-            thenBlock->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
-        }else{
-            thenBlock->blockList[thenBlock->blockList.size() -1]->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
+        if(aggregateResult && firstAggregate){
+            auto memcpyInstr = std::make_shared<IRMemcpy>();
+            memcpyInstr->dest = aggregateResult;
+            memcpyInstr->value = firstAggregate;
+            memcpyInstr->size = aggregateType->size;
+            appendToLast(thenBlock, memcpyInstr);
         }
+        appendToLast(thenBlock, std::make_shared<IRBr>(mergeBlock));
         block->blockList.push_back(elseBlock);
         for(auto &blk : elseBlock->blockList){
             block->blockList.push_back(blk);
         }
-        if(elseBlock->blockList.size() == 0){
-            elseBlock->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
-        }else{
-            elseBlock->blockList[elseBlock->blockList.size() -1]->instrList.push_back(std::make_shared<IRBr>(mergeBlock));
+        if(aggregateResult && secondAggregate){
+            auto memcpyInstr = std::make_shared<IRMemcpy>();
+            memcpyInstr->dest = aggregateResult;
+            memcpyInstr->value = secondAggregate;
+            memcpyInstr->size = aggregateType->size;
+            appendToLast(elseBlock, memcpyInstr);
         }
+        appendToLast(elseBlock, std::make_shared<IRBr>(mergeBlock));
         block->blockList.push_back(mergeBlock);
+        if(aggregateResult){
+            node.ret = aggregateResult;
+            node.is_lvalue = true;
+            return block;
+        }
         auto PHIInstr = std::make_shared<IRPHI>();
         auto resVar = std::make_shared<IRVar>();
         resVar->type = inferIfPhiType(node, firstState, secondState);
