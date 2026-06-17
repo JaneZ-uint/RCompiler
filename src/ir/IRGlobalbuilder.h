@@ -394,17 +394,9 @@ public:
     }
 
     void caculateArraySize(std::shared_ptr<IRArrayType> arrayType){
-        if(auto *innerArray = dynamic_cast<IRArrayType *>(& *arrayType->elementType)){
-            caculateArraySize(std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType));
+        if(auto innerArray = std::dynamic_pointer_cast<IRArrayType>(arrayType->elementType)){
+            caculateArraySize(innerArray);
             arrayType->size = innerArray->size * arrayType->length;
-            if(auto inttype = std::dynamic_pointer_cast<IRIntType>(innerArray->elementType)){
-                if(inttype->bitWidth == 8){
-                    arrayType->size = (innerArray->size / 4) * arrayType->length;
-                    if(arrayType->size % 4 != 0){
-                        arrayType->size += 4 - (arrayType->size % 4);
-                    }
-                }
-            }
         }else{
             arrayType->size = arrayType->elementType->size * arrayType->length;
             if(auto inttype = std::dynamic_pointer_cast<IRIntType>(arrayType->elementType)){
