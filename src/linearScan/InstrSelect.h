@@ -154,7 +154,7 @@ public:
         return "__rcompiler_user_" + name;
     }
 
-    void emitAdjustSp(int bytes) {
+    void emitAdjustSp(long long int bytes) {
         if (bytes >= -2048 && bytes <= 2047) {
             ASMInstr addi;
             addi.op = ASMOp::ADDI;
@@ -177,7 +177,7 @@ public:
         }
     }
 
-    int materializeSpOffset(int offset) {
+    int materializeSpOffset(long long int offset) {
         int dst = freshVReg();
         if (offset >= -2048 && offset <= 2047) {
             ASMInstr addi;
@@ -203,7 +203,7 @@ public:
         return dst;
     }
 
-    void emitStackStore(int src, int baseReg, int offset) {
+    void emitStackStore(int src, int baseReg, long long int offset) {
         if (offset >= -2048 && offset <= 2047) {
             ASMInstr sd;
             sd.op = ASMOp::SD;
@@ -232,7 +232,7 @@ public:
         }
     }
 
-    void emitStackLoad(int dst, int baseReg, int offset) {
+    void emitStackLoad(int dst, int baseReg, long long int offset) {
         if (offset >= -2048 && offset <= 2047) {
             ASMInstr ld;
             ld.op = ASMOp::LD;
@@ -361,9 +361,10 @@ public:
             currentBlock->instrs.push_back(marker);
         }
 
-        int argCount = irFunc->paramList->paramList.size();
-        for (int i = 0; i < argCount; i++) {
-            int vr = getVReg(irFunc->paramList->paramList[i]);
+        long long int argCount = static_cast<long long int>(irFunc->paramList->paramList.size());
+        for (long long int i = 0; i < argCount; i++) {
+            auto paramIndex = static_cast<size_t>(i);
+            int vr = getVReg(irFunc->paramList->paramList[paramIndex]);
             if (i < 8) {
                 ASMInstr mv;
                 mv.op = ASMOp::MV;
@@ -371,7 +372,7 @@ public:
                 mv.rs1 = Operand(OperandType::REG, 10 + i); // a0-a7
                 currentBlock->instrs.push_back(mv);
             } else {
-                int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
+                long long int stackParamOffset = (i - 8) * RISCV_XLEN_BYTES;
                 emitStackLoad(vr, 8, stackParamOffset);
             }
         }
@@ -929,23 +930,24 @@ public:
     }
 
     void selectCall(std::shared_ptr<IRCall> op) {
-        int totalParams = op->pList->paramList.size();
-        int regParams = std::min(totalParams, 8);
+        long long int totalParams = static_cast<long long int>(op->pList->paramList.size());
+        int regParams = static_cast<int>(std::min<long long int>(totalParams, 8));
 
         // Stack args (>8). Keep sp stable while materializing arguments so
         // spill reloads/stores inserted by register allocation still address
         // this function's frame correctly.
-        int stackBytes = 0;
+        long long int stackBytes = 0;
         if (totalParams > 8) {
-            int rawStackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
+            long long int rawStackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
             stackBytes = (rawStackBytes + 15) / 16 * 16;
             int outgoingBase = materializeSpOffset(-stackBytes);
 
-            for (int i = 8; i < totalParams; i++) {
-                auto expectedType = (op->function && i < (int)op->function->typeList.size())
-                    ? op->function->typeList[i]
+            for (long long int i = 8; i < totalParams; i++) {
+                auto paramIndex = static_cast<size_t>(i);
+                auto expectedType = (op->function && paramIndex < op->function->typeList.size())
+                    ? op->function->typeList[paramIndex]
                     : nullptr;
-                int src = materializeAs(op->pList->paramList[i], expectedType);
+                int src = materializeAs(op->pList->paramList[paramIndex], expectedType);
                 emitStackStore(src, outgoingBase, (i - 8) * RISCV_XLEN_BYTES);
             }
         }
