@@ -1600,6 +1600,25 @@ public:
                     condVar = cmpVar;
                 }
             }
+        }else if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.condition->ret)){
+            if(literal->literalType == BOOL_LITERAL){
+                condVar->type = currentScope->lookupTypeSymbol("BOOL");
+                auto allocInstr = std::make_shared<IRAlloca>(condVar->type, condVar);
+                auto storeInstr = std::make_shared<IRStore>();
+                storeInstr->address = condVar;
+                storeInstr->storeLiteral = std::make_shared<IRLiteral>(BOOL_LITERAL, literal->intValue);
+                storeInstr->valueType = condVar->type;
+                auto loadVar = std::make_shared<IRVar>();
+                loadVar->type = condVar->type;
+                auto loadInstr = std::make_shared<IRLoad>();
+                loadInstr->addressVar = condVar;
+                loadInstr->tmp = loadVar;
+                loadInstr->type = condVar->type;
+                condBlock->instrList.push_back(allocInstr);
+                condBlock->instrList.push_back(storeInstr);
+                condBlock->instrList.push_back(loadInstr);
+                condVar = loadVar;
+            }
         }
         for(auto & instr : condBlock->instrList){
             block->instrList.push_back(instr);
