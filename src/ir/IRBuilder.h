@@ -3043,13 +3043,23 @@ public:
         auto rightExpr = node.right->ret;
         if(op == ADD_EQ || op == SUB_EQ || op == MUL_EQ || op == DIV_EQ || op == MOD_EQ || op == XOROPEQ || op == LEFTSHIFTOPEQ || op == RIGHTSHIFTOPEQ){
             if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
+                auto valueType = leftvar->type;
+                if(auto ptrType = std::dynamic_pointer_cast<IRPtrType>(leftvar->type)){
+                    if(std::dynamic_pointer_cast<IRIntType>(ptrType->baseType)){
+                        valueType = ptrType->baseType;
+                    }
+                }
                 auto loadvar = std::make_shared<IRVar>();
-                loadvar->type = leftvar->type;
+                loadvar->type = valueType;
                 auto loadInstr = std::make_shared<IRLoad>();
                 loadInstr->addressVar = leftvar;
                 loadInstr->tmp = loadvar;
-                loadInstr->type = leftvar->type;
-                if(leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                loadInstr->type = valueType;
+                if(valueType == currentScope->lookupTypeSymbol("usize") ||
+                   valueType == currentScope->lookupTypeSymbol("isize")){
+                    loadInstr->w64tag = true;
+                }
+                if(valueType == currentScope->lookupTypeSymbol("u32")){
                     loadInstr->utag = true;
                 }
                 auto binaryInstr = std::make_shared<IRBinaryop>();
@@ -3073,23 +3083,23 @@ public:
                 binaryInstr->leftValue = loadvar;
                 binaryInstr->rightValue = rightExpr;
                 // Tag width for usize/u32 so codegen emits 64-bit ops.
-                if(leftvar->type == currentScope->lookupTypeSymbol("usize")){
+                if(valueType == currentScope->lookupTypeSymbol("usize")){
                     binaryInstr->utag = true;
                     binaryInstr->w64tag = true;
-                }else if(leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                }else if(valueType == currentScope->lookupTypeSymbol("isize")){
                     binaryInstr->w64tag = true;
-                }else if(leftvar->type == currentScope->lookupTypeSymbol("u32")){
+                }else if(valueType == currentScope->lookupTypeSymbol("u32")){
                     binaryInstr->utag = true;
                 }
                 auto resultVar = std::make_shared<IRVar>();
-                resultVar->type = leftvar->type;
+                resultVar->type = valueType;
                 binaryInstr->result = resultVar;
                 auto binaryStoreInstr = std::make_shared<IRStore>();
                 binaryStoreInstr->storeValue = resultVar;
                 binaryStoreInstr->address = leftvar;
-                binaryStoreInstr->valueType = leftvar->type;
-                if(leftvar->type == currentScope->lookupTypeSymbol("usize") ||
-                   leftvar->type == currentScope->lookupTypeSymbol("isize")){
+                binaryStoreInstr->valueType = valueType;
+                if(valueType == currentScope->lookupTypeSymbol("usize") ||
+                   valueType == currentScope->lookupTypeSymbol("isize")){
                     binaryStoreInstr->w64tag = true;
                 }
                 if(block->blockList.size() == 0){
