@@ -246,6 +246,26 @@ public:
         return false;
     }
 
+    std::shared_ptr<IRVar> valueFromPtrStorage(const std::shared_ptr<IRVar> &argVar,
+                                               const std::shared_ptr<IRBlock> &block){
+        if(!argVar || !argVar->isPtrStorage){
+            return argVar;
+        }
+        auto loadInstr = std::make_shared<IRLoad>();
+        auto ptrValue = std::make_shared<IRVar>();
+        ptrValue->type = argVar->type;
+        loadInstr->tmp = ptrValue;
+        loadInstr->addressVar = argVar;
+        loadInstr->type = argVar->type;
+        loadInstr->w64tag = true;
+        if(block->blockList.empty()){
+            block->instrList.push_back(loadInstr);
+        }else{
+            block->blockList[block->blockList.size() - 1]->instrList.push_back(loadInstr);
+        }
+        return ptrValue;
+    }
+
     std::shared_ptr<IRType> inferIfPhiType(ExprIf &node,
                                            const std::shared_ptr<IRValue>& firstState,
                                            const std::shared_ptr<IRValue>& secondState){
@@ -424,22 +444,60 @@ public:
                     }
                     node.ret = tmpVar;
                 }else if(auto ptrtype = std::dynamic_pointer_cast<IRPtrType>(var->type)){
-                    auto loadInstr = std::make_shared<IRLoad>();
-                    auto tmpVar = std::make_shared<IRVar>();
-                    tmpVar->type = var->isPtrStorage ? var->type : ptrtype->baseType;
-                    loadInstr->tmp = tmpVar;
-                    loadInstr->addressVar = var;
-                    loadInstr->type = ptrtype;
+                    auto appendInstr = [&](std::shared_ptr<IRNode> instr){
+                        if(ret->blockList.empty()){
+                            ret->instrList.push_back(instr);
+                        }else{
+                            auto lastBlock = ret->blockList[ret->blockList.size() - 1];
+                            lastBlock->instrList.push_back(instr);
+                        }
+                    };
                     if(var->isPtrStorage){
+                        auto loadInstr = std::make_shared<IRLoad>();
+                        auto tmpVar = std::make_shared<IRVar>();
+                        tmpVar->type = var->type;
+                        loadInstr->tmp = tmpVar;
+                        loadInstr->addressVar = var;
+                        loadInstr->type = ptrtype;
                         loadInstr->w64tag = true;
-                    }
-                    if(ret->blockList.empty()){
-                        ret->instrList.push_back(loadInstr);
+                        appendInstr(loadInstr);
+                        node.ret = tmpVar;
+                    }else if(auto inttype = std::dynamic_pointer_cast<IRIntType>(ptrtype->baseType)){
+                        auto loadInstr = std::make_shared<IRLoad>();
+                        auto tmpVar = std::make_shared<IRVar>();
+                        tmpVar->type = ptrtype->baseType;
+                        loadInstr->tmp = tmpVar;
+                        loadInstr->addressVar = var;
+                        loadInstr->type = ptrtype->baseType;
+                        if(inttype->bitWidth == 64){
+                            loadInstr->w64tag = true;
+                        }
+                        if(inttype->bitWidth == 32 && inttype->isUnsigned){
+                            loadInstr->utag = true;
+                        }
+                        appendInstr(loadInstr);
+                        node.ret = tmpVar;
+                    }else if(std::dynamic_pointer_cast<IRStructType>(ptrtype->baseType) ||
+                             std::dynamic_pointer_cast<IRArrayType>(ptrtype->baseType)){
+                        auto memcpyInstr = std::make_shared<IRMemcpy>();
+                        auto tmpVar = std::make_shared<IRVar>();
+                        tmpVar->type = ptrtype->baseType;
+                        memcpyInstr->dest = tmpVar;
+                        memcpyInstr->value = var;
+                        memcpyInstr->size = ptrtype->baseType->size;
+                        appendInstr(std::make_shared<IRAlloca>(tmpVar->type,tmpVar));
+                        appendInstr(memcpyInstr);
+                        node.ret = tmpVar;
                     }else{
-                        auto lastBlock = ret->blockList[ret->blockList.size() - 1];
-                        lastBlock->instrList.push_back(loadInstr);
+                        auto loadInstr = std::make_shared<IRLoad>();
+                        auto tmpVar = std::make_shared<IRVar>();
+                        tmpVar->type = ptrtype->baseType;
+                        loadInstr->tmp = tmpVar;
+                        loadInstr->addressVar = var;
+                        loadInstr->type = ptrtype->baseType;
+                        appendInstr(loadInstr);
+                        node.ret = tmpVar;
                     }
-                    node.ret = tmpVar;
                 }else{
                     auto memcpyInstr = std::make_shared<IRMemcpy>();
                     auto tmpVar = std::make_shared<IRVar>();
@@ -461,6 +519,7 @@ public:
         }
         return ret;
     }
+
     std::shared_ptr<IRBlock> visit(ExprArray &node){
         std::shared_ptr<IRBlock> block = std::make_shared<IRBlock>();
         int size = 0;
@@ -600,15 +659,27 @@ public:
                     caculateArraySize(arraytp);
                 }
                 resVar->type = var->type;
+                if(std::dynamic_pointer_cast<IRPtrType>(resVar->type)){
+                    resVar->isPtrStorage = true;
+                }
                 getptrInstr->res = resVar;
                 getptrInstr->type = arrayVar->type;
                 assignBlock->instrList.push_back(getptrInstr);
                 block->instrList.push_back(std::make_shared<IRAlloca>(arrayVar->type,arrayVar));
-                auto memcpyInstr = std::make_shared<IRMemcpy>();
-                memcpyInstr->dest = getptrInstr->res;
-                memcpyInstr->value = var;
-                memcpyInstr->size = var->type->size;
-                assignBlock->instrList.push_back(memcpyInstr);
+                if(std::dynamic_pointer_cast<IRPtrType>(var->type)){
+                    auto storeInstr = std::make_shared<IRStore>();
+                    storeInstr->valueType = resVar->type;
+                    storeInstr->address = getptrInstr->res;
+                    storeInstr->storeValue = var;
+                    storeInstr->w64tag = true;
+                    assignBlock->instrList.push_back(storeInstr);
+                }else{
+                    auto memcpyInstr = std::make_shared<IRMemcpy>();
+                    memcpyInstr->dest = getptrInstr->res;
+                    memcpyInstr->value = var;
+                    memcpyInstr->size = var->type->size;
+                    assignBlock->instrList.push_back(memcpyInstr);
+                }
             }
             auto loadcnt = std::make_shared<IRVar>();
             loadcnt->type = currentScope->lookupTypeSymbol("i32");
@@ -705,6 +776,9 @@ public:
                     getptrInstr->type = arrayVar->type;
                     auto resVar = std::make_shared<IRVar>();
                     resVar->type = arrayType;
+                    if(std::dynamic_pointer_cast<IRPtrType>(resVar->type)){
+                        resVar->isPtrStorage = true;
+                    }
                     getptrInstr->res = resVar;
                     auto storeInstr = std::make_shared<IRStore>();
                     storeInstr->valueType = resVar->type;
@@ -729,6 +803,9 @@ public:
                     getptrInstr->type = arrayVar->type;
                     auto resVar = std::make_shared<IRVar>();
                     resVar->type = arrayType;
+                    if(std::dynamic_pointer_cast<IRPtrType>(resVar->type)){
+                        resVar->isPtrStorage = true;
+                    }
                     getptrInstr->res = resVar;
                     // For aggregate element types (nested array / struct), use memcpy.
                     bool isAggregate = std::dynamic_pointer_cast<IRArrayType>(var->type) ||
@@ -752,7 +829,8 @@ public:
                         storeInstr->address = getptrInstr->res;
                         storeInstr->storeValue = var;
                         if(arrayType == currentScope->lookupTypeSymbol("usize") ||
-                           arrayType == currentScope->lookupTypeSymbol("isize")){
+                           arrayType == currentScope->lookupTypeSymbol("isize") ||
+                           std::dynamic_pointer_cast<IRPtrType>(arrayType)){
                             storeInstr->w64tag = true;
                         }
                         if(block->blockList.empty()){
@@ -936,7 +1014,7 @@ public:
                             }
                         }
                     }
-                    currentCallInstr->pList->paramList.push_back(arg->ret);
+                    currentCallInstr->pList->paramList.push_back(valueFromPtrStorage(std::dynamic_pointer_cast<IRVar>(arg->ret), block));
                 }else{
                     auto argInstrs = visit(*arg);
                     if(argInstrs){
@@ -1837,6 +1915,9 @@ public:
                 getptrInstr->type = var->type;
                 auto resVar = std::make_shared<IRVar>();
                 resVar->type = arrayType->elementType;
+                if(std::dynamic_pointer_cast<IRPtrType>(resVar->type)){
+                    resVar->isPtrStorage = true;
+                }
                 getptrInstr->res = resVar;
                 if(block->blockList.empty()){
                     block->instrList.push_back(getptrInstr);
@@ -2144,7 +2225,7 @@ public:
                                         }
                                     }
                                 }
-                                currentCallInstr->pList->paramList.push_back(arg->ret);
+                                currentCallInstr->pList->paramList.push_back(valueFromPtrStorage(std::dynamic_pointer_cast<IRVar>(arg->ret), block));
                             }else{
                                 auto argInstrs = visit(*arg);
                                 if(argInstrs){
@@ -3066,6 +3147,39 @@ public:
                     }else{
                         block->blockList[block->blockList.size() - 1]->instrList.push_back(storeInstr);
                     }
+                }else if(auto ptrType = std::dynamic_pointer_cast<IRPtrType>(leftvar->type)){
+                    if(auto pointeeInt = std::dynamic_pointer_cast<IRIntType>(ptrType->baseType)){
+                        auto storeInstr = std::make_shared<IRStore>();
+                        storeInstr->valueType = ptrType->baseType;
+                        if(auto rightLiteral = std::dynamic_pointer_cast<IRLiteral>(rightExpr)){
+                            storeInstr->storeLiteral = rightLiteral;
+                            assignResult = rightLiteral;
+                        }else if(auto rightVar = std::dynamic_pointer_cast<IRVar>(rightExpr)){
+                            storeInstr->storeValue = rightVar;
+                            assignResult = rightVar;
+                        }
+                        storeInstr->address = leftvar;
+                        if(pointeeInt->bitWidth == 64){
+                            storeInstr->w64tag = true;
+                        }
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(storeInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(storeInstr);
+                        }
+                    }else{
+                        auto memcpyInstr = std::make_shared<IRMemcpy>();
+                        memcpyInstr->dest = leftvar;
+                        if(auto rightVar = std::dynamic_pointer_cast<IRVar>(rightExpr)){
+                            memcpyInstr->value = rightVar;
+                        }
+                        memcpyInstr->size = ptrType->baseType->size;
+                        if(block->blockList.size() == 0){
+                            block->instrList.push_back(memcpyInstr);
+                        }else{
+                            block->blockList[block->blockList.size() - 1]->instrList.push_back(memcpyInstr);
+                        }
+                    }
                 }else{
                     auto memcpyInstr = std::make_shared<IRMemcpy>();
                     memcpyInstr->dest = leftvar;
@@ -3338,7 +3452,32 @@ public:
                     }
                 }
             }
-            node.ret = node.right->ret;
+            if(auto rightVar = std::dynamic_pointer_cast<IRVar>(node.right->ret)){
+                bool borrowDeref = false;
+                if(auto *rightDeref = dynamic_cast<ExprOpunary *>(& *node.right)){
+                    borrowDeref = rightDeref->op == DEREFERENCE;
+                }
+                if(borrowDeref && std::dynamic_pointer_cast<IRPtrType>(rightVar->type)){
+                    node.ret = rightVar;
+                }else{
+                    auto ptrValue = std::make_shared<IRVar>();
+                    ptrValue->type = std::make_shared<IRPtrType>(rightVar->type);
+                    auto moveInstr = std::make_shared<IRStore>();
+                    moveInstr->valueType = ptrValue->type;
+                    moveInstr->storeValue = rightVar;
+                    moveInstr->address = ptrValue;
+                    moveInstr->w64tag = true;
+                    if(block->blockList.empty()){
+                        block->instrList.push_back(moveInstr);
+                    }else{
+                        block->blockList[block->blockList.size() - 1]->instrList.push_back(moveInstr);
+                    }
+                    node.ret = ptrValue;
+                }
+            }else{
+                node.ret = node.right->ret;
+            }
+            node.is_lvalue = true;
         }
         return block;
     }
