@@ -1953,7 +1953,18 @@ public:
             }
         }
         if(auto var = std::dynamic_pointer_cast<IRVar>(node.name->ret)){
-            if(auto *arrayType = dynamic_cast<IRArrayType *>(& *var->type)){
+            if(var->isPtrStorage && std::dynamic_pointer_cast<IRPtrType>(var->type)){
+                var = valueFromPtrStorage(var, block);
+            }
+            std::shared_ptr<IRArrayType> arrayType = nullptr;
+            std::shared_ptr<IRType> baseType = var->type;
+            if(auto ptrType = std::dynamic_pointer_cast<IRPtrType>(var->type)){
+                baseType = ptrType->baseType;
+            }
+            if(auto arr = std::dynamic_pointer_cast<IRArrayType>(baseType)){
+                arrayType = arr;
+            }
+            if(arrayType){
                 auto getptrInstr = std::make_shared<IRGetptr>();
                 getptrInstr->base = var;
                 if(auto indexVar = std::dynamic_pointer_cast<IRVar>(node.index->ret)){
@@ -1961,7 +1972,7 @@ public:
                 }else if(auto *indexLiteral = dynamic_cast<IRLiteral *>(& *node.index->ret)){
                     getptrInstr->offset = indexLiteral->intValue;
                 }
-                getptrInstr->type = var->type;
+                getptrInstr->type = baseType;
                 auto resVar = std::make_shared<IRVar>();
                 resVar->type = arrayType->elementType;
                 if(std::dynamic_pointer_cast<IRPtrType>(resVar->type)){
