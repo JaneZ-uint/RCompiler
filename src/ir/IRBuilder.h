@@ -246,6 +246,15 @@ public:
         return false;
     }
 
+    void appendToLastBlock(const std::shared_ptr<IRBlock> &block,
+                           const std::shared_ptr<IRNode> &instr){
+        if(block->blockList.empty()){
+            block->instrList.push_back(instr);
+        }else{
+            block->blockList[block->blockList.size() - 1]->instrList.push_back(instr);
+        }
+    }
+
     std::shared_ptr<IRVar> valueFromPtrStorage(const std::shared_ptr<IRVar> &argVar,
                                                const std::shared_ptr<IRBlock> &block){
         if(!argVar || !argVar->isPtrStorage){
@@ -258,12 +267,48 @@ public:
         loadInstr->addressVar = argVar;
         loadInstr->type = argVar->type;
         loadInstr->w64tag = true;
-        if(block->blockList.empty()){
-            block->instrList.push_back(loadInstr);
-        }else{
-            block->blockList[block->blockList.size() - 1]->instrList.push_back(loadInstr);
-        }
+        appendToLastBlock(block, loadInstr);
         return ptrValue;
+    }
+
+    void storeLetIfResult(const std::shared_ptr<IRBlock> &targetBlock,
+                          const std::shared_ptr<IRVar> &currentVar,
+                          const std::shared_ptr<IRValue> &value){
+        if(!currentVar || !currentVar->type){
+            return;
+        }
+        if(auto *intType = dynamic_cast<IRIntType *>(& *currentVar->type)){
+            auto storeInstr = std::make_shared<IRStore>();
+            storeInstr->valueType = currentVar->type;
+            if(auto literal = std::dynamic_pointer_cast<IRLiteral>(value)){
+                storeInstr->storeLiteral = literal;
+            }else if(auto var = std::dynamic_pointer_cast<IRVar>(value)){
+                storeInstr->storeValue = var;
+            }
+            storeInstr->address = currentVar;
+            if(currentVar->isW64Stack){
+                storeInstr->w64tag = true;
+            }
+            appendToLastBlock(targetBlock, storeInstr);
+        }else if(auto ptrType = std::dynamic_pointer_cast<IRPtrType>(currentVar->type)){
+            auto storeInstr = std::make_shared<IRStore>();
+            storeInstr->valueType = currentVar->type;
+            if(auto var = std::dynamic_pointer_cast<IRVar>(value)){
+                storeInstr->storeValue = valueFromPtrStorage(var, targetBlock);
+            }
+            storeInstr->address = currentVar;
+            storeInstr->w64tag = true;
+            currentVar->isPtrStorage = true;
+            appendToLastBlock(targetBlock, storeInstr);
+        }else{
+            auto memcpyInstr = std::make_shared<IRMemcpy>();
+            memcpyInstr->dest = currentVar;
+            if(auto var = std::dynamic_pointer_cast<IRVar>(value)){
+                memcpyInstr->value = var;
+            }
+            memcpyInstr->size = currentVar->type->size;
+            appendToLastBlock(targetBlock, memcpyInstr);
+        }
     }
 
     std::shared_ptr<IRType> inferIfPhiType(ExprIf &node,
@@ -670,7 +715,7 @@ public:
                     auto storeInstr = std::make_shared<IRStore>();
                     storeInstr->valueType = resVar->type;
                     storeInstr->address = getptrInstr->res;
-                    storeInstr->storeValue = var;
+                    storeInstr->storeValue = valueFromPtrStorage(var, assignBlock);
                     storeInstr->w64tag = true;
                     assignBlock->instrList.push_back(storeInstr);
                 }else{
@@ -827,7 +872,7 @@ public:
                         auto storeInstr = std::make_shared<IRStore>();
                         storeInstr->valueType = resVar->type;
                         storeInstr->address = getptrInstr->res;
-                        storeInstr->storeValue = var;
+                        storeInstr->storeValue = valueFromPtrStorage(var, block);
                         if(arrayType == currentScope->lookupTypeSymbol("usize") ||
                            arrayType == currentScope->lookupTypeSymbol("isize") ||
                            std::dynamic_pointer_cast<IRPtrType>(arrayType)){
@@ -1117,6 +1162,10 @@ public:
         }
         auto obj = node.expr->ret;
         if(auto var = std::dynamic_pointer_cast<IRVar>(obj)){
+            if(var->isPtrStorage && std::dynamic_pointer_cast<IRPtrType>(var->type)){
+                var = valueFromPtrStorage(var, block);
+                obj = var;
+            }
             if(auto structType = std::dynamic_pointer_cast<IRStructType>(var->type)){
                 for(int i = 0;i < structType->memberTypes.size();i ++){
                     auto & member = structType->memberTypes[i];
@@ -3743,7 +3792,7 @@ public:
                                 }else if(auto *ptrType = dynamic_cast<IRPtrType *>(& *q->memberTypes[i].second)){
                                     auto storeInstr = std::make_shared<IRStore>();
                                     storeInstr->valueType = q->memberTypes[i].second;
-                                    storeInstr->storeValue = initVar;
+                                    storeInstr->storeValue = valueFromPtrStorage(initVar, block);
                                     storeInstr->address = ptrres;
                                     storeInstr->w64tag = true;
                                     if(block->blockList.empty()){
@@ -4477,7 +4526,7 @@ public:
                     if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.expression->ret)){
                         storeInstr->storeLiteral = literal;
                     }else if(auto var = std::dynamic_pointer_cast<IRVar>(node.expression->ret)){
-                        storeInstr->storeValue = var;
+                        storeInstr->storeValue = valueFromPtrStorage(var, block);
                     }
                     storeInstr->address = currentVar;
                     storeInstr->w64tag = true; // pointer is 64-bit
@@ -4532,6 +4581,8 @@ public:
            varType == currentScope->lookupTypeSymbol("isize")){
             allocaInstr2->w64tag = true;
             currentVar->isW64Stack = true;
+        }else if(std::dynamic_pointer_cast<IRPtrType>(varType)){
+            currentVar->isPtrStorage = true;
         }
         block->instrList.push_back(allocaInstr2);
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.expression)){
@@ -4654,6 +4705,10 @@ public:
             if(node.thenBlock->ExpressionWithoutBlock){
                 if(auto *tp = dynamic_cast<IRStructType *>(& *currentVar->type)){
                     node.thenBlock->ExpressionWithoutBlock->is_lvalue = true;
+                }else if(auto *tp = dynamic_cast<IRArrayType *>(& *currentVar->type)){
+                    node.thenBlock->ExpressionWithoutBlock->is_lvalue = true;
+                }else if(auto *tp = dynamic_cast<IRPtrType *>(& *currentVar->type)){
+                    node.thenBlock->ExpressionWithoutBlock->is_lvalue = true;
                 }
                 auto thenInstrs = visit(*node.thenBlock->ExpressionWithoutBlock);
                 if(thenInstrs){
@@ -4666,28 +4721,7 @@ public:
                         }
                     }
                 }
-                if(auto *intType = dynamic_cast<IRIntType *>(& *currentVar->type)){
-                    auto storeInstr = std::make_shared<IRStore>();
-                    storeInstr->valueType = currentVar->type;
-                    if(auto literal = std::dynamic_pointer_cast<IRLiteral>(node.thenBlock->ExpressionWithoutBlock->ret)){
-                        storeInstr->storeLiteral = literal;
-                    }else if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
-                        storeInstr->storeValue = var;
-                    }
-                    storeInstr->address = currentVar;
-                    if(currentVar->isW64Stack){
-                        storeInstr->w64tag = true;
-                    }
-                    thenBlock->instrList.push_back(storeInstr);
-                }else{
-                    auto memcpyInstr = std::make_shared<IRMemcpy>();
-                    memcpyInstr->dest = currentVar;
-                    if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
-                        memcpyInstr->value = var;   
-                    }
-                    memcpyInstr->size = currentVar->type->size;
-                    thenBlock->instrList.push_back(memcpyInstr);
-                }
+                storeLetIfResult(thenBlock, currentVar, node.thenBlock->ExpressionWithoutBlock->ret);
             }
         }
         currentScope = currentScope->parent;
@@ -4712,6 +4746,10 @@ public:
                 if(elseblk->ExpressionWithoutBlock){
                     if(auto *tp = dynamic_cast<IRStructType *>(& *currentVar->type)){
                         elseblk->ExpressionWithoutBlock->is_lvalue = true;
+                    }else if(auto *tp = dynamic_cast<IRArrayType *>(& *currentVar->type)){
+                        elseblk->ExpressionWithoutBlock->is_lvalue = true;
+                    }else if(auto *tp = dynamic_cast<IRPtrType *>(& *currentVar->type)){
+                        elseblk->ExpressionWithoutBlock->is_lvalue = true;
                     }
                     auto elseInstrs = visit(*elseblk->ExpressionWithoutBlock);
                     if(elseInstrs){
@@ -4724,28 +4762,7 @@ public:
                             }
                         }
                     }
-                    if(auto *intType = dynamic_cast<IRIntType *>(& *currentVar->type)){
-                        auto storeInstr = std::make_shared<IRStore>();
-                        storeInstr->valueType = currentVar->type;
-                        if(auto literal = std::dynamic_pointer_cast<IRLiteral>(elseblk->ExpressionWithoutBlock->ret)){
-                            storeInstr->storeLiteral = literal;
-                        }else if(auto var = std::dynamic_pointer_cast<IRVar>(elseblk->ExpressionWithoutBlock->ret)){
-                            storeInstr->storeValue = var;
-                        }
-                        storeInstr->address = currentVar;
-                        if(currentVar->isW64Stack){
-                            storeInstr->w64tag = true;
-                        }
-                        elseBlock->instrList.push_back(storeInstr);
-                    }else{
-                        auto memcpyInstr = std::make_shared<IRMemcpy>();
-                        memcpyInstr->dest = currentVar;
-                        if(auto var = std::dynamic_pointer_cast<IRVar>(elseblk->ExpressionWithoutBlock->ret)){
-                            memcpyInstr->value = var;   
-                        }
-                        memcpyInstr->size = currentVar->type->size;
-                        elseBlock->instrList.push_back(memcpyInstr);
-                    }
+                    storeLetIfResult(elseBlock, currentVar, elseblk->ExpressionWithoutBlock->ret);
                 }
             }else if(auto *ifelse = dynamic_cast<ExprIf *>(& *node.elseBlock)){
                 auto blk = letIf(*ifelse, currentVar);
