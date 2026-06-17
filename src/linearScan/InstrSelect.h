@@ -105,16 +105,30 @@ public:
         int vr = materialize(val);
         if (auto intType = std::dynamic_pointer_cast<IRIntType>(expectedType)) {
             if (intType->isUnsigned && intType->bitWidth == 32) {
-                emitZeroExtend32(vr);
+                int dst = freshVReg();
+                ASMInstr mv;
+                mv.op = ASMOp::MV;
+                mv.rd = Operand(OperandType::REG, dst);
+                mv.rs1 = Operand(OperandType::REG, vr);
+                currentBlock->instrs.push_back(mv);
+                emitZeroExtend32(dst);
+                vr = dst;
             } else if (intType->bitWidth == 64) {
                 if (auto var = std::dynamic_pointer_cast<IRVar>(val)) {
                     if (auto srcType = std::dynamic_pointer_cast<IRIntType>(var->type)) {
                         if (srcType->bitWidth == 32) {
+                            int dst = freshVReg();
+                            ASMInstr mv;
+                            mv.op = ASMOp::MV;
+                            mv.rd = Operand(OperandType::REG, dst);
+                            mv.rs1 = Operand(OperandType::REG, vr);
+                            currentBlock->instrs.push_back(mv);
                             if (srcType->isUnsigned) {
-                                emitZeroExtend32(vr);
+                                emitZeroExtend32(dst);
                             } else {
-                                emitSignExtend32(vr);
+                                emitSignExtend32(dst);
                             }
+                            vr = dst;
                         }
                     }
                 }
@@ -161,6 +175,32 @@ public:
             add.rs2 = Operand(OperandType::REG, 31);
             currentBlock->instrs.push_back(add);
         }
+    }
+
+    int materializeSpOffset(int offset) {
+        int dst = freshVReg();
+        if (offset >= -2048 && offset <= 2047) {
+            ASMInstr addi;
+            addi.op = ASMOp::ADDI;
+            addi.rd = Operand(OperandType::REG, dst);
+            addi.rs1 = Operand(OperandType::REG, 2);
+            addi.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(addi);
+        } else {
+            int tmp = freshVReg();
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, tmp);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, dst);
+            add.rs1 = Operand(OperandType::REG, 2);
+            add.rs2 = Operand(OperandType::REG, tmp);
+            currentBlock->instrs.push_back(add);
+        }
+        return dst;
     }
 
     void emitStackStore(int src, int baseReg, int offset) {
@@ -892,19 +932,21 @@ public:
         int totalParams = op->pList->paramList.size();
         int regParams = std::min(totalParams, 8);
 
-        // Stack args (>8)
+        // Stack args (>8). Keep sp stable while materializing arguments so
+        // spill reloads/stores inserted by register allocation still address
+        // this function's frame correctly.
         int stackBytes = 0;
         if (totalParams > 8) {
             int rawStackBytes = (totalParams - 8) * RISCV_XLEN_BYTES;
             stackBytes = (rawStackBytes + 15) / 16 * 16;
-            emitAdjustSp(-stackBytes);
+            int outgoingBase = materializeSpOffset(-stackBytes);
 
             for (int i = 8; i < totalParams; i++) {
                 auto expectedType = (op->function && i < (int)op->function->typeList.size())
                     ? op->function->typeList[i]
                     : nullptr;
                 int src = materializeAs(op->pList->paramList[i], expectedType);
-                emitStackStore(src, 2, (i - 8) * RISCV_XLEN_BYTES);
+                emitStackStore(src, outgoingBase, (i - 8) * RISCV_XLEN_BYTES);
             }
         }
 
@@ -924,6 +966,10 @@ public:
             mv.rd = Operand(OperandType::REG, 10 + i); // a0-a7
             mv.rs1 = Operand(OperandType::REG, regArgSources[i]);
             currentBlock->instrs.push_back(mv);
+        }
+
+        if (totalParams > 8) {
+            emitAdjustSp(-stackBytes);
         }
 
         ASMInstr call;
