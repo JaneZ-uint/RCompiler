@@ -271,6 +271,19 @@ public:
         return ptrValue;
     }
 
+    std::shared_ptr<IRBlock> visitForReturnValue(Expression &expr){
+        if(activeIRFunc && std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)){
+            expr.is_lvalue = true;
+        }
+        auto block = visit(expr);
+        if(activeIRFunc && std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)){
+            if(auto var = std::dynamic_pointer_cast<IRVar>(expr.ret)){
+                expr.ret = valueFromPtrStorage(var, block);
+            }
+        }
+        return block;
+    }
+
     void storeLetIfResult(const std::shared_ptr<IRBlock> &targetBlock,
                           const std::shared_ptr<IRVar> &currentVar,
                           const std::shared_ptr<IRValue> &value){
@@ -1408,7 +1421,7 @@ public:
                 if(structRetVar){
                     node.thenBlock->ExpressionWithoutBlock->is_lvalue = true;
                 }
-                auto retExprInstrs = visit(*node.thenBlock->ExpressionWithoutBlock);
+                auto retExprInstrs = visitForReturnValue(*node.thenBlock->ExpressionWithoutBlock);
                 if(retExprInstrs){
                     if(thenBlock->blockList.empty()){
                         for(auto & instr : retExprInstrs->instrList){
@@ -1445,7 +1458,8 @@ public:
                 }else{
                     auto returnInstr = std::make_shared<IRReturn>();
                     auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
-                                            std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                                            (std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType) ||
+                                             std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)))
                         ? activeIRFunc->retType
                         : nullptr;
                     if(auto var = std::dynamic_pointer_cast<IRVar>(node.thenBlock->ExpressionWithoutBlock->ret)){
@@ -1575,7 +1589,7 @@ public:
                     if(structRetVar){
                         blockExpr->ExpressionWithoutBlock->is_lvalue = true;
                     }
-                    auto retExprInstrs = visit(*blockExpr->ExpressionWithoutBlock);
+                    auto retExprInstrs = visitForReturnValue(*blockExpr->ExpressionWithoutBlock);
                     if(retExprInstrs){
                         if(elseBlock->blockList.empty()){
                             for(auto & instr : retExprInstrs->instrList){
@@ -1612,7 +1626,8 @@ public:
                     }else{
                         auto returnInstr = std::make_shared<IRReturn>();
                         auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
-                                                std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                                                (std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType) ||
+                                                 std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)))
                             ? activeIRFunc->retType
                             : nullptr;
                         if(auto var = std::dynamic_pointer_cast<IRVar>(blockExpr->ExpressionWithoutBlock->ret)){
@@ -3626,7 +3641,7 @@ public:
                     node.expr->is_lvalue = true;
                 }
             }
-            auto rightInstr = visit(*node.expr);
+            auto rightInstr = visitForReturnValue(*node.expr);
             if(rightInstr){
                 for(auto & instr : rightInstr->instrList){
                     block->instrList.push_back(instr);
@@ -3649,11 +3664,13 @@ public:
             if(isReturn){
                 auto returnInstr = std::make_shared<IRReturn>();
                 auto expectedRetType = (activeIRFunc && activeIRFunc->retType &&
-                                        std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType))
+                                        (std::dynamic_pointer_cast<IRIntType>(activeIRFunc->retType) ||
+                                         std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)))
                     ? activeIRFunc->retType
                     : nullptr;
                 if(auto irVar = std::dynamic_pointer_cast<IRVar>(res)){
-                    if(irVar->type == currentScope->lookupTypeSymbol("BOOL")){
+                    if(irVar->type == currentScope->lookupTypeSymbol("BOOL") &&
+                       expectedRetType && std::dynamic_pointer_cast<IRIntType>(expectedRetType)){
                         //need zext
                         auto zextVar = std::make_shared<IRVar>();
                         zextVar->type = expectedRetType ? expectedRetType : currentScope->lookupTypeSymbol("bool");
@@ -4271,7 +4288,7 @@ public:
                 }else if(auto *arrayTP = dynamic_cast<IRArrayType *>(& *currentIRFunc->retType)){
                     node.fnBody->ExpressionWithoutBlock->is_lvalue = true;
                 }
-                auto exprInstrs = visit(*node.fnBody->ExpressionWithoutBlock);
+                auto exprInstrs = visitForReturnValue(*node.fnBody->ExpressionWithoutBlock);
                 if(exprInstrs){
                     if(currentIRFunc->body->blockList.size() == 0){
                         for(auto & instr : exprInstrs->instrList){
@@ -4289,12 +4306,14 @@ public:
                         }
                     }
                 }
-                if(auto *retType = dynamic_cast<IRIntType *>(& *currentIRFunc->retType)){
+                if(std::dynamic_pointer_cast<IRIntType>(currentIRFunc->retType) ||
+                   std::dynamic_pointer_cast<IRPtrType>(currentIRFunc->retType)){
                     auto returnInstr = std::make_shared<IRReturn>();
                     returnInstr->returnType = currentIRFunc->retType;
                     if(auto retVar = std::dynamic_pointer_cast<IRVar>(node.fnBody->ExpressionWithoutBlock->ret)){
                         returnInstr->returnValue = retVar;
-                        if(retVar->type == currentScope->lookupTypeSymbol("BOOL")){
+                        if(retVar->type == currentScope->lookupTypeSymbol("BOOL") &&
+                           std::dynamic_pointer_cast<IRIntType>(currentIRFunc->retType)){
                             auto zextInstr = std::make_shared<IRZext>();
                             zextInstr->originalType = retVar->type;
                             zextInstr->targetType = currentIRFunc->retType;
