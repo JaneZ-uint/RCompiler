@@ -321,7 +321,7 @@ public:
             return argVar;
         }
         auto ptrType = std::dynamic_pointer_cast<IRPtrType>(argVar->type);
-        if(argVar->isPtrBindingSlot && ptrType && sameTypeShape(ptrType->baseType, expectedType)){
+        if(ptrType && sameTypeShape(ptrType->baseType, expectedType)){
             auto source = argVar->isPtrStorage ? valueFromPtrStorage(argVar, block) : argVar;
             auto tmp = std::make_shared<IRVar>();
             tmp->type = expectedType;
