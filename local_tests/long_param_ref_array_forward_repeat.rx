@@ -1,0 +1,200 @@
+struct Pair {
+    a: usize,
+    b: bool,
+}
+
+fn leaf(
+    a0: i32,
+    a1: usize,
+    a2: u32,
+    a3: bool,
+    a4: isize,
+    a5: i32,
+    a6: usize,
+    a7: bool,
+    repeat_ro: [&usize; 16],
+    mut repeat_mut: [&mut usize; 8],
+    nested_ro: [[&usize; 2]; 2],
+    mut nested_mut: [[&mut usize; 2]; 2],
+    pair_ro: [&Pair; 3],
+    mut pair_mut: [&mut Pair; 2],
+    arr_ro: [&[usize; 4]; 3],
+    mut arr_mut: [&mut [usize; 4]; 2],
+    ref_to_refs: &[&usize; 16],
+    mut ref_to_mut_refs: &mut [&mut usize; 8],
+    tail0: [&bool; 4],
+    mut tail1: [&mut bool; 4],
+    tail2: usize,
+    tail3: &usize
+) -> usize {
+    let mut score: usize = 0usize;
+    if (a0 == -1) { score += 1usize; }
+    if (a1 == 4294967296usize + 2usize) { score += 2usize; }
+    if (a2 == 2147483651u32) { score += 4usize; }
+    if (a3 == true) { score += 8usize; }
+    if (a4 == -5isize) { score += 16usize; }
+    if (a5 == 6) { score += 32usize; }
+    if (a6 == 4294967296usize + 7usize) { score += 64usize; }
+    if (a7 == false) { score += 128usize; }
+
+    if (*repeat_ro[15] == 4294967296usize + 100usize) { score += 3usize; }
+    *repeat_mut[7] += *repeat_ro[0];
+    if (*repeat_mut[7] == 8589934896usize) { score += 5usize; }
+
+    if (*nested_ro[1][0] == 4294967296usize + 201usize) { score += 7usize; }
+    *nested_mut[0][1] += *nested_ro[0][0];
+    if (*nested_mut[0][1] == 8589935216usize) { score += 11usize; }
+
+    if (pair_ro[2].a == 4294967296usize + 302usize) { score += 13usize; }
+    pair_mut[1].a += 17usize;
+    pair_mut[0].b = false;
+    if (pair_mut[1].a == 4294967296usize + 417usize) { score += 19usize; }
+
+    if (arr_ro[2][3] == 4294967296usize + 603usize) { score += 23usize; }
+    arr_mut[1][2] += 29usize;
+    if (arr_mut[1][2] == 4294967296usize + 729usize) { score += 31usize; }
+
+    if (*ref_to_refs[8] == 4294967296usize + 100usize) { score += 37usize; }
+    *ref_to_mut_refs[3] += 41usize;
+    if (*ref_to_mut_refs[3] == 4294967296usize + 841usize) { score += 43usize; }
+
+    if (*tail0[2] == true) { score += 47usize; }
+    *tail1[1] = false;
+    if (*tail1[1] == false) { score += 53usize; }
+    if (tail2 == 4294967296usize + 900usize) { score += 59usize; }
+    if (*tail3 == 4294967296usize + 901usize) { score += 61usize; }
+    return score;
+}
+
+fn middle(
+    b0: i32,
+    b1: usize,
+    b2: u32,
+    b3: bool,
+    b4: isize,
+    b5: i32,
+    b6: usize,
+    b7: bool,
+    repeat_ro: [&usize; 16],
+    repeat_mut: [&mut usize; 8],
+    nested_ro: [[&usize; 2]; 2],
+    nested_mut: [[&mut usize; 2]; 2],
+    pair_ro: [&Pair; 3],
+    pair_mut: [&mut Pair; 2],
+    arr_ro: [&[usize; 4]; 3],
+    arr_mut: [&mut [usize; 4]; 2],
+    ref_to_refs: &[&usize; 16],
+    ref_to_mut_refs: &mut [&mut usize; 8],
+    tail0: [&bool; 4],
+    tail1: [&mut bool; 4],
+    tail2: usize,
+    tail3: &usize
+) -> usize {
+    return leaf(
+        b0, b1, b2, b3, b4, b5, b6, b7,
+        repeat_ro,
+        repeat_mut,
+        nested_ro,
+        nested_mut,
+        pair_ro,
+        pair_mut,
+        arr_ro,
+        arr_mut,
+        ref_to_refs,
+        ref_to_mut_refs,
+        tail0,
+        tail1,
+        tail2,
+        tail3
+    );
+}
+
+fn main() {
+    let one: usize = 4294967296usize + 100usize;
+    let repeat_ro: [&usize; 16] = [&one; 16];
+
+    let mut rm0: usize = 4294967296usize + 700usize;
+    let mut rm1: usize = 4294967296usize + 701usize;
+    let mut rm2: usize = 4294967296usize + 702usize;
+    let mut rm3: usize = 4294967296usize + 800usize;
+    let mut rm4: usize = 4294967296usize + 704usize;
+    let mut rm5: usize = 4294967296usize + 705usize;
+    let mut rm6: usize = 4294967296usize + 706usize;
+    let mut rm7: usize = 4294967296usize + 1500usize;
+    let mut repeat_mut: [&mut usize; 8] = [&mut rm0, &mut rm1, &mut rm2, &mut rm3, &mut rm4, &mut rm5, &mut rm6, &mut rm7];
+
+    let n0: usize = 4294967296usize + 200usize;
+    let n1: usize = 4294967296usize + 201usize;
+    let n2: usize = 4294967296usize + 202usize;
+    let n3: usize = 4294967296usize + 203usize;
+    let nested_ro: [[&usize; 2]; 2] = [[&n0, &n2], [&n1, &n3]];
+
+    let mut nm0: usize = 4294967296usize + 1000usize;
+    let mut nm1: usize = 4294967296usize + 1720usize;
+    let mut nm2: usize = 4294967296usize + 1002usize;
+    let mut nm3: usize = 4294967296usize + 1003usize;
+    let nested_mut: [[&mut usize; 2]; 2] = [[&mut nm0, &mut nm1], [&mut nm2, &mut nm3]];
+
+    let p0: Pair = Pair { a: 4294967296usize + 300usize, b: true };
+    let p1: Pair = Pair { a: 4294967296usize + 301usize, b: false };
+    let p2: Pair = Pair { a: 4294967296usize + 302usize, b: true };
+    let pair_ro: [&Pair; 3] = [&p0, &p1, &p2];
+    let mut mp0: Pair = Pair { a: 4294967296usize + 400usize, b: true };
+    let mut mp1: Pair = Pair { a: 4294967296usize + 400usize, b: true };
+    let pair_mut: [&mut Pair; 2] = [&mut mp0, &mut mp1];
+
+    let ar0: [usize; 4] = [4294967296usize + 500usize, 1usize, 2usize, 3usize];
+    let ar1: [usize; 4] = [4usize, 5usize, 6usize, 7usize];
+    let ar2: [usize; 4] = [8usize, 9usize, 10usize, 4294967296usize + 603usize];
+    let arr_ro: [&[usize; 4]; 3] = [&ar0, &ar1, &ar2];
+    let mut am0: [usize; 4] = [4294967296usize + 600usize, 1usize, 2usize, 3usize];
+    let mut am1: [usize; 4] = [4usize, 5usize, 4294967296usize + 700usize, 7usize];
+    let arr_mut: [&mut [usize; 4]; 2] = [&mut am0, &mut am1];
+
+    let f0: bool = false;
+    let f1: bool = false;
+    let f2: bool = true;
+    let f3: bool = false;
+    let tail0: [&bool; 4] = [&f0, &f1, &f2, &f3];
+    let mut mf0: bool = true;
+    let mut mf1: bool = true;
+    let mut mf2: bool = false;
+    let mut mf3: bool = true;
+    let tail1: [&mut bool; 4] = [&mut mf0, &mut mf1, &mut mf2, &mut mf3];
+
+    let t3: usize = 4294967296usize + 901usize;
+    let ans: usize = middle(
+        -1,
+        4294967296usize + 2usize,
+        2147483651u32,
+        true,
+        -5isize,
+        6,
+        4294967296usize + 7usize,
+        false,
+        repeat_ro,
+        repeat_mut,
+        nested_ro,
+        nested_mut,
+        pair_ro,
+        pair_mut,
+        arr_ro,
+        arr_mut,
+        &repeat_ro,
+        &mut repeat_mut,
+        tail0,
+        tail1,
+        4294967296usize + 900usize,
+        &t3
+    );
+
+    printlnInt(ans as i32);
+    printlnInt(rm7 as i32);
+    printlnInt(nm1 as i32);
+    printlnInt(mp1.a as i32);
+    printlnInt(mp0.b as i32);
+    printlnInt(am1[2] as i32);
+    printlnInt(rm3 as i32);
+    printlnInt(mf1 as i32);
+    exit(0);
+}

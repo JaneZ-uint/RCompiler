@@ -1,0 +1,142 @@
+struct Pair {
+    x: usize,
+    y: bool,
+}
+
+struct Ret {
+    sum: usize,
+    a: [usize; 3],
+    ok: bool,
+}
+
+struct Boxy {
+    base: usize,
+}
+
+impl Boxy {
+    fn collect(
+        &self,
+        a0: i32,
+        a1: usize,
+        a2: u32,
+        a3: bool,
+        a4: isize,
+        a5: i32,
+        a6: bool,
+        a7: usize,
+        refs: [&usize; 5],
+        mut muts: [&mut usize; 5],
+        pairs: [&Pair; 3],
+        mut mpairs: [&mut Pair; 3],
+        arrays: [&[usize; 3]; 3],
+        mut marrays: [&mut [usize; 3]; 3],
+        bools: [&bool; 3],
+        mut mbools: [&mut bool; 3],
+        tail: usize
+    ) -> Ret {
+        let mut score: usize = self.base;
+        if (a0 == -10) { score += 1usize; }
+        if (a1 == 4294967296usize + 11usize) { score += 2usize; }
+        if (a2 == 2147483652u32) { score += 4usize; }
+        if (a3 == true) { score += 8usize; }
+        if (a4 == -12isize) { score += 16usize; }
+        if (a5 == 13) { score += 32usize; }
+        if (a6 == false) { score += 64usize; }
+        if (a7 == 4294967296usize + 17usize) { score += 128usize; }
+        if (*refs[4] == 4294967296usize + 104usize) { score += 3usize; }
+        *muts[3] += *refs[1];
+        if (*muts[3] == 8589935101usize) { score += 5usize; }
+        if (pairs[2].x == 4294967296usize + 202usize) { score += 7usize; }
+        mpairs[1].x += 11usize;
+        mpairs[2].y = false;
+        if (mpairs[1].x == 4294967296usize + 311usize) { score += 13usize; }
+        if (arrays[1][2] == 4294967296usize + 402usize) { score += 17usize; }
+        marrays[2][0] += 19usize;
+        if (marrays[2][0] == 4294967296usize + 619usize) { score += 23usize; }
+        if (*bools[0] == true) { score += 29usize; }
+        *mbools[2] = false;
+        if (*mbools[2] == false) { score += 31usize; }
+        if (tail == 4294967296usize + 900usize) { score += 37usize; }
+        return Ret {
+            sum: score,
+            a: [*refs[0], *muts[3], marrays[2][0]],
+            ok: mpairs[2].y,
+        };
+    }
+}
+
+fn main() {
+    let obj: Boxy = Boxy { base: 1000usize };
+
+    let r0: usize = 4294967296usize + 100usize;
+    let r1: usize = 4294967296usize + 101usize;
+    let r2: usize = 4294967296usize + 102usize;
+    let r3: usize = 4294967296usize + 103usize;
+    let r4: usize = 4294967296usize + 104usize;
+    let refs: [&usize; 5] = [&r0, &r1, &r2, &r3, &r4];
+
+    let mut m0: usize = 4294967296usize + 700usize;
+    let mut m1: usize = 4294967296usize + 701usize;
+    let mut m2: usize = 4294967296usize + 702usize;
+    let mut m3: usize = 4294967296usize + 1704usize;
+    let mut m4: usize = 4294967296usize + 704usize;
+    let muts: [&mut usize; 5] = [&mut m0, &mut m1, &mut m2, &mut m3, &mut m4];
+
+    let p0: Pair = Pair { x: 4294967296usize + 200usize, y: true };
+    let p1: Pair = Pair { x: 4294967296usize + 201usize, y: false };
+    let p2: Pair = Pair { x: 4294967296usize + 202usize, y: true };
+    let pairs: [&Pair; 3] = [&p0, &p1, &p2];
+    let mut mp0: Pair = Pair { x: 4294967296usize + 300usize, y: true };
+    let mut mp1: Pair = Pair { x: 4294967296usize + 300usize, y: true };
+    let mut mp2: Pair = Pair { x: 4294967296usize + 302usize, y: true };
+    let mpairs: [&mut Pair; 3] = [&mut mp0, &mut mp1, &mut mp2];
+
+    let a0: [usize; 3] = [4294967296usize + 400usize, 1usize, 2usize];
+    let a1: [usize; 3] = [3usize, 4usize, 4294967296usize + 402usize];
+    let a2: [usize; 3] = [5usize, 6usize, 7usize];
+    let arrays: [&[usize; 3]; 3] = [&a0, &a1, &a2];
+    let mut ma0: [usize; 3] = [4294967296usize + 500usize, 1usize, 2usize];
+    let mut ma1: [usize; 3] = [3usize, 4usize, 5usize];
+    let mut ma2: [usize; 3] = [4294967296usize + 600usize, 6usize, 7usize];
+    let marrays: [&mut [usize; 3]; 3] = [&mut ma0, &mut ma1, &mut ma2];
+
+    let b0: bool = true;
+    let b1: bool = false;
+    let b2: bool = true;
+    let bools: [&bool; 3] = [&b0, &b1, &b2];
+    let mut mb0: bool = true;
+    let mut mb1: bool = true;
+    let mut mb2: bool = true;
+    let mbools: [&mut bool; 3] = [&mut mb0, &mut mb1, &mut mb2];
+
+    let ret: Ret = obj.collect(
+        -10,
+        4294967296usize + 11usize,
+        2147483652u32,
+        true,
+        -12isize,
+        13,
+        false,
+        4294967296usize + 17usize,
+        refs,
+        muts,
+        pairs,
+        mpairs,
+        arrays,
+        marrays,
+        bools,
+        mbools,
+        4294967296usize + 900usize
+    );
+    printlnInt(ret.sum as i32);
+    printlnInt(ret.a[0] as i32);
+    printlnInt(ret.a[1] as i32);
+    printlnInt(ret.a[2] as i32);
+    printlnInt(ret.ok as i32);
+    printlnInt(m3 as i32);
+    printlnInt(mp1.x as i32);
+    printlnInt(mp2.y as i32);
+    printlnInt(ma2[0] as i32);
+    printlnInt(mb2 as i32);
+    exit(0);
+}

@@ -1,0 +1,161 @@
+struct Pair {
+    x: usize,
+    y: u32,
+    z: bool,
+}
+
+fn check(
+    d0: i32,
+    d1: usize,
+    d2: u32,
+    d3: bool,
+    d4: isize,
+    d5: i32,
+    d6: bool,
+    d7: usize,
+    ri32: & &mut i32,
+    ru32: & &mut u32,
+    risize: & &mut isize,
+    rusize: & &mut usize,
+    rbool: & &mut bool,
+    rpair: & &mut Pair,
+    rarr: & &mut [usize; 3],
+    mri32: &mut &mut i32,
+    mru32: &mut &mut u32,
+    mrisize: &mut &mut isize,
+    mrusize: &mut &mut usize,
+    mrbool: &mut &mut bool,
+    mrpair: &mut &mut Pair,
+    mrarr: &mut &mut [usize; 3],
+    tail0: usize,
+    tail1: & &mut usize
+) -> usize {
+    let mut score: usize = 0usize;
+    if (d0 == -1) { score += 1usize; }
+    if (d1 == 4294967296usize + 2usize) { score += 2usize; }
+    if (d2 == 2147483653u32) { score += 4usize; }
+    if (d3 == true) { score += 8usize; }
+    if (d4 == -5isize) { score += 16usize; }
+    if (d5 == 6) { score += 32usize; }
+    if (d6 == false) { score += 64usize; }
+    if (d7 == 4294967296usize + 7usize) { score += 128usize; }
+
+    **ri32 += 3;
+    if (**ri32 == 13) { score += 3usize; }
+    **ru32 += 5u32;
+    if (**ru32 == 2147483655u32) { score += 5usize; }
+    **risize -= 7isize;
+    if (**risize == -17isize) { score += 7usize; }
+    **rusize += 11usize;
+    if (**rusize == 4294967296usize + 111usize) { score += 11usize; }
+    **rbool = false;
+    if (**rbool == false) { score += 13usize; }
+
+    (**rpair).x += 17usize;
+    (**rpair).z = false;
+    if ((**rpair).x == 4294967296usize + 217usize) { score += 17usize; }
+    (**rarr)[1] += 19usize;
+    if ((**rarr)[1] == 4294967296usize + 319usize) { score += 19usize; }
+
+    **mri32 += 23;
+    if (**mri32 == 43) { score += 23usize; }
+    **mru32 += 29u32;
+    if (**mru32 == 2147483729u32) { score += 29usize; }
+    **mrisize -= 31isize;
+    if (**mrisize == -71isize) { score += 31usize; }
+    **mrusize += 37usize;
+    if (**mrusize == 4294967296usize + 537usize) { score += 37usize; }
+    **mrbool = true;
+    if (**mrbool == true) { score += 41usize; }
+
+    (**mrpair).x += 43usize;
+    (**mrpair).z = false;
+    if ((**mrpair).x == 4294967296usize + 643usize) { score += 43usize; }
+    (**mrarr)[2] += 47usize;
+    if ((**mrarr)[2] == 4294967296usize + 747usize) { score += 47usize; }
+
+    if (tail0 == 4294967296usize + 900usize) { score += 53usize; }
+    **tail1 += 59usize;
+    if (**tail1 == 4294967296usize + 959usize) { score += 59usize; }
+    return score;
+}
+
+fn main() {
+    let mut i: i32 = 10;
+    let mut ri: &mut i32 = &mut i;
+    let mut u: u32 = 2147483650u32;
+    let mut ru: &mut u32 = &mut u;
+    let mut z: isize = -10isize;
+    let mut rz: &mut isize = &mut z;
+    let mut w: usize = 4294967296usize + 100usize;
+    let mut rw: &mut usize = &mut w;
+    let mut b: bool = true;
+    let mut rb: &mut bool = &mut b;
+    let mut p: Pair = Pair { x: 4294967296usize + 200usize, y: 1u32, z: true };
+    let mut rp: &mut Pair = &mut p;
+    let mut a: [usize; 3] = [1usize, 4294967296usize + 300usize, 3usize];
+    let mut ra: &mut [usize; 3] = &mut a;
+
+    let mut i2: i32 = 20;
+    let mut ri2: &mut i32 = &mut i2;
+    let mut u2: u32 = 2147483700u32;
+    let mut ru2: &mut u32 = &mut u2;
+    let mut z2: isize = -40isize;
+    let mut rz2: &mut isize = &mut z2;
+    let mut w2: usize = 4294967296usize + 500usize;
+    let mut rw2: &mut usize = &mut w2;
+    let mut b2: bool = false;
+    let mut rb2: &mut bool = &mut b2;
+    let mut p2: Pair = Pair { x: 4294967296usize + 600usize, y: 2u32, z: true };
+    let mut rp2: &mut Pair = &mut p2;
+    let mut a2: [usize; 3] = [4usize, 5usize, 4294967296usize + 700usize];
+    let mut ra2: &mut [usize; 3] = &mut a2;
+
+    let mut tw: usize = 4294967296usize + 900usize;
+    let mut rtw: &mut usize = &mut tw;
+    let ans: usize = check(
+        -1,
+        4294967296usize + 2usize,
+        2147483653u32,
+        true,
+        -5isize,
+        6,
+        false,
+        4294967296usize + 7usize,
+        &ri,
+        &ru,
+        &rz,
+        &rw,
+        &rb,
+        &rp,
+        &ra,
+        &mut ri2,
+        &mut ru2,
+        &mut rz2,
+        &mut rw2,
+        &mut rb2,
+        &mut rp2,
+        &mut ra2,
+        4294967296usize + 900usize,
+        &rtw
+    );
+    printlnInt(ans as i32);
+    printlnInt(i);
+    printlnInt(u as i32);
+    printlnInt(z as i32);
+    printlnInt(w as i32);
+    printlnInt(b as i32);
+    printlnInt(p.x as i32);
+    printlnInt(p.z as i32);
+    printlnInt(a[1] as i32);
+    printlnInt(i2);
+    printlnInt(u2 as i32);
+    printlnInt(z2 as i32);
+    printlnInt(w2 as i32);
+    printlnInt(b2 as i32);
+    printlnInt(p2.x as i32);
+    printlnInt(p2.z as i32);
+    printlnInt(a2[2] as i32);
+    printlnInt(tw as i32);
+    exit(0);
+}

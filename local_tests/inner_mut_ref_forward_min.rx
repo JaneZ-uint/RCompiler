@@ -1,0 +1,19 @@
+fn leaf(a0: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32, a7: i32, p: & &mut usize) -> i32 {
+    **p += 5usize;
+    if (**p == 4294967306usize) {
+        return 1;
+    }
+    return 0;
+}
+
+fn middle(a0: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32, a7: i32, p: & &mut usize) -> i32 {
+    return leaf(a0, a1, a2, a3, a4, a5, a6, a7, p);
+}
+
+fn main() {
+    let mut x: usize = 4294967301usize;
+    let rx: &mut usize = &mut x;
+    printlnInt(middle(0, 1, 2, 3, 4, 5, 6, 7, &rx));
+    printlnInt(x as i32);
+    exit(0);
+}

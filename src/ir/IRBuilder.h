@@ -312,6 +312,20 @@ public:
         return false;
     }
 
+    std::shared_ptr<IRVar> pointerCallArg(std::shared_ptr<IRVar> argVar,
+                                          const std::shared_ptr<IRType> &expectedType,
+                                          const std::shared_ptr<IRBlock> &block){
+        if(!argVar){
+            return argVar;
+        }
+        auto expectedPtr = std::dynamic_pointer_cast<IRPtrType>(expectedType);
+        if(expectedPtr && argVar->isPtrStorage && !argVar->isPtrBindingSlot &&
+           sameTypeShape(argVar->type, expectedPtr->baseType)){
+            return argVar;
+        }
+        return valueFromPtrStorage(argVar, block);
+    }
+
     std::shared_ptr<IRVar> byValueAggregateArg(std::shared_ptr<IRVar> argVar,
                                                const std::shared_ptr<IRType> &expectedType,
                                                const std::shared_ptr<IRBlock> &block){
@@ -1321,7 +1335,8 @@ public:
                             }
                         }
                     }
-                    currentCallInstr->pList->paramList.push_back(valueFromPtrStorage(std::dynamic_pointer_cast<IRVar>(arg->ret), block));
+                    currentCallInstr->pList->paramList.push_back(
+                        pointerCallArg(std::dynamic_pointer_cast<IRVar>(arg->ret), func->typeList[i], block));
                 }else{
                     auto argInstrs = visit(*arg);
                     if(argInstrs){
@@ -2570,7 +2585,8 @@ public:
                                         }
                                     }
                                 }
-                                currentCallInstr->pList->paramList.push_back(valueFromPtrStorage(std::dynamic_pointer_cast<IRVar>(arg->ret), block));
+                                currentCallInstr->pList->paramList.push_back(
+                                    pointerCallArg(std::dynamic_pointer_cast<IRVar>(arg->ret), currentIRFunc->typeList[i + 1], block));
                             }else{
                                 auto argInstrs = visit(*arg);
                                 if(argInstrs){

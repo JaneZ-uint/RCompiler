@@ -1,0 +1,176 @@
+struct Pair {
+    x: usize,
+    y: u32,
+    z: bool,
+}
+
+fn check(
+    d0: i32,
+    d1: usize,
+    d2: u32,
+    d3: bool,
+    d4: isize,
+    d5: i32,
+    d6: bool,
+    d7: usize,
+    ri32: [&i32; 3],
+    mut mi32: [&mut i32; 3],
+    ru32: [&u32; 3],
+    mut mu32: [&mut u32; 3],
+    risize: [&isize; 3],
+    mut misize: [&mut isize; 3],
+    rbool: [&bool; 3],
+    mut mbool: [&mut bool; 3],
+    rpair: [&Pair; 2],
+    mut mpair: [&mut Pair; 2],
+    rarr: [&[usize; 3]; 2],
+    mut marr: [&mut [usize; 3]; 2],
+    tail0: usize,
+    tail1: &usize,
+    tail2: [&usize; 4],
+    mut tail3: [&mut usize; 4]
+) -> usize {
+    let mut score: usize = 0usize;
+    if (d0 == -7) { score += 1usize; }
+    if (d1 == 4294967296usize + 11usize) { score += 2usize; }
+    if (d2 == 2147483650u32) { score += 4usize; }
+    if (d3 == true) { score += 8usize; }
+    if (d4 == -9isize) { score += 16usize; }
+    if (d5 == 13) { score += 32usize; }
+    if (d6 == false) { score += 64usize; }
+    if (d7 == 4294967296usize + 17usize) { score += 128usize; }
+
+    if (*ri32[2] == -30) { score += 3usize; }
+    *mi32[1] += *ri32[0];
+    if (*mi32[1] == 101) { score += 5usize; }
+
+    if (*ru32[1] == 2147483701u32) { score += 7usize; }
+    *mu32[2] += *ru32[0];
+    if (*mu32[2] == 2147483807u32) { score += 11usize; }
+
+    if (*risize[0] == -100isize) { score += 13usize; }
+    *misize[0] -= *risize[2];
+    if (*misize[0] == 73isize) { score += 17usize; }
+
+    if (*rbool[1] == true) { score += 19usize; }
+    *mbool[2] = *rbool[0];
+    if (*mbool[2] == false) { score += 23usize; }
+
+    if (rpair[1].x == 4294967296usize + 201usize) { score += 29usize; }
+    mpair[0].x += 31usize;
+    mpair[1].z = false;
+    if (mpair[0].x == 4294967296usize + 331usize) { score += 37usize; }
+
+    if (rarr[0][2] == 4294967296usize + 502usize) { score += 41usize; }
+    marr[1][1] += 43usize;
+    if (marr[1][1] == 4294967296usize + 643usize) { score += 47usize; }
+
+    if (tail0 == 4294967296usize + 700usize) { score += 53usize; }
+    if (*tail1 == 4294967296usize + 701usize) { score += 59usize; }
+    if (*tail2[3] == 4294967296usize + 803usize) { score += 61usize; }
+    *tail3[0] += *tail2[1];
+    if (*tail3[0] == 8589936201usize) { score += 67usize; }
+    return score;
+}
+
+fn main() {
+    let i0: i32 = 1;
+    let i1: i32 = -20;
+    let i2: i32 = -30;
+    let mut mi0: i32 = 70;
+    let mut mi1: i32 = 100;
+    let mut mi2: i32 = 200;
+    let ri32: [&i32; 3] = [&i0, &i1, &i2];
+    let mi32: [&mut i32; 3] = [&mut mi0, &mut mi1, &mut mi2];
+
+    let u0: u32 = 7u32;
+    let u1: u32 = 2147483701u32;
+    let u2: u32 = 9u32;
+    let mut mu0: u32 = 10u32;
+    let mut mu1: u32 = 20u32;
+    let mut mu2: u32 = 2147483800u32;
+    let ru32: [&u32; 3] = [&u0, &u1, &u2];
+    let mu32: [&mut u32; 3] = [&mut mu0, &mut mu1, &mut mu2];
+
+    let z0: isize = -100isize;
+    let z1: isize = -200isize;
+    let z2: isize = 50isize;
+    let mut mz0: isize = 123isize;
+    let mut mz1: isize = 456isize;
+    let mut mz2: isize = 789isize;
+    let risize: [&isize; 3] = [&z0, &z1, &z2];
+    let misize: [&mut isize; 3] = [&mut mz0, &mut mz1, &mut mz2];
+
+    let b0: bool = false;
+    let b1: bool = true;
+    let b2: bool = false;
+    let mut mb0: bool = true;
+    let mut mb1: bool = false;
+    let mut mb2: bool = true;
+    let rbool: [&bool; 3] = [&b0, &b1, &b2];
+    let mbool: [&mut bool; 3] = [&mut mb0, &mut mb1, &mut mb2];
+
+    let p0: Pair = Pair { x: 4294967296usize + 100usize, y: 1u32, z: true };
+    let p1: Pair = Pair { x: 4294967296usize + 201usize, y: 2u32, z: true };
+    let mut mp0: Pair = Pair { x: 4294967296usize + 300usize, y: 3u32, z: true };
+    let mut mp1: Pair = Pair { x: 4294967296usize + 400usize, y: 4u32, z: true };
+    let rpair: [&Pair; 2] = [&p0, &p1];
+    let mpair: [&mut Pair; 2] = [&mut mp0, &mut mp1];
+
+    let a0: [usize; 3] = [4294967296usize + 500usize, 4294967296usize + 501usize, 4294967296usize + 502usize];
+    let a1: [usize; 3] = [4294967296usize + 510usize, 4294967296usize + 511usize, 4294967296usize + 512usize];
+    let mut ma0: [usize; 3] = [4294967296usize + 600usize, 4294967296usize + 601usize, 4294967296usize + 602usize];
+    let mut ma1: [usize; 3] = [4294967296usize + 610usize, 4294967296usize + 600usize, 4294967296usize + 612usize];
+    let rarr: [&[usize; 3]; 2] = [&a0, &a1];
+    let marr: [&mut [usize; 3]; 2] = [&mut ma0, &mut ma1];
+
+    let t1: usize = 4294967296usize + 701usize;
+    let t20: usize = 4294967296usize + 800usize;
+    let t21: usize = 4294967296usize + 801usize;
+    let t22: usize = 4294967296usize + 802usize;
+    let t23: usize = 4294967296usize + 803usize;
+    let tail2: [&usize; 4] = [&t20, &t21, &t22, &t23];
+    let mut q0: usize = 4294967296usize + 5400usize;
+    let mut q1: usize = 1usize;
+    let mut q2: usize = 2usize;
+    let mut q3: usize = 3usize;
+    let tail3: [&mut usize; 4] = [&mut q0, &mut q1, &mut q2, &mut q3];
+
+    let ans: usize = check(
+        -7,
+        4294967296usize + 11usize,
+        2147483650u32,
+        true,
+        -9isize,
+        13,
+        false,
+        4294967296usize + 17usize,
+        ri32,
+        mi32,
+        ru32,
+        mu32,
+        risize,
+        misize,
+        rbool,
+        mbool,
+        rpair,
+        mpair,
+        rarr,
+        marr,
+        4294967296usize + 700usize,
+        &t1,
+        tail2,
+        tail3
+    );
+
+    printlnInt(ans as i32);
+    printlnInt(mi1);
+    printlnInt(mu2 as i32);
+    printlnInt(mz0 as i32);
+    printlnInt(mb2 as i32);
+    printlnInt(mp0.x as i32);
+    printlnInt(mp1.z as i32);
+    printlnInt(ma1[1] as i32);
+    printlnInt(q0 as i32);
+    exit(0);
+}
