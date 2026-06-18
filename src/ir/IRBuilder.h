@@ -551,7 +551,39 @@ public:
                         loadInstr->type = ptrtype;
                         loadInstr->w64tag = true;
                         appendInstr(loadInstr);
-                        node.ret = tmpVar;
+                        if(var->isPtrBindingSlot){
+                            auto baseType = ptrtype->baseType;
+                            if(auto inttype = std::dynamic_pointer_cast<IRIntType>(baseType)){
+                                auto pointeeLoad = std::make_shared<IRLoad>();
+                                auto pointeeVar = std::make_shared<IRVar>();
+                                pointeeVar->type = baseType;
+                                pointeeLoad->tmp = pointeeVar;
+                                pointeeLoad->addressVar = tmpVar;
+                                pointeeLoad->type = baseType;
+                                if(inttype->bitWidth == 64){
+                                    pointeeLoad->w64tag = true;
+                                }
+                                if(inttype->bitWidth == 32 && inttype->isUnsigned){
+                                    pointeeLoad->utag = true;
+                                }
+                                appendInstr(pointeeLoad);
+                                node.ret = pointeeVar;
+                            }else if(std::dynamic_pointer_cast<IRPtrType>(baseType)){
+                                auto pointeeLoad = std::make_shared<IRLoad>();
+                                auto pointeeVar = std::make_shared<IRVar>();
+                                pointeeVar->type = baseType;
+                                pointeeLoad->tmp = pointeeVar;
+                                pointeeLoad->addressVar = tmpVar;
+                                pointeeLoad->type = baseType;
+                                pointeeLoad->w64tag = true;
+                                appendInstr(pointeeLoad);
+                                node.ret = pointeeVar;
+                            }else{
+                                node.ret = tmpVar;
+                            }
+                        }else{
+                            node.ret = tmpVar;
+                        }
                     }else if(auto inttype = std::dynamic_pointer_cast<IRIntType>(ptrtype->baseType)){
                         auto loadInstr = std::make_shared<IRLoad>();
                         auto tmpVar = std::make_shared<IRVar>();
