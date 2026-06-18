@@ -807,24 +807,12 @@ public:
                     }
                     init = literal->intValue;
                     resVar->type = currentScope->lookupTypeSymbol("i32");
-                    // Detect suffix on the literal string to choose element type
-                    if(auto *astLit = dynamic_cast<ExprLiteral *>(& *node.type)){
-                        const std::string &s = astLit->literal;
-                        std::shared_ptr<IRType> chosen = nullptr;
-                        if(s.size() >= 5 && s.compare(s.size()-5, 5, "usize") == 0){
-                            chosen = currentScope->lookupTypeSymbol("usize");
-                        }else if(s.size() >= 5 && s.compare(s.size()-5, 5, "isize") == 0){
-                            chosen = currentScope->lookupTypeSymbol("isize");
-                        }else if(s.size() >= 3 && s.compare(s.size()-3, 3, "u32") == 0){
-                            chosen = currentScope->lookupTypeSymbol("u32");
+                    if(auto explicitType = inferIntLiteralExprType(node.type.get())){
+                        arrayVar->type = std::make_shared<IRArrayType>(explicitType, size);
+                        if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
+                            caculateArraySize(arraytp);
                         }
-                        if(chosen){
-                            arrayVar->type = std::make_shared<IRArrayType>(chosen, size);
-                            if(auto arraytp = std::dynamic_pointer_cast<IRArrayType>(arrayVar->type)){
-                                caculateArraySize(arraytp);
-                            }
-                            resVar->type = chosen;
-                        }
+                        resVar->type = explicitType;
                     }
                 }
                 block->instrList.push_back(std::make_shared<IRAlloca>(arrayVar->type,arrayVar)); 
@@ -905,16 +893,8 @@ public:
                 if(literal->literalType == INT_LITERAL){
                     assignList.push_back(literal->intValue);
                     arrayType = currentScope->lookupTypeSymbol("i32");
-                    // Detect suffix on the literal string to choose element type
-                    if(auto *astLit = dynamic_cast<ExprLiteral *>(& *node.arrayExpr[0])){
-                        const std::string &s = astLit->literal;
-                        if(s.size() >= 5 && s.compare(s.size()-5, 5, "usize") == 0){
-                            arrayType = currentScope->lookupTypeSymbol("usize");
-                        }else if(s.size() >= 5 && s.compare(s.size()-5, 5, "isize") == 0){
-                            arrayType = currentScope->lookupTypeSymbol("isize");
-                        }else if(s.size() >= 3 && s.compare(s.size()-3, 3, "u32") == 0){
-                            arrayType = currentScope->lookupTypeSymbol("u32");
-                        }
+                    if(auto explicitType = inferIntLiteralExprType(node.arrayExpr[0].get())){
+                        arrayType = explicitType;
                     }
                 }else if(literal->literalType == BOOL_LITERAL){
                     if(literal->intValue != 0){
