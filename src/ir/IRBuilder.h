@@ -349,6 +349,21 @@ public:
         return false;
     }
 
+    bool isReferencePattern(Pattern *pattern){
+        return dynamic_cast<PatternReference *>(pattern) != nullptr;
+    }
+
+    bool isReferencePatternFunctionParam(ItemFnDecl &node, int irParamIndex){
+        int selfParamCount = (node.fnParameters.SelfParam.isShortSelf ||
+                              node.fnParameters.SelfParam.type_self.type) ? 1 : 0;
+        int userParamIndex = irParamIndex - selfParamCount;
+        if(userParamIndex < 0 ||
+           userParamIndex >= static_cast<int>(node.fnParameters.FunctionParam.size())){
+            return false;
+        }
+        return isReferencePattern(node.fnParameters.FunctionParam[userParamIndex].pattern.get());
+    }
+
     bool isMutableReferenceFunctionParam(ItemFnDecl &node, int irParamIndex){
         int selfParamCount = (node.fnParameters.SelfParam.isShortSelf ||
                               node.fnParameters.SelfParam.type_self.type) ? 1 : 0;
@@ -366,6 +381,81 @@ public:
             return refType->is_mut;
         }
         return false;
+    }
+
+    std::shared_ptr<IRVar> bindReferencePatternParam(const std::shared_ptr<IRVar> &param,
+                                                     const std::shared_ptr<IRPtrType> &ptrType,
+                                                     const std::shared_ptr<IRVar> &slot,
+                                                     const std::shared_ptr<IRBlock> &body){
+        if(!param || !ptrType || !slot || !body){
+            return nullptr;
+        }
+        auto ptrValue = std::make_shared<IRVar>();
+        ptrValue->type = param->type;
+        auto loadPtr = std::make_shared<IRLoad>();
+        loadPtr->tmp = ptrValue;
+        loadPtr->addressVar = slot;
+        loadPtr->type = param->type;
+        loadPtr->w64tag = true;
+        body->instrList.push_back(loadPtr);
+
+        auto local = std::make_shared<IRVar>();
+        local->varName = param->varName;
+        local->reName = param->reName;
+        local->type = ptrType->baseType;
+
+        if(auto intType = std::dynamic_pointer_cast<IRIntType>(ptrType->baseType)){
+            auto alloca = std::make_shared<IRAlloca>(local->type, local);
+            auto value = std::make_shared<IRVar>();
+            value->type = ptrType->baseType;
+            auto loadValue = std::make_shared<IRLoad>();
+            loadValue->tmp = value;
+            loadValue->addressVar = ptrValue;
+            loadValue->type = ptrType->baseType;
+            if(intType->bitWidth == 64){
+                alloca->w64tag = true;
+                loadValue->w64tag = true;
+                local->isW64Stack = true;
+            }
+            if(intType->bitWidth == 32 && intType->isUnsigned){
+                loadValue->utag = true;
+            }
+            auto store = std::make_shared<IRStore>(ptrType->baseType, value, nullptr, local);
+            if(intType->bitWidth == 64){
+                store->w64tag = true;
+            }
+            body->instrList.push_back(alloca);
+            body->instrList.push_back(loadValue);
+            body->instrList.push_back(store);
+        }else if(std::dynamic_pointer_cast<IRStructType>(ptrType->baseType) ||
+                 std::dynamic_pointer_cast<IRArrayType>(ptrType->baseType)){
+            auto memcpyInstr = std::make_shared<IRMemcpy>();
+            memcpyInstr->dest = local;
+            memcpyInstr->value = ptrValue;
+            memcpyInstr->size = ptrType->baseType->size;
+            body->instrList.push_back(std::make_shared<IRAlloca>(local->type, local));
+            body->instrList.push_back(memcpyInstr);
+        }else{
+            local->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType) != nullptr;
+            auto alloca = std::make_shared<IRAlloca>(local->type, local);
+            auto value = std::make_shared<IRVar>();
+            value->type = ptrType->baseType;
+            auto loadValue = std::make_shared<IRLoad>();
+            loadValue->tmp = value;
+            loadValue->addressVar = ptrValue;
+            loadValue->type = ptrType->baseType;
+            if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
+                loadValue->w64tag = true;
+            }
+            auto store = std::make_shared<IRStore>(ptrType->baseType, value, nullptr, local);
+            if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
+                store->w64tag = true;
+            }
+            body->instrList.push_back(alloca);
+            body->instrList.push_back(loadValue);
+            body->instrList.push_back(store);
+        }
+        return local;
     }
 
     std::shared_ptr<IRBlock> visitForReturnValue(Expression &expr){
@@ -4103,14 +4193,25 @@ public:
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(std::make_shared<IRPtrType>(p->type), p, nullptr, bodyVar));
                     currentScope->addValueSymbol(p->varName, p);
                 }else if(auto *ptrType = dynamic_cast<IRPtrType *>(& *p->type)){
-                    bool bindReferenceSlot = isMutableReferenceFunctionParam(node, i);
+                    bool destructureReferencePattern = isReferencePatternFunctionParam(node, i);
+                    bool bindReferenceSlot = !destructureReferencePattern &&
+                                             isMutableReferenceFunctionParam(node, i);
                     auto paramAlloca = std::make_shared<IRAlloca>(p->type, bodyVar);
                     auto paramStore = std::make_shared<IRStore>(p->type, p, nullptr, bodyVar);
                     paramStore->w64tag = true;
                     bodyVar->isPtrStorage = true;
                     currentIRFunc->body->instrList.push_back(paramAlloca);
                     currentIRFunc->body->instrList.push_back(paramStore);
-                    if(bindReferenceSlot){
+                    if(destructureReferencePattern){
+                        auto local = bindReferencePatternParam(
+                            p,
+                            std::dynamic_pointer_cast<IRPtrType>(p->type),
+                            bodyVar,
+                            currentIRFunc->body);
+                        if(local){
+                            currentScope->addValueSymbol(p->varName, local);
+                        }
+                    }else if(bindReferenceSlot){
                         bodyVar->isPtrBindingSlot = true;
                         currentScope->addValueSymbol(p->varName, bodyVar);
                     }else{
