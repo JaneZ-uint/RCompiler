@@ -271,6 +271,38 @@ public:
         return ptrValue;
     }
 
+    bool isMutableBindingPattern(Pattern *pattern){
+        if(auto *identifier = dynamic_cast<PatternIdentifier *>(pattern)){
+            return identifier->is_mut;
+        }
+        if(auto *reference = dynamic_cast<PatternReference *>(pattern)){
+            if(reference->is_mut){
+                return true;
+            }
+            return isMutableBindingPattern(reference->patternWithoutRange.get());
+        }
+        return false;
+    }
+
+    bool isMutableReferenceFunctionParam(ItemFnDecl &node, int irParamIndex){
+        int selfParamCount = (node.fnParameters.SelfParam.isShortSelf ||
+                              node.fnParameters.SelfParam.type_self.type) ? 1 : 0;
+        int userParamIndex = irParamIndex - selfParamCount;
+        if(userParamIndex < 0 ||
+           userParamIndex >= static_cast<int>(node.fnParameters.FunctionParam.size())){
+            return false;
+        }
+        auto &param = node.fnParameters.FunctionParam[userParamIndex];
+        if(isMutableBindingPattern(param.pattern.get())){
+            return true;
+        }
+        if(param.type && dynamic_cast<TypeReference *>(& *param.type)){
+            auto *refType = dynamic_cast<TypeReference *>(& *param.type);
+            return refType->is_mut;
+        }
+        return false;
+    }
+
     std::shared_ptr<IRBlock> visitForReturnValue(Expression &expr){
         if(activeIRFunc && std::dynamic_pointer_cast<IRPtrType>(activeIRFunc->retType)){
             expr.is_lvalue = true;
@@ -3103,6 +3135,13 @@ public:
             }
         }
         auto rightInstrs = std::make_shared<IRBlock>();
+        if(op == ASSIGNEQ){
+            if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
+                if(leftvar->isPtrStorage && std::dynamic_pointer_cast<IRPtrType>(leftvar->type)){
+                    node.right->is_lvalue = true;
+                }
+            }
+        }
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.right)){
             rightInstrs = normalVisit(*ifExpr);    
         }else {
@@ -3201,7 +3240,23 @@ public:
         }else if(op == ASSIGNEQ){
             if(auto leftvar = std::dynamic_pointer_cast<IRVar>(leftExpr)){
                 std::shared_ptr<IRValue> assignResult = rightExpr;
-                if(auto *intType = dynamic_cast<IRIntType *>(& *leftvar->type)){
+                auto leftPtrType = std::dynamic_pointer_cast<IRPtrType>(leftvar->type);
+                if(leftvar->isPtrStorage && leftPtrType){
+                    auto storeInstr = std::make_shared<IRStore>();
+                    storeInstr->valueType = leftvar->type;
+                    if(auto rightVar = std::dynamic_pointer_cast<IRVar>(rightExpr)){
+                        auto ptrValue = valueFromPtrStorage(rightVar, block);
+                        storeInstr->storeValue = ptrValue;
+                        assignResult = ptrValue;
+                    }
+                    storeInstr->address = leftvar;
+                    storeInstr->w64tag = true;
+                    if(block->blockList.size() == 0){
+                        block->instrList.push_back(storeInstr);
+                    }else{
+                        block->blockList[block->blockList.size() - 1]->instrList.push_back(storeInstr);
+                    }
+                }else if(auto *intType = dynamic_cast<IRIntType *>(& *leftvar->type)){
                     auto storeInstr = std::make_shared<IRStore>();
                     auto zextvar = std::make_shared<IRVar>();
                     if(auto rightBOOL = std::dynamic_pointer_cast<IRVar>(rightExpr)){
@@ -3956,18 +4011,28 @@ public:
                     currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(std::make_shared<IRPtrType>(p->type), p, nullptr, bodyVar));
                     currentScope->addValueSymbol(p->varName, p);
                 }else if(auto *ptrType = dynamic_cast<IRPtrType *>(& *p->type)){
-                    currentIRFunc->body->instrList.push_back(std::make_shared<IRAlloca>(p->type, bodyVar));
-                    currentIRFunc->body->instrList.push_back(std::make_shared<IRStore>(p->type, p, nullptr, bodyVar));
-                    p->type = ptrType->baseType;
-                    if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
-                        p->isPtrStorage = true;
+                    bool bindReferenceSlot = isMutableReferenceFunctionParam(node, i);
+                    auto paramAlloca = std::make_shared<IRAlloca>(p->type, bodyVar);
+                    auto paramStore = std::make_shared<IRStore>(p->type, p, nullptr, bodyVar);
+                    paramStore->w64tag = true;
+                    bodyVar->isPtrStorage = true;
+                    currentIRFunc->body->instrList.push_back(paramAlloca);
+                    currentIRFunc->body->instrList.push_back(paramStore);
+                    if(bindReferenceSlot){
+                        bodyVar->isPtrBindingSlot = true;
+                        currentScope->addValueSymbol(p->varName, bodyVar);
+                    }else{
+                        p->type = ptrType->baseType;
+                        if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
+                            p->isPtrStorage = true;
+                        }
+                        // The dereferenced storage is 8 bytes if pointee is usize/isize
+                        if(ptrType->baseType == currentScope->lookupTypeSymbol("usize") ||
+                           ptrType->baseType == currentScope->lookupTypeSymbol("isize")){
+                            p->isW64Stack = true;
+                        }
+                        currentScope->addValueSymbol(p->varName, p);
                     }
-                    // The dereferenced storage is 8 bytes if pointee is usize/isize
-                    if(ptrType->baseType == currentScope->lookupTypeSymbol("usize") ||
-                       ptrType->baseType == currentScope->lookupTypeSymbol("isize")){
-                        p->isW64Stack = true;
-                    }
-                    currentScope->addValueSymbol(p->varName, p);
                 }else{
                     auto paramAlloca = std::make_shared<IRAlloca>(p->type, bodyVar);
                     auto paramStore = std::make_shared<IRStore>(p->type, p, nullptr, bodyVar);

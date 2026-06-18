@@ -176,8 +176,11 @@ private:
     void singleStorePropagate(std::shared_ptr<IRFunction> func){
         std::set<IRVar*> allocaVars;
         forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
-            if(auto *p = dynamic_cast<IRAlloca*>(&*instr))
-                allocaVars.insert(p->var.get());
+            if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
+                if(!p->var->isPtrBindingSlot){
+                    allocaVars.insert(p->var.get());
+                }
+            }
         });
         if(allocaVars.empty()) return;
 
@@ -396,7 +399,9 @@ private:
         std::set<IRVar*> allocaVars;
         forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
             if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
-                allocaVars.insert(p->var.get());
+                if(!p->var->isPtrBindingSlot){
+                    allocaVars.insert(p->var.get());
+                }
             }
         });
         if(allocaVars.empty()) {

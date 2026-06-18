@@ -20,6 +20,7 @@ public:
     bool isUsed = true;
     bool isW64Stack = false; // address of an 8-byte stack slot (usize/isize alloca)
     bool isPtrStorage = false; // address of a stack/field slot that stores a pointer value
+    bool isPtrBindingSlot = false; // local binding slot for a pointer variable
 
     IRVar(){
         serial = ir_cnt++;
