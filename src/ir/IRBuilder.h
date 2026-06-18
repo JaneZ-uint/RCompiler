@@ -3578,27 +3578,20 @@ public:
             node.ret = node.right->ret;
             if(auto retVar = std::dynamic_pointer_cast<IRVar>(node.ret)){
                 if(retVar->isPtrStorage){
-                    auto loadInstr = std::make_shared<IRLoad>();
-                    auto ptrValue = std::make_shared<IRVar>();
-                    ptrValue->type = retVar->type;
-                    loadInstr->tmp = ptrValue;
-                    loadInstr->addressVar = retVar;
-                    loadInstr->type = retVar->type;
-                    loadInstr->w64tag = true;
-                    if(block->blockList.empty()){
-                        block->instrList.push_back(loadInstr);
-                    }else{
-                        block->blockList[block->blockList.size() - 1]->instrList.push_back(loadInstr);
-                    }
-                    node.ret = ptrValue;
-                    retVar = ptrValue;
+                    retVar = valueFromPtrStorage(retVar, block);
+                    node.ret = retVar;
                 }
                 if(auto ptr = std::dynamic_pointer_cast<IRPtrType>(retVar->type)){
-                    retVar->type = ptr->baseType;
-                    retVar->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(ptr->baseType) != nullptr;
-                    if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
-                       ptr->baseType == currentScope->lookupTypeSymbol("isize")){
-                        retVar->isW64Stack = true;
+                    if(std::dynamic_pointer_cast<IRStructType>(ptr->baseType) ||
+                       std::dynamic_pointer_cast<IRArrayType>(ptr->baseType)){
+                        node.is_lvalue = true;
+                    }else{
+                        retVar->type = ptr->baseType;
+                        retVar->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(ptr->baseType) != nullptr;
+                        if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
+                           ptr->baseType == currentScope->lookupTypeSymbol("isize")){
+                            retVar->isW64Stack = true;
+                        }
                     }
                 }
             }
