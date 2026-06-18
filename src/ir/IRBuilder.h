@@ -263,12 +263,77 @@ public:
         auto loadInstr = std::make_shared<IRLoad>();
         auto ptrValue = std::make_shared<IRVar>();
         ptrValue->type = argVar->type;
+        ptrValue->isPtrBindingSlot = argVar->isPtrBindingSlot;
         loadInstr->tmp = ptrValue;
         loadInstr->addressVar = argVar;
         loadInstr->type = argVar->type;
         loadInstr->w64tag = true;
         appendToLastBlock(block, loadInstr);
         return ptrValue;
+    }
+
+    bool sameTypeShape(const std::shared_ptr<IRType> &left,
+                       const std::shared_ptr<IRType> &right){
+        if(!left || !right){
+            return false;
+        }
+        if(left == right){
+            return true;
+        }
+        if(left->type != right->type){
+            return false;
+        }
+        if(auto leftInt = std::dynamic_pointer_cast<IRIntType>(left)){
+            auto rightInt = std::dynamic_pointer_cast<IRIntType>(right);
+            return rightInt &&
+                   leftInt->bitWidth == rightInt->bitWidth &&
+                   leftInt->isUnsigned == rightInt->isUnsigned;
+        }
+        if(auto leftPtr = std::dynamic_pointer_cast<IRPtrType>(left)){
+            auto rightPtr = std::dynamic_pointer_cast<IRPtrType>(right);
+            return rightPtr && sameTypeShape(leftPtr->baseType, rightPtr->baseType);
+        }
+        if(auto leftArray = std::dynamic_pointer_cast<IRArrayType>(left)){
+            auto rightArray = std::dynamic_pointer_cast<IRArrayType>(right);
+            return rightArray &&
+                   leftArray->length == rightArray->length &&
+                   sameTypeShape(leftArray->elementType, rightArray->elementType);
+        }
+        if(auto leftStruct = std::dynamic_pointer_cast<IRStructType>(left)){
+            auto rightStruct = std::dynamic_pointer_cast<IRStructType>(right);
+            if(!rightStruct){
+                return false;
+            }
+            if(!leftStruct->true_name.empty() || !rightStruct->true_name.empty()){
+                return leftStruct->true_name == rightStruct->true_name;
+            }
+            return !leftStruct->name.empty() && leftStruct->name == rightStruct->name;
+        }
+        return false;
+    }
+
+    std::shared_ptr<IRVar> byValueAggregateArg(std::shared_ptr<IRVar> argVar,
+                                               const std::shared_ptr<IRType> &expectedType,
+                                               const std::shared_ptr<IRBlock> &block){
+        if(!argVar || !expectedType ||
+           !(std::dynamic_pointer_cast<IRStructType>(expectedType) ||
+             std::dynamic_pointer_cast<IRArrayType>(expectedType))){
+            return argVar;
+        }
+        auto ptrType = std::dynamic_pointer_cast<IRPtrType>(argVar->type);
+        if(argVar->isPtrBindingSlot && ptrType && sameTypeShape(ptrType->baseType, expectedType)){
+            auto source = argVar->isPtrStorage ? valueFromPtrStorage(argVar, block) : argVar;
+            auto tmp = std::make_shared<IRVar>();
+            tmp->type = expectedType;
+            auto memcpyInstr = std::make_shared<IRMemcpy>();
+            memcpyInstr->dest = tmp;
+            memcpyInstr->value = source;
+            memcpyInstr->size = expectedType->size;
+            appendToLastBlock(block, std::make_shared<IRAlloca>(tmp->type, tmp));
+            appendToLastBlock(block, memcpyInstr);
+            return tmp;
+        }
+        return argVar;
     }
 
     bool isMutableBindingPattern(Pattern *pattern){
@@ -546,6 +611,7 @@ public:
                         auto loadInstr = std::make_shared<IRLoad>();
                         auto tmpVar = std::make_shared<IRVar>();
                         tmpVar->type = var->type;
+                        tmpVar->isPtrBindingSlot = var->isPtrBindingSlot;
                         loadInstr->tmp = tmpVar;
                         loadInstr->addressVar = var;
                         loadInstr->type = ptrtype;
@@ -1159,7 +1225,13 @@ public:
                             }
                         }
                     }
-                    currentCallInstr->pList->paramList.push_back(arg->ret);
+                    if(std::dynamic_pointer_cast<IRStructType>(func->typeList[i]) ||
+                       std::dynamic_pointer_cast<IRArrayType>(func->typeList[i])){
+                        currentCallInstr->pList->paramList.push_back(
+                            byValueAggregateArg(std::dynamic_pointer_cast<IRVar>(arg->ret), func->typeList[i], block));
+                    }else{
+                        currentCallInstr->pList->paramList.push_back(arg->ret);
+                    }
                 }
             }
             if(auto *retType = dynamic_cast<IRStructType *>(& *func->retType)){
@@ -2394,7 +2466,13 @@ public:
                                         }
                                     }
                                 }
-                                currentCallInstr->pList->paramList.push_back(arg->ret);
+                                if(std::dynamic_pointer_cast<IRStructType>(currentIRFunc->typeList[i + 1]) ||
+                                   std::dynamic_pointer_cast<IRArrayType>(currentIRFunc->typeList[i + 1])){
+                                    currentCallInstr->pList->paramList.push_back(
+                                        byValueAggregateArg(std::dynamic_pointer_cast<IRVar>(arg->ret), currentIRFunc->typeList[i + 1], block));
+                                }else{
+                                    currentCallInstr->pList->paramList.push_back(arg->ret);
+                                }
                             }
                         }
                         if(auto *structType = dynamic_cast<IRStructType *>(& *currentIRFunc->retType)){
