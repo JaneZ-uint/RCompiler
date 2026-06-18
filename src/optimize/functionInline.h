@@ -344,6 +344,7 @@ private:
         cloned->isUsed = var->isUsed;
         cloned->isW64Stack = var->isW64Stack;
         cloned->isPtrStorage = var->isPtrStorage;
+        cloned->isPtrBindingSlot = var->isPtrBindingSlot;
         return cloned;
     }
 };
