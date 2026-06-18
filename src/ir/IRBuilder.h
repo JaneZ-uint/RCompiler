@@ -353,6 +353,14 @@ public:
         return dynamic_cast<PatternReference *>(pattern) != nullptr;
     }
 
+    int referencePatternDepth(Pattern *pattern){
+        if(auto *reference = dynamic_cast<PatternReference *>(pattern)){
+            int currentDepth = reference->isANDAND ? 2 : 1;
+            return currentDepth + referencePatternDepth(reference->patternWithoutRange.get());
+        }
+        return 0;
+    }
+
     bool isWildcardPattern(Pattern *pattern){
         return dynamic_cast<PatternWildCard *>(pattern) != nullptr;
     }
@@ -403,8 +411,9 @@ public:
     std::shared_ptr<IRVar> bindReferencePatternParam(const std::shared_ptr<IRVar> &param,
                                                      const std::shared_ptr<IRPtrType> &ptrType,
                                                      const std::shared_ptr<IRVar> &slot,
+                                                     Pattern *pattern,
                                                      const std::shared_ptr<IRBlock> &body){
-        if(!param || !ptrType || !slot || !body){
+        if(!param || !ptrType || !slot || !pattern || !body){
             return nullptr;
         }
         auto ptrValue = std::make_shared<IRVar>();
@@ -416,60 +425,83 @@ public:
         loadPtr->w64tag = true;
         body->instrList.push_back(loadPtr);
 
+        auto loadFromReferenceAddress = [&](const std::shared_ptr<IRVar> &address,
+                                            const std::shared_ptr<IRType> &valueType) {
+            auto value = std::make_shared<IRVar>();
+            value->type = valueType;
+            auto loadValue = std::make_shared<IRLoad>();
+            loadValue->tmp = value;
+            loadValue->addressVar = address;
+            loadValue->type = valueType;
+            if(auto intType = std::dynamic_pointer_cast<IRIntType>(valueType)){
+                if(intType->bitWidth == 64){
+                    loadValue->w64tag = true;
+                }
+                if(intType->bitWidth == 32 && intType->isUnsigned){
+                    loadValue->utag = true;
+                }
+            }else if(std::dynamic_pointer_cast<IRPtrType>(valueType)){
+                address->isPtrStorage = true;
+                loadValue->w64tag = true;
+            }
+            body->instrList.push_back(loadValue);
+            return value;
+        };
+
+        int depth = referencePatternDepth(pattern);
+        if(depth <= 0){
+            depth = 1;
+        }
+        auto currentAddress = ptrValue;
+        auto currentType = param->type;
+        for(int i = 0; i < depth - 1; i++){
+            auto currentPtrType = std::dynamic_pointer_cast<IRPtrType>(currentType);
+            if(!currentPtrType){
+                return nullptr;
+            }
+            currentAddress = loadFromReferenceAddress(currentAddress, currentPtrType->baseType);
+            currentType = currentPtrType->baseType;
+        }
+        auto finalPtrType = std::dynamic_pointer_cast<IRPtrType>(currentType);
+        if(!finalPtrType){
+            return nullptr;
+        }
+
         auto local = std::make_shared<IRVar>();
         local->varName = param->varName;
         local->reName = param->reName;
-        local->type = ptrType->baseType;
+        local->type = finalPtrType->baseType;
 
-        if(auto intType = std::dynamic_pointer_cast<IRIntType>(ptrType->baseType)){
+        if(auto intType = std::dynamic_pointer_cast<IRIntType>(local->type)){
             auto alloca = std::make_shared<IRAlloca>(local->type, local);
-            auto value = std::make_shared<IRVar>();
-            value->type = ptrType->baseType;
-            auto loadValue = std::make_shared<IRLoad>();
-            loadValue->tmp = value;
-            loadValue->addressVar = ptrValue;
-            loadValue->type = ptrType->baseType;
+            auto value = loadFromReferenceAddress(currentAddress, local->type);
             if(intType->bitWidth == 64){
                 alloca->w64tag = true;
-                loadValue->w64tag = true;
                 local->isW64Stack = true;
             }
-            if(intType->bitWidth == 32 && intType->isUnsigned){
-                loadValue->utag = true;
-            }
-            auto store = std::make_shared<IRStore>(ptrType->baseType, value, nullptr, local);
+            auto store = std::make_shared<IRStore>(local->type, value, nullptr, local);
             if(intType->bitWidth == 64){
                 store->w64tag = true;
             }
             body->instrList.push_back(alloca);
-            body->instrList.push_back(loadValue);
             body->instrList.push_back(store);
-        }else if(std::dynamic_pointer_cast<IRStructType>(ptrType->baseType) ||
-                 std::dynamic_pointer_cast<IRArrayType>(ptrType->baseType)){
+        }else if(std::dynamic_pointer_cast<IRStructType>(local->type) ||
+                 std::dynamic_pointer_cast<IRArrayType>(local->type)){
             auto memcpyInstr = std::make_shared<IRMemcpy>();
             memcpyInstr->dest = local;
-            memcpyInstr->value = ptrValue;
-            memcpyInstr->size = ptrType->baseType->size;
+            memcpyInstr->value = currentAddress;
+            memcpyInstr->size = local->type->size;
             body->instrList.push_back(std::make_shared<IRAlloca>(local->type, local));
             body->instrList.push_back(memcpyInstr);
         }else{
-            local->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType) != nullptr;
+            local->isPtrStorage = std::dynamic_pointer_cast<IRPtrType>(local->type) != nullptr;
             auto alloca = std::make_shared<IRAlloca>(local->type, local);
-            auto value = std::make_shared<IRVar>();
-            value->type = ptrType->baseType;
-            auto loadValue = std::make_shared<IRLoad>();
-            loadValue->tmp = value;
-            loadValue->addressVar = ptrValue;
-            loadValue->type = ptrType->baseType;
-            if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
-                loadValue->w64tag = true;
-            }
-            auto store = std::make_shared<IRStore>(ptrType->baseType, value, nullptr, local);
-            if(std::dynamic_pointer_cast<IRPtrType>(ptrType->baseType)){
+            auto value = loadFromReferenceAddress(currentAddress, local->type);
+            auto store = std::make_shared<IRStore>(local->type, value, nullptr, local);
+            if(std::dynamic_pointer_cast<IRPtrType>(local->type)){
                 store->w64tag = true;
             }
             body->instrList.push_back(alloca);
-            body->instrList.push_back(loadValue);
             body->instrList.push_back(store);
         }
         return local;
@@ -4232,6 +4264,7 @@ public:
                             p,
                             std::dynamic_pointer_cast<IRPtrType>(p->type),
                             bodyVar,
+                            node.fnParameters.FunctionParam[userParamIndex].pattern.get(),
                             currentIRFunc->body);
                         if(local){
                             currentScope->addValueSymbol(p->varName, local);

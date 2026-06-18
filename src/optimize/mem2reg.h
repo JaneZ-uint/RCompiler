@@ -177,7 +177,7 @@ private:
         std::set<IRVar*> allocaVars;
         forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
             if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
-                if(!p->var->isPtrBindingSlot){
+                if(!p->var->isPtrBindingSlot && !p->var->isPtrStorage){
                     allocaVars.insert(p->var.get());
                 }
             }
@@ -399,7 +399,7 @@ private:
         std::set<IRVar*> allocaVars;
         forEachInstr(func, [&](const std::shared_ptr<IRNode> &instr){
             if(auto *p = dynamic_cast<IRAlloca*>(&*instr)){
-                if(!p->var->isPtrBindingSlot){
+                if(!p->var->isPtrBindingSlot && !p->var->isPtrStorage){
                     allocaVars.insert(p->var.get());
                 }
             }
