@@ -15,6 +15,7 @@
 #include "../ast/Item/ItemTrait.h"
 #include "../ast/Pattern/PatternIdentifier.h"
 #include "../ast/Pattern/PatternReference.h"
+#include "../ast/Pattern/PatternWildcard.h"
 #include "../ast/Statement/StmtItem.h"
 #include "../ast/Statement/StmtLet.h"
 #include "../ast/Type/type.h"
@@ -36,6 +37,19 @@ class IRGlobalBuilder {
 public:
     std::shared_ptr<IRScope> globalScope;
     std::vector<std::shared_ptr<ItemImplDecl>> implList;
+
+    std::string functionParamName(Pattern *pattern, int index) {
+        if(auto *p = dynamic_cast<PatternIdentifier *>(pattern)){
+            return p->identifier;
+        }
+        if(auto *p = dynamic_cast<PatternReference *>(pattern)){
+            return functionParamName(p->patternWithoutRange.get(), index);
+        }
+        if(dynamic_cast<PatternWildCard *>(pattern)){
+            return "__wildcard_param_" + std::to_string(index);
+        }
+        return "__unnamed_param_" + std::to_string(index);
+    }
 
     IRGlobalBuilder() = default;
 
@@ -193,16 +207,10 @@ public:
         std::shared_ptr<IRParam> paramList = std::make_shared<IRParam>();
         std::vector<std::shared_ptr<IRType>> typeList;
         if(node.fnParameters.FunctionParam.size() > 0){
-            for(auto& param : node.fnParameters.FunctionParam){
+            for(int i = 0; i < (int)node.fnParameters.FunctionParam.size(); i++){
+                auto& param = node.fnParameters.FunctionParam[i];
                 auto currentVar = std::make_shared<IRVar>();
-                //left with ref and mut to do
-                if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                    currentVar->varName = p->identifier;
-                }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
-                    if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
-                        currentVar->varName = q->identifier;
-                    }
-                }
+                currentVar->varName = functionParamName(param.pattern.get(), i);
                 currentVar->reName = currentVar->varName;
                 if(param.type){
                     currentVar->type = resolveType(*param.type);
@@ -281,15 +289,10 @@ public:
                                 paramList->paramList.push_back(selfParam);
                             }
                             if(itemFn->fnParameters.FunctionParam.size() > 0){
-                                for(auto& param : itemFn->fnParameters.FunctionParam){
+                                for(int i = 0; i < (int)itemFn->fnParameters.FunctionParam.size(); i++){
+                                    auto& param = itemFn->fnParameters.FunctionParam[i];
                                     auto currentVar = std::make_shared<IRVar>();
-                                    if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                                        currentVar->varName = p->identifier;
-                                    }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
-                                        if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
-                                            currentVar->varName = q->identifier;
-                                        }
-                                    }
+                                    currentVar->varName = functionParamName(param.pattern.get(), i);
                                     currentVar->reName = currentVar->varName;
                                     if(param.type){
                                         currentVar->type = resolveType(*param.type);

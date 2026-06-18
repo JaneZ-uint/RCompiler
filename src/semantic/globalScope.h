@@ -11,6 +11,7 @@
 #include "../ast/Item/ItemTrait.h"
 #include "../ast/Pattern/PatternIdentifier.h"
 #include "../ast/Pattern/PatternReference.h"
+#include "../ast/Pattern/PatternWildcard.h"
 #include "../ast/Type/TypePath.h"
 #include "../ast/Type/type.h"
 #include "../ast/Path.h"
@@ -26,6 +27,19 @@ public:
     std::shared_ptr<ScopeNode> global_scope;
 
     std::vector<ItemImplDecl> impls; //store all impls for later use
+
+    std::string functionParamName(Pattern *pattern, int index) {
+        if(auto *p = dynamic_cast<PatternIdentifier *>(pattern)){
+            return p->identifier;
+        }
+        if(auto *p = dynamic_cast<PatternReference *>(pattern)){
+            return functionParamName(p->patternWithoutRange.get(), index);
+        }
+        if(dynamic_cast<PatternWildCard *>(pattern)){
+            return "__wildcard_param_" + std::to_string(index);
+        }
+        return "__unnamed_param_" + std::to_string(index);
+    }
 
     GlobalScopeBuilder() = default;
 
@@ -105,16 +119,9 @@ public:
             symbol->is_mut = true;
         }
         if(node.fnParameters.FunctionParam.size() > 0){
-            for(auto &param : node.fnParameters.FunctionParam){
-                if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                    symbol->parameters.push_back({p->identifier,param.type});
-                }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
-                    if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
-                        symbol->parameters.push_back({q->identifier,param.type});
-                    }else{
-                        std::cerr << "Unsupported pattern in function parameter in GlobalScopeBuilder\n";
-                    }
-                }
+            for(int i = 0; i < (int)node.fnParameters.FunctionParam.size(); i++){
+                auto &param = node.fnParameters.FunctionParam[i];
+                symbol->parameters.push_back({functionParamName(param.pattern.get(), i), param.type});
             }
         }
         if(node.returnType){
@@ -172,16 +179,9 @@ public:
                     symbol->is_mut = true;
                 }
                 if(fn_item->fnParameters.FunctionParam.size() > 0){
-                    for(auto &param : fn_item->fnParameters.FunctionParam){
-                        if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                            symbol->parameters.push_back({p->identifier,param.type});
-                        }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
-                            if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
-                                symbol->parameters.push_back({q->identifier,param.type});
-                            }else{
-                                std::cerr << "Unsupported pattern in function parameter in GlobalScopeBuilder\n";
-                            }
-                        }
+                    for(int i = 0; i < (int)fn_item->fnParameters.FunctionParam.size(); i++){
+                        auto &param = fn_item->fnParameters.FunctionParam[i];
+                        symbol->parameters.push_back({functionParamName(param.pattern.get(), i), param.type});
                     }
                 }
                 if(fn_item->returnType){
@@ -257,16 +257,9 @@ public:
                 fn_symbol->is_mut = true;
             }
             if(fn_item->fnParameters.FunctionParam.size() > 0){
-                for(auto &param : fn_item->fnParameters.FunctionParam){
-                    if(auto *p = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                        fn_symbol->parameters.push_back({p->identifier,param.type});
-                    }else if(auto *p = dynamic_cast<PatternReference *>(& *param.pattern)){
-                        if(auto *q = dynamic_cast<PatternIdentifier *>(& *p->patternWithoutRange)){
-                            fn_symbol->parameters.push_back({q->identifier,param.type});
-                        }else{
-                            std::cerr << "Unsupported pattern in function parameter in GlobalScopeBuilder\n";
-                        }
-                    }
+                for(int i = 0; i < (int)fn_item->fnParameters.FunctionParam.size(); i++){
+                    auto &param = fn_item->fnParameters.FunctionParam[i];
+                    fn_symbol->parameters.push_back({functionParamName(param.pattern.get(), i), param.type});
                 }
             }
             if(fn_item->returnType){

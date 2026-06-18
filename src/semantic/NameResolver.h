@@ -59,6 +59,19 @@ public:
 
     GlobalScopeBuilder global_scope_builder;
 
+    std::string functionParamName(Pattern *pattern, int index) {
+        if(auto *p = dynamic_cast<PatternIdentifier *>(pattern)){
+            return p->identifier;
+        }
+        if(auto *p = dynamic_cast<PatternReference *>(pattern)){
+            return functionParamName(p->patternWithoutRange.get(), index);
+        }
+        if(dynamic_cast<PatternWildCard *>(pattern)){
+            return "__wildcard_param_" + std::to_string(index);
+        }
+        return "__unnamed_param_" + std::to_string(index);
+    }
+
     NameResolver() = default;
 
     ~NameResolver() = default;
@@ -1448,6 +1461,9 @@ public:
                     }
                     current_scope->addValueSymbol(q->identifier, varSymbol);
                 }
+            }else if(dynamic_cast<PatternWildCard *>(& *param.pattern)){
+                varSymbol->identifier = "";
+                varSymbol->type = param.type;
             }
             if(auto *p = dynamic_cast<Path *>(& *param.type)){
                 if(p->pathSegments.type == IDENTIFIER) {
@@ -1508,16 +1524,9 @@ public:
                             symbol->is_mut = true;
                         }
                         if(q->fnParameters.FunctionParam.size() > 0){
-                            for(auto &param : q->fnParameters.FunctionParam){
-                                if(auto *r = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                                    symbol->parameters.push_back({r->identifier,param.type});
-                                }else if(auto *r = dynamic_cast<PatternReference *>(& *param.pattern)){
-                                    if(auto *s = dynamic_cast<PatternIdentifier *>(& *r->patternWithoutRange)){
-                                        symbol->parameters.push_back({s->identifier,param.type});
-                                    }else{
-                                        std::cerr << "Unsupported pattern in function parameter in NameResolver\n";
-                                    }
-                                }
+                            for(int i = 0; i < (int)q->fnParameters.FunctionParam.size(); i++){
+                                auto &param = q->fnParameters.FunctionParam[i];
+                                symbol->parameters.push_back({functionParamName(param.pattern.get(), i), param.type});
                             }
                         }
                         if(q->returnType){
@@ -1570,16 +1579,9 @@ public:
                                 funcSymbol->is_mut = true;
                             }
                             if(method->fnParameters.FunctionParam.size() > 0){
-                                for(auto &param : method->fnParameters.FunctionParam){
-                                    if(auto *r = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                                        funcSymbol->parameters.push_back({r->identifier,param.type});
-                                    }else if(auto *r = dynamic_cast<PatternReference *>(& *param.pattern)){
-                                        if(auto *s = dynamic_cast<PatternIdentifier *>(& *r->patternWithoutRange)){
-                                            funcSymbol->parameters.push_back({s->identifier,param.type});
-                                        }else{
-                                            std::cerr << "Unsupported pattern in function parameter in NameResolver\n";
-                                        }
-                                    }
+                                for(int i = 0; i < (int)method->fnParameters.FunctionParam.size(); i++){
+                                    auto &param = method->fnParameters.FunctionParam[i];
+                                    funcSymbol->parameters.push_back({functionParamName(param.pattern.get(), i), param.type});
                                 }
                             }
                             symbol->methods[method->identifier] = funcSymbol;

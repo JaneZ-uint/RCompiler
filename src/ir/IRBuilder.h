@@ -353,6 +353,23 @@ public:
         return dynamic_cast<PatternReference *>(pattern) != nullptr;
     }
 
+    bool isWildcardPattern(Pattern *pattern){
+        return dynamic_cast<PatternWildCard *>(pattern) != nullptr;
+    }
+
+    std::string functionParamName(Pattern *pattern, int index){
+        if(auto *identifier = dynamic_cast<PatternIdentifier *>(pattern)){
+            return identifier->identifier;
+        }
+        if(auto *reference = dynamic_cast<PatternReference *>(pattern)){
+            return functionParamName(reference->patternWithoutRange.get(), index);
+        }
+        if(isWildcardPattern(pattern)){
+            return "__wildcard_param_" + std::to_string(index);
+        }
+        return "__unnamed_param_" + std::to_string(index);
+    }
+
     bool isReferencePatternFunctionParam(ItemFnDecl &node, int irParamIndex){
         int selfParamCount = (node.fnParameters.SelfParam.isShortSelf ||
                               node.fnParameters.SelfParam.type_self.type) ? 1 : 0;
@@ -4180,6 +4197,14 @@ public:
         for(int i = 0;i < currentIRFunc->paramList->paramList.size();i++){
             auto param = currentIRFunc->paramList->paramList[i];
             if(auto p = std::dynamic_pointer_cast<IRVar>(param)){
+                int selfParamCount = (node.fnParameters.SelfParam.isShortSelf ||
+                                      node.fnParameters.SelfParam.type_self.type) ? 1 : 0;
+                int userParamIndex = i - selfParamCount;
+                if(userParamIndex >= 0 &&
+                   userParamIndex < static_cast<int>(node.fnParameters.FunctionParam.size()) &&
+                   isWildcardPattern(node.fnParameters.FunctionParam[userParamIndex].pattern.get())){
+                    continue;
+                }
                 auto bodyVar = std::make_shared<IRVar>();
                 bodyVar->varName = p->varName;
                 bodyVar->reName = p->reName;
@@ -4295,15 +4320,10 @@ public:
                             irParam->paramList.push_back(selfParam);
                         }
                         if(!p->fnParameters.FunctionParam.empty()){
-                            for(auto & param : p->fnParameters.FunctionParam){
+                            for(int i = 0; i < (int)p->fnParameters.FunctionParam.size(); i++){
+                                auto & param = p->fnParameters.FunctionParam[i];
                                 auto currentVar = std::make_shared<IRVar>();
-                                if(auto *q = dynamic_cast<PatternIdentifier *>(& *param.pattern)){
-                                    currentVar->varName = q->identifier;
-                                }else if(auto *q = dynamic_cast<PatternReference *>(& *param.pattern)){
-                                    if(auto *r = dynamic_cast<PatternIdentifier *>(& *q->patternWithoutRange)){
-                                        currentVar->varName = r->identifier;
-                                    }
-                                }
+                                currentVar->varName = functionParamName(param.pattern.get(), i);
                                 if(vars_cnt.find(currentVar->varName) != vars_cnt.end()){
                                     vars_cnt[currentVar->varName] += 1;
                                     currentVar->reName = currentVar->varName + "_" + std::to_string(vars_cnt[currentVar->varName]);
