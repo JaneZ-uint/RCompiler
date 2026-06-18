@@ -1350,7 +1350,12 @@ public:
 
     std::shared_ptr<IRBlock> visit(ExprGroup &node){
         auto block = std::make_shared<IRBlock>();
+        bool originLvalue = node.expr->is_lvalue;
+        if(node.is_lvalue){
+            node.expr->is_lvalue = true;
+        }
         auto exprInstrs = visit(*node.expr);
+        node.expr->is_lvalue = originLvalue;
         if(exprInstrs){
             for(auto & instr : exprInstrs->instrList){
                 block->instrList.push_back(instr);
