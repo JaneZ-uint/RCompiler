@@ -3744,20 +3744,24 @@ public:
             auto varSymbol = currentScope->lookupValueSymbol(varName);
             if(varSymbol){
                 node.ret = varSymbol;
+                return block;
             }
             if(!varName.empty()){
                 auto constSymbol = currentScope->lookupConstantSymbol(varName);
                 if(constSymbol.type != "null"){
                     node.ret = std::make_shared<IRLiteral>(INT_LITERAL, constSymbol.value);
+                    return block;
                 }
             }
             auto funcSymbol = currentScope->lookupFunctionSymbol(varName);
             if(funcSymbol){
                 node.ret = funcSymbol;
+                return block;
             }
             auto typeSymbol = currentScope->lookupTypeSymbol(varName);
             if(typeSymbol){
                 node.ret = typeSymbol;
+                return block;
             }
         }else if(node.pathSecond){
             std::string structName = node.pathFirst->pathSegments.identifier;
