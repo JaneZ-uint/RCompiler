@@ -1311,6 +1311,35 @@ Next long-expr directions:
 - long boolean expression with many comparisons and short-circuit operators
 - larger call-chain scale if later evidence points specifically to expression length rather than expression form
 
+## Long Expr Array And Struct Access Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long expressions shaped like the more complex semantic-2 data-structure programs.
+- Use array indexing, nested array indexing, struct fields, struct fields containing arrays, bool fields, and mixed integer widths in one large expression.
+
+Generated test:
+
+- `local_tests/long_expr_array_struct_access_2048.rx`
+  - 2048 expression terms.
+  - Uses `[Entry; 32]`, nested `Inner { vals: [usize; 4] }`, and `[[i32; 8]; 8]`.
+  - Each term reads `Entry.a`, `Entry.b`, `Entry.c`, `Entry.xs[j]`, `Entry.inner.vals[k]`, `grid[r][c]`, and a bool-controlled `if` expression.
+  - Expected result: `4849920`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- Long expression evaluation with repeated struct-field and array-index reads passes at 2048-term scale.
+- This lowers the priority of simple lvalue/rvalue lowering for aggregate reads as the remaining `long expr` WA cause.
+
+Next long-expr directions:
+
+- long boolean expression with many comparisons and `&&`/`||`
+- deeper but normal expression nesting that stresses temporaries without relying on unsupported syntax
+- larger scale variants only if compile time remains reasonable
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
