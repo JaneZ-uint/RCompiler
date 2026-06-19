@@ -966,3 +966,42 @@ Next better directions:
 
 - Sparse very-large list where only nested-call tail arguments are checked.
 - Look for width/sign bugs in stack-passed parameters returned from functions and then passed onward.
+
+## Returned Values As Stack Arguments Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long calls where stack-passed arguments are direct function return values.
+- Stress 64-bit width/sign preservation when returned values are immediately passed onward.
+- Include scalar and aggregate returns.
+
+Generated long test:
+
+- `local_tests/long_param_returned_values_stack_2048.rx`
+  - 2048 explicit parameters.
+  - 5405 lines.
+  - Expected score: `2816`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter/argument cycle:
+
+- `ret_usize(seed) -> usize`
+- `ret_isize(seed) -> isize`
+- `ret_u32(seed) -> u32`
+- `ret_bool(seed) -> bool`
+- `ret_pair(seed) -> Pair`
+- `ret_arr(seed) -> [usize; 3]`
+- literal `usize`
+- literal `Pair`
+
+Result:
+
+- Returned scalar and aggregate values passed into long stack-argument positions work in this test.
+- This lowers the priority of simple returned-value width/sign preservation as the remaining long-param WA cause.
+
+Next better directions:
+
+- Sparse very-large list where only nested-call tail arguments are checked.
+- Revisit actual codegen for stack argument store offsets and alignment; the remaining hidden WA may be a narrower offset/alignment case not triggered by generated tests yet.
