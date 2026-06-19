@@ -1362,11 +1362,19 @@ Result:
 
 - Long short-circuit boolean expression lowering passes at 2048-group scale.
 
+Scale-up:
+
+- `local_tests/long_expr_bool_chain_4096.rx`
+  - Same expression shape as the 2048-group case.
+  - 4096 boolean groups.
+  - Compiler completed successfully, but generation time was close to 50 seconds locally.
+  - RV64/qemu output: `1`.
+
 Next long-expr directions:
 
-- scale this boolean/aggregate expression toward `long long expr`
 - try deep but balanced arithmetic nesting with many live temporaries
 - consider expression forms that create many basic blocks if scale alone exposes a runtime issue
+- avoid much larger short-circuit-only cases unless there is a specific reason, because compile time grows quickly
 
 ## Codegen And Inline Inspection Notes
 
