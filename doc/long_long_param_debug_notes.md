@@ -1277,6 +1277,40 @@ Next long-expr directions:
 - long expression with array indexing and struct field access
 - long expression with nested conditional/match-like supported expressions, if normal syntax permits
 
+## Long Expr Function Call Chain Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover a normal long-expression pattern where each term comes from a function call.
+- Mix return widths and bool-returning helper calls inside one large arithmetic expression.
+
+Generated test:
+
+- `local_tests/long_expr_call_chain_2048.rx`
+  - 2048 expression terms.
+  - Helper returns include `usize`, `isize`, `u32`, `i32`, and `bool`.
+  - Expression combines helper calls, explicit casts, comparisons, `||`, and `if` expression terms.
+  - Expected result: `3778522`.
+  - RV64/qemu output: `1`.
+
+Parser note:
+
+- The generated `main` must end with `exit(0);`.
+- Without that final call the current parser aborts with `last expression must be exit function call`.
+- This is a known front-end shape restriction and not a runtime WA signal.
+
+Result:
+
+- Long expression evaluation with many function-call results and mixed-width casts passes at 2048-term scale.
+
+Next long-expr directions:
+
+- long expression with array indexing and struct field access
+- long boolean expression with many comparisons and short-circuit operators
+- larger call-chain scale if later evidence points specifically to expression length rather than expression form
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
