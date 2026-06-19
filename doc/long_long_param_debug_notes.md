@@ -365,3 +365,57 @@ Next high-priority directions:
 - Try a smaller scale ladder between 4096 and 8192, for example 5120, 6144, and 7168, with command-level timeouts.
 - Build a bool-heavy full-use variant with `bool`, `&bool`, `&mut bool`, `[bool; N]`, and structs with many bool fields.
 - Build a larger aggregate-heavy variant where stack arguments are dominated by by-value structs and arrays, not scalar/reference arguments.
+
+## Full-Use Mixed Scale Ladder: 5120
+
+Date: 2026-06-20
+
+Goal:
+
+- Check whether the full-use mixed parameter test has a scale threshold immediately above the verified 4096 case.
+- Keep the shape identical to `local_tests/long_param_full_use_mix_4096.rx` so the only intended variable is parameter count.
+
+Generated test:
+
+- `local_tests/long_param_full_use_mix_5120.rx`
+  - 5120 explicit parameters.
+  - 20429 lines.
+  - Expected score: `7168`.
+  - Same repeating parameter cycle as the 4096 test:
+    - `i32`, `u32`, `isize`, `usize`, `bool`
+    - `&usize`, `&mut usize`
+    - `Pair`, `[usize; 3]`, `Boxy`
+  - Same `main -> middle -> leaf` full-forwarding shape.
+  - Every parameter is checked in `leaf`; `&mut usize` parameters are mutated then checked.
+
+Command used:
+
+```bash
+timeout 300s ./build/RCompiler < local_tests/long_param_full_use_mix_5120.rx > /tmp/full_use_5120.s 2> /tmp/full_use_5120_builtin.s
+```
+
+Result:
+
+- `timeout` returned `124`.
+- `./build/RCompiler` did not finish within 300 seconds.
+- No RV64 GCC/qemu result was produced because no complete asm was available.
+- This is not evidence of a runtime WA; it is evidence that this specific full-use/full-forwarding generator becomes too expensive for local iteration somewhere between 4096 and 5120 parameters.
+
+Implication:
+
+- Ordinary full-use mixed scalar/reference/aggregate parameters are still not reproducing the hidden `long long param` WA at the largest locally verified size.
+- Pushing this exact generator larger is low value unless investigating compile-time scalability itself.
+
+Next better directions:
+
+- Bool-heavy long parameter lists:
+  - scalar `bool`
+  - `&bool`
+  - `&mut bool`
+  - `[bool; N]`
+  - structs with many bool fields mixed with `usize`
+- Aggregate-heavy long parameter lists:
+  - more by-value structs and arrays after the ABI register boundary
+  - arrays of structs by value
+  - structs containing arrays of references
+- If continuing the scale ladder, try 4352, 4608, and 4864 with timeouts before 5120.
