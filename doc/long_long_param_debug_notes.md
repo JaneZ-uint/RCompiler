@@ -864,3 +864,58 @@ Next better directions:
 - Typed/self by-value method variants if they parse and codegen cleanly.
 - Cases with nested calls specifically in the tail stack-passed argument region and sparse checking at the end of a much larger list.
 - Compare assembly around long call argument stores if a future test finally returns a wrong score.
+
+## Typed And By-Value Self Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover method receiver forms listed in `AGENTS.md` that were not yet scaled up.
+- Keep the long user parameter list normal and mixed.
+- Verify receiver boundary effects for both by-value and typed self forms.
+
+Small probe:
+
+- `/tmp/self_variants_probe.rx`
+  - Covered:
+    - `self`
+    - `mut self`
+    - `self: Self`
+    - `self: &Self`
+    - `mut self: &mut Self`
+  - RV64/qemu output was `171`, which matches the corrected hand calculation.
+
+Generated long test:
+
+- `local_tests/long_param_self_variants_512.rx`
+  - Runs five methods, each with 512 explicit user parameters.
+  - Receiver forms:
+    - `self`
+    - `mut self`
+    - `self: Self`
+    - `self: &Self`
+    - `mut self: &mut Self`
+  - Expected total score: `18854`.
+  - RV64/qemu output: `1`.
+
+Repeating user parameter cycle:
+
+- `usize`
+- `i32`
+- `bool`
+- `Pair`
+- `[usize; 3]`
+- `&Pair`
+- `&[usize; 3]`
+- `&mut usize`
+
+Result:
+
+- Typed/by-value self receiver forms work in long-parameter method calls.
+- This lowers the priority of receiver-form boundary movement as the remaining WA cause.
+
+Next better directions:
+
+- Sparse very-large list where only nested-call tail arguments are checked.
+- Long parameter lists with many arrays of references, because arrays of references are a more unusual but still spec-aligned aggregate shape.
