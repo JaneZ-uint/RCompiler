@@ -1404,6 +1404,34 @@ Next long-expr directions:
 - expression forms with many function calls plus bitwise arithmetic
 - larger scale only after trying distinct operator families
 
+## Long Expr Signed Isize Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover signed 64-bit expression paths separately from unsigned `usize`.
+- Stress `isize` negative values, signed right shift, signed division, signed remainder, and cast back to `usize`.
+
+Generated test:
+
+- `local_tests/long_expr_signed_isize_2048.rx`
+  - 2048 grouped `isize` terms.
+  - Each term combines `>>`, `/`, `%`, `+`, `-`, and final `as usize`.
+  - Expected result: `615178153`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- Long expression evaluation over signed 64-bit arithmetic passes at 2048-term scale.
+- This lowers the priority of signed `isize` shift/div/rem as the remaining `long expr` WA cause.
+
+Next long-expr directions:
+
+- expression forms with many function calls plus bitwise arithmetic
+- nested calls that return `usize/isize` into a long expression
+- inspect remaining semantic-1/semantic-2 idioms not yet reflected in the local long-expression tests
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
