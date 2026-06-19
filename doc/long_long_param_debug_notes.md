@@ -1,0 +1,367 @@
+# Long Long Param Debug Notes
+
+Date: 2026-06-20
+
+This document records the recent `looooong looooong param` investigation. The hidden OJ case still fails after the latest fix, so this is mainly a handoff note to avoid repeating already tested directions.
+
+## Current Ground Rules
+
+- Use RV64 only:
+  - compile generated asm with `riscv64-linux-gnu-gcc -static`
+  - run with `qemu-riscv64`
+- Do not use REIMU for generated RV64 asm.
+- OJ output protocol still matters:
+  - compiler stdout: user asm
+  - compiler stderr: builtin runtime asm
+  - concatenate stdout then stderr before assembling.
+
+## Latest Committed Fix
+
+Commit:
+
+```text
+eca306f fix: preserve nested reference args in calls
+```
+
+Problem fixed:
+
+- Function calls with pointer parameters used to always pass `valueFromPtrStorage(arg)`.
+- For an argument like `p: & &mut T` forwarded to another function expecting `& &mut T`, this loaded one level too far.
+- The callee then treated an inner `&mut T` as if it were the outer `& &mut T`, so `**p` could read/write through a wrong address.
+
+The fix added `pointerCallArg()` in `src/ir/IRBuilder.h`:
+
+- If the argument is already the outer reference address and its shape matches the expected pointer base type, pass it directly.
+- Otherwise keep the old `valueFromPtrStorage()` behavior.
+- Applied to both normal calls and method calls.
+
+Regression tests committed with that fix:
+
+- `local_tests/inner_mut_ref_min.rx`
+- `local_tests/inner_mut_ref_forward_min.rx`
+- `local_tests/long_param_inner_mut_ref_matrix.rx`
+- `local_tests/long_param_inner_mut_ref_forward_sret.rx`
+- `local_tests/long_param_ref_array_matrix.rx`
+- `local_tests/long_param_ref_array_forward_repeat.rx`
+- `local_tests/long_param_ref_array_method_sret.rx`
+
+Validation after the commit:
+
+- `cmake --build build`: pass
+- `local_tests/*.rx` positive tests at that time: pass
+- `bash /tmp/qt2.sh RCompiler-Testcases/long-param/src`: `PASS=34 FAIL=0`
+- semantic-2 manually with RV64/qemu: `PASS=50 FAIL=0`
+- semantic-1 with `Verdict: Pass/Fail`: `PASS=222 FAIL=0`
+
+## Function Parameter Type Checklist Added To AGENTS.md
+
+Added a function-parameter checklist to `AGENTS.md`, covering:
+
+- scalar params: `i32`, `u32`, `isize`, `usize`, `bool`
+- user path types: struct, enum if supported by spec, `Self`
+- references: `&T`, `&mut T`, multi-level references
+- arrays: `[T; N]`, recursively combined with structs/references/scalars/bool
+- method self forms
+- parameter patterns
+- explicitly excluded unsupported Rust-only types like `char`, `String`, tuple, slice, raw pointer, function pointer, generics/lifetimes
+
+## Directions Tested After Commit
+
+These were tested after `eca306f`. They did not reproduce the hidden failure.
+
+### 1. Arrays Whose Elements Are References
+
+Goal:
+
+- Check `[&T; N]` and `[&mut T; N]` in long parameter lists.
+
+Tests:
+
+- `local_tests/long_param_ref_array_matrix.rx`
+- `local_tests/long_param_ref_array_forward_repeat.rx`
+- `local_tests/long_param_ref_array_method_sret.rx`
+
+Covered:
+
+- `[&i32; N]`, `[&mut i32; N]`
+- `[&u32; N]`, `[&mut u32; N]`
+- `[&isize; N]`, `[&mut isize; N]`
+- `[&bool; N]`, `[&mut bool; N]`
+- `[&Struct; N]`, `[&mut Struct; N]`
+- `[&[usize; N]; M]`, `[&mut [usize; N]; M]`
+- repeat-init of reference arrays
+- `middle -> leaf` forwarding
+- method call plus struct hidden return pointer
+
+Result:
+
+- All passed.
+
+### 2. Inner Mutable Multi-Level References At Large Scale
+
+Goal:
+
+- Take the fixed `& &mut T` / `&mut &mut T` path and scale it to hidden-test size.
+
+Generated local tests:
+
+- `local_tests/long_long_inner_mut_refs_256.rx`
+- `local_tests/long_long_inner_mut_refs_1024.rx`
+- `local_tests/long_long_inner_mut_refs_4096.rx`
+- `local_tests/long_long_inner_mut_refs_16384.rx`
+- `local_tests/long_long_inner_mut_refs_dense_unique_1024.rx`
+
+Covered:
+
+- `& &mut usize/i32/u32/isize/bool/Pair/[usize; 3]`
+- `&mut &mut usize/i32/u32/isize/bool/Pair/[usize; 3]`
+- `middle -> leaf` forwarding
+- selected ABI boundary positions: `8/9/15/16/31/32/.../16383`
+- dense 1024-parameter version where every nested-reference parameter is actually read/written
+
+Results:
+
+- 256: output `1`
+- 1024: output `1`
+- 4096: output `1`
+- 16384: output `1`
+- dense unique 1024: output `1`
+
+Note:
+
+- A first dense test reused the same backing variables and output `344`; that was a test-generation issue, not a compiler result. The independent-backing-variable version passed.
+
+### 3. By-Value Aggregate Forwarding Alias/Copy
+
+Goal:
+
+- Check whether `Struct` / `[T; N]` by-value parameters are incorrectly aliased when forwarded through `middle -> leaf`.
+
+Generated local tests:
+
+- `local_tests/byvalue_aggregate_forward_alias_min.rx`
+- `local_tests/byvalue_aggregate_modify_then_forward.rx`
+- `local_tests/long_param_byvalue_aggregate_forward_alias_512.rx`
+- `local_tests/long_param_byvalue_aggregate_forward_alias_2048.rx`
+
+Covered:
+
+- `Pack` struct by value
+- `[usize; 3]` by value
+- nested `Big { Pack, [usize; 3], bool }`
+- `middle` forwards by-value aggregate params to `leaf`
+- `leaf` mutates its own by-value params
+- `middle` then checks its own params remain unmodified
+- `middle` mutates its own params first, then forwards; `leaf` should see the updated by-value content but not pollute `middle`
+
+Results:
+
+- min: output `31`
+- modify-then-forward: output `255`
+- 512: output `1`
+- 2048: output `1`
+
+### 4. Nested Calls As Long-Parameter Arguments
+
+Goal:
+
+- Check whether a nested call used as an outer call argument overwrites already-staged outgoing stack arguments.
+
+Generated local tests:
+
+- `local_tests/nested_call_stack_arg_overwrite_min.rx`
+- `local_tests/nested_call_stack_arg_aggregate_mix.rx`
+- `local_tests/nested_call_many_long_stack_args_512.rx`
+- `local_tests/nested_call_side_effect_stack_args.rx`
+
+Covered:
+
+- outer call has stack arguments
+- later outer arguments include nested calls
+- nested calls themselves have stack arguments
+- nested calls returning scalar, struct, and array
+- multiple nested calls across a 512-argument outer call
+- side-effect nested call mutating `&mut usize`, checking argument evaluation order
+
+Results:
+
+- min: output `65535`
+- aggregate mix: output `262143`
+- many 512: output `1`
+- side-effect: output `65535`
+
+### 5. Method Self Plus Hidden Return Pointer
+
+Goal:
+
+- Check ABI indexing when `self` and hidden return pointer shift the user-parameter boundary.
+
+Generated temporary tests in `/tmp`:
+
+- `/tmp/method_self_sret_long_512.rx`
+- `/tmp/method_self_sret_long_2048.rx`
+- `/tmp/method_self_array_sret_long_4096.rx`
+
+Covered:
+
+- `&self`
+- `self: &Self`
+- `mut self: Self`
+- `&mut self`
+- `self: &mut Self`
+- methods returning struct
+- methods returning array
+- 512/2048/4096 mixed parameters
+
+Results:
+
+- 512 struct sret: output `1`
+- 2048 struct sret: output `1`
+- 4096 array sret: output `1`
+
+These files were intentionally kept in `/tmp` and not added to the repo.
+
+### 6. Parameter Patterns In Long Lists
+
+Goal:
+
+- Test semantic-valid parameter patterns in long parameter lists.
+- Avoid patterns known to cause semantic aborts, because the hidden case reports WA, not CE/parser failure.
+
+Generated temporary tests in `/tmp`:
+
+- `/tmp/long_pattern_mix_1024.rx`
+- `/tmp/long_pattern_mix_4096.rx`
+- `/tmp/refmut_pattern_alias_check.rx`
+
+Covered:
+
+- `ref x: usize`
+- `ref mut x: usize`
+- `ref b: bool`
+- `ref p: Pair`
+- `ref arr: [usize; 3]`
+- `&x: &usize`
+- `&mut x: &mut usize`
+- `&&x: & &usize`
+- `&&p: & &Pair`
+- `&&arr: & &[usize; 3]`
+- wildcard `_`
+
+Results:
+
+- 1024: output `1`
+- 4096: output `1`
+- ref-mut alias check: output `63`
+
+Known caveat:
+
+- More deeply nested reference patterns have incomplete semantic handling in `NameResolver` and can CE/abort.
+- Since the hidden result is WA, those are lower priority unless OJ reports change.
+
+## Current Worktree State
+
+At the time this note was written, the worktree still had unrelated benchmark deletions not made by this investigation:
+
+```text
+ D benchmark/benchmark_2026-06-13_01-40-26.txt
+ D benchmark/benchmark_2026-06-13_18-54-38.txt
+ D benchmark/benchmark_2026-06-13_18-56-22.txt
+```
+
+Do not accidentally stage those unless the user explicitly asks.
+
+There are also several untracked generated local tests under `local_tests/` from the later investigation. They were not committed after `eca306f`.
+
+## Current Best Next Direction
+
+The highest-priority remaining direction is full-use long parameter lists:
+
+- Previous generated tests often checked selected boundary parameters.
+- Hidden may use every parameter, forcing much heavier:
+  - function-entry parameter save slots
+  - alloca frame size
+  - stack offset materialization
+  - register allocation and spills
+  - bool/usize mixed width handling
+
+Recommended next tests:
+
+1. 4096 and 8192 parameters where every parameter contributes to the result.
+2. Mixed repeating pattern:
+   - `i32`
+   - `u32`
+   - `isize`
+   - `usize`
+   - `bool`
+   - `&usize`
+   - `&mut usize`
+   - small struct by value
+   - small array by value
+   - struct with bool and usize fields
+3. Make the callee read every parameter exactly once, preferably with simple additions/conditionals to keep expression complexity moderate.
+4. Include a forwarding variant:
+   - `middle(all params) -> leaf(all params)`
+5. Include a bool-heavy variant:
+   - many bool scalar params
+   - `[bool; N]`
+   - struct bool fields
+   - `&bool`, `&mut bool`
+
+Rationale:
+
+- If hidden is still `long long param`, the remaining likely failure is not a missing exotic type shape, but pressure from full use of all arguments and large stack frames.
+
+## Full-Use Mixed Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Convert the previous "selected boundary parameter" idea into a test where every parameter is read and contributes to the final answer.
+- Keep expression complexity moderate so the test still mainly targets function parameter lowering, forwarding, stack arguments, and aggregate argument layout.
+
+Generated tests:
+
+- `local_tests/long_param_full_use_mix_4096.rx`
+  - 4096 explicit parameters.
+  - 16722 lines.
+  - Expected score: `5732`.
+  - RV64/qemu result: output `1`.
+- `local_tests/long_param_full_use_mix_8192.rx`
+  - 8192 explicit parameters.
+  - 33415 lines.
+  - Expected score: `11468`.
+  - Not committed in this step: `./build/RCompiler` stayed in the front-end/codegen stage for more than ten minutes and produced an empty asm file before the run was manually terminated.
+
+Parameter pattern used in the repeating cycle:
+
+- `i32`
+- `u32`
+- `isize`
+- `usize`
+- `bool`
+- `&usize`
+- `&mut usize`
+- `Pair` by value, where `Pair` contains `usize`, `i32`, and `bool`
+- `[usize; 3]` by value
+- `Boxy` by value, where `Boxy` contains `Pair`, `[usize; 3]`, and `bool`
+
+Test shape:
+
+- `main` constructs all arguments.
+- `middle` receives all arguments and forwards all of them to `leaf`.
+- `leaf` checks every argument.
+- `&mut usize` parameters are mutated before being checked, so the test also covers write-through reference arguments across a long forwarding call.
+
+Result:
+
+- The 4096-parameter full-use mixed case passes.
+- This reduces the likelihood that the remaining OJ `long long param` WA is caused by ordinary mixed scalar/reference/aggregate parameters that are all consumed once.
+- The 8192 case exposed compile-time scalability pressure in RCompiler, but it did not produce a runtime WA signal.
+
+Next high-priority directions:
+
+- Try a smaller scale ladder between 4096 and 8192, for example 5120, 6144, and 7168, with command-level timeouts.
+- Build a bool-heavy full-use variant with `bool`, `&bool`, `&mut bool`, `[bool; N]`, and structs with many bool fields.
+- Build a larger aggregate-heavy variant where stack arguments are dominated by by-value structs and arrays, not scalar/reference arguments.
