@@ -716,3 +716,63 @@ Next better directions:
 - Typed/self by-value method variants if they parse and codegen cleanly.
 - Very large sparse-use parameter lists, closer to hidden tests that may stress parameter save/slot setup without reading every argument.
 - Re-check baseline after the recent test-only commits before further code changes.
+
+## Very Large Sparse-Use Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Approximate hidden `looooong looooong param` style where the parameter list is extremely long but the function body may only use selected boundary/tail parameters.
+- Avoid full-use 8192+ compile-time blowups while still forcing the compiler to parse, bind, lower, and pass every parameter.
+- Keep parameter types normal and mixed.
+
+Baseline note:
+
+- `bash /tmp/qt2.sh RCompiler-Testcases/long-param/src` returned `PASS=34 FAIL=0`.
+- `/tmp/qemu_test.sh` was not present in this environment.
+- `bash /tmp/qt2.sh RCompiler-Testcases/semantic-2/src` returned `PASS=1 FAIL=49`, so `qt2.sh` is not a valid replacement for the missing semantic-2 oracle/script on this directory layout.
+
+Generated long tests:
+
+- `local_tests/long_param_sparse_use_mix_8192.rx`
+  - 8192 explicit parameters.
+  - 13354 lines.
+  - Checked 264 selected parameters.
+  - Expected score: `396`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_sparse_use_mix_16384.rx`
+  - 16384 explicit parameters.
+  - 26308 lines.
+  - Checked 296 selected parameters.
+  - Expected score: `444`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `i32`
+- `usize`
+- `bool`
+- `Pair`
+- `&Pair`
+- `[usize; 3]`
+- `&[usize; 3]`
+- `&mut usize`
+
+Checked regions:
+
+- beginning of the list
+- ABI boundary-adjacent early parameters
+- middle ranges around 1000, 4096, and 8192
+- dense tail parameters
+
+Result:
+
+- Both sparse-use very-long mixed parameter cases pass.
+- This lowers the priority of "parameter list is simply longer than our previous tests" as the remaining WA cause, at least up to 16384 explicit parameters with normal mixed types.
+
+Next better directions:
+
+- Typed/self by-value method variants if they parse and codegen cleanly.
+- Long parameter tests where all arguments are function call expressions or returned aggregate values, to stress call argument evaluation order and temporary slots.
+- Inspect codegen for function-call argument setup around stack-passed aggregates; hidden WA may depend on temporaries rather than declared parameter types alone.
