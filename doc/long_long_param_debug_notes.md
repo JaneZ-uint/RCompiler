@@ -1376,6 +1376,34 @@ Next long-expr directions:
 - consider expression forms that create many basic blocks if scale alone exposes a runtime issue
 - avoid much larger short-circuit-only cases unless there is a specific reason, because compile time grows quickly
 
+## Long Expr Bitwise Temporary Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Stress ordinary expression temporaries and 64-bit binary-op tagging.
+- Cover `usize` arithmetic combined with `%`, `^`, `|`, `&`, `<<`, and `>>`.
+
+Generated test:
+
+- `local_tests/long_expr_bitwise_temp_2048.rx`
+  - 2048 grouped arithmetic/bitwise terms.
+  - Every term uses 64-bit `usize` operations and reduces through `% 1000003usize`.
+  - Expected result: `932189935`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- Long expression evaluation with many 64-bit arithmetic/bitwise temporaries passes at 2048-term scale.
+- This reduces the likelihood that the remaining hidden `long expr` WA is a simple missing `w64tag` on ordinary binary ops.
+
+Next long-expr directions:
+
+- mixed signed `isize` right shifts and casts, because signed shift/div/rem are a separate backend path
+- expression forms with many function calls plus bitwise arithmetic
+- larger scale only after trying distinct operator families
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
