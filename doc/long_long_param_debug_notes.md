@@ -1168,6 +1168,50 @@ Next better directions:
 - Re-check function-inline interactions with long parameters after recent test-only coverage.
 - If no runtime WA appears, consider inspecting OJ-style generated long-param tests for exact shape differences rather than adding more broad combinations.
 
+## Mutable Binding Aggregate Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover `mut` parameter bindings themselves, not only `&mut` reference parameters.
+- Include mutable by-value aggregate parameters (`mut Pair`, `mut [usize; 3]`) and mutable scalar bindings.
+
+Small probe:
+
+- `/tmp/mut_aggregate_param_probe.rx`
+  - Covered `mut p: Pair`, `mut a: [usize; 3]`, and `mut x: usize`.
+  - RV64/qemu output: `1`.
+
+Generated long test:
+
+- `local_tests/long_param_mut_binding_aggregate_1024.rx`
+  - 1024 explicit parameters.
+  - 3734 lines.
+  - Expected score: `1536`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `mut usize`
+- `mut isize`
+- `mut bool`
+- `mut Pair`
+- `mut [usize; 3]`
+- `&Pair`
+- `&[usize; 3]`
+- `i32`
+
+Result:
+
+- Mutable parameter bindings, including aggregate by-value parameters, pass in long parameter lists.
+- This lowers the priority of `mut` binding setup as the remaining WA cause.
+
+Next better directions:
+
+- Long parameter lists with mixed casts in the call arguments and callee checks.
+- Inspect remaining failures under `long expr` separately, because long-param coverage is no longer exposing a runtime mismatch.
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
