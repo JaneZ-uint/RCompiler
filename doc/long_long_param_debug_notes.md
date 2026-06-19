@@ -1432,6 +1432,34 @@ Next long-expr directions:
 - nested calls that return `usize/isize` into a long expression
 - inspect remaining semantic-1/semantic-2 idioms not yet reflected in the local long-expression tests
 
+## Long Expr Call Bitwise Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Combine helper function return values with 64-bit bitwise/arithmetic expression chains.
+- Cover call results of `usize`, `u32`, `isize`, and `i32` feeding into casts, shifts, xor, addition, and modulo.
+
+Generated test:
+
+- `local_tests/long_expr_call_bitwise_1536.rx`
+  - 1536 grouped expression terms.
+  - Helpers: `f_usize`, `f_u32`, `f_isize`, and `f_i32`.
+  - Outer expression combines helper results using `<<`, `>>`, `^`, `+`, casts, and `%`.
+  - Expected result: `756877909`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- Long expression evaluation with function-call results feeding 64-bit bitwise arithmetic passes at 1536-term scale.
+
+Next directions:
+
+- inspect semantic-1/semantic-2 for idioms still absent from long local tests
+- revisit long-parameter plus long-expression combinations in one call site
+- look for implementation asymmetries rather than adding only more same-shape scale
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
