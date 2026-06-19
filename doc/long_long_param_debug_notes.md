@@ -670,3 +670,49 @@ Next better directions:
 - Associated function sret with long parameters, without a method receiver, to isolate hidden return pointer behavior.
 - Typed/self by-value method variants if they parse and codegen cleanly.
 - Very large but sparse-use parameter lists, closer to OJ hidden tests that may not read every argument.
+
+## Associated Function Sret Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Isolate hidden sret return pointer behavior without a method receiver.
+- Use a normal associated function call `Maker::make(...) -> Ret`.
+- Keep long mixed user parameters so the hidden return pointer shifts stack/register argument positions.
+
+Generated long tests:
+
+- `local_tests/long_param_assoc_sret_mix_1536.rx`
+  - Associated function: `Maker::make(...) -> Ret`.
+  - Return type: `Ret { score: usize, data: [usize; 4], ok: bool }`.
+  - 1536 explicit parameters.
+  - Expected score: `2381`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_assoc_sret_mix_3072.rx`
+  - Same shape as the 1536 case.
+  - 3072 explicit parameters.
+  - Expected score: `4685`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `usize`
+- `i32`
+- `Pair`
+- `[usize; 3]`
+- `&Pair`
+- `&[usize; 3]`
+- `bool`
+- `&mut usize`
+
+Result:
+
+- Both associated-function sret long-parameter cases pass.
+- This lowers the priority of hidden return pointer shifting alone as the remaining `long long param` WA cause.
+
+Next better directions:
+
+- Typed/self by-value method variants if they parse and codegen cleanly.
+- Very large sparse-use parameter lists, closer to hidden tests that may stress parameter save/slot setup without reading every argument.
+- Re-check baseline after the recent test-only commits before further code changes.
