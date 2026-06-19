@@ -1128,6 +1128,46 @@ Next better directions:
 - Inspect function parameter setup for aggregate parameters stored into local slots.
 - Try enum parameters if enum value passing is supported well enough by current Rx implementation.
 
+## Aggregate Forward After Mutation Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover wrapper functions that receive long mixed parameters and immediately forward them.
+- Include by-value aggregate arguments together with mutable references to related source objects.
+- Check that by-value aggregate parameters preserve copy/value semantics even when mutable reference parameters are modified in the forwarded callee.
+
+Generated long test:
+
+- `local_tests/long_param_aggregate_forward_after_mutation_512.rx`
+  - `wrapper(...) -> leaf(...)`.
+  - 512 explicit parameters.
+  - 2652 lines.
+  - Expected score: `896`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `Pair`
+- `&mut Pair`
+- `[usize; 3]`
+- `&mut [usize; 3]`
+- `usize`
+- `bool`
+- `&Pair`
+- `&[usize; 3]`
+
+Result:
+
+- Aggregate forwarding after mutation passes.
+- This lowers the priority of ordinary by-value aggregate lifetime/copy issues in wrapper forwarding.
+
+Next better directions:
+
+- Re-check function-inline interactions with long parameters after recent test-only coverage.
+- If no runtime WA appears, consider inspecting OJ-style generated long-param tests for exact shape differences rather than adding more broad combinations.
+
 ## Enum Parameter Probe
 
 Date: 2026-06-20
