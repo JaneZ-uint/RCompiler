@@ -1505,9 +1505,7 @@ public:
     std::shared_ptr<IRBlock> visit(ExprGroup &node){
         auto block = std::make_shared<IRBlock>();
         bool originLvalue = node.expr->is_lvalue;
-        if(node.is_lvalue){
-            node.expr->is_lvalue = true;
-        }
+        node.expr->is_lvalue = node.is_lvalue;
         auto exprInstrs = visit(*node.expr);
         node.expr->is_lvalue = originLvalue;
         if(exprInstrs){
@@ -3214,9 +3212,18 @@ public:
             return phiProcess(node);
         }
         IROp op = turnBinaryOp(node.op);
-        if(op == ASSIGNEQ || op == ADD_EQ || op == SUB_EQ || op == MUL_EQ || op == DIV_EQ || op == MOD_EQ || op == XOROPEQ || op == LEFTSHIFTOPEQ || op == RIGHTSHIFTOPEQ){
-            node.left->is_lvalue = true;
-        }
+        bool leftOriginLvalue = node.left->is_lvalue;
+        bool rightOriginLvalue = node.right->is_lvalue;
+        bool leftNeedsLvalue = (op == ASSIGNEQ || op == ADD_EQ || op == SUB_EQ ||
+                                op == MUL_EQ || op == DIV_EQ || op == MOD_EQ ||
+                                op == XOROPEQ || op == LEFTSHIFTOPEQ ||
+                                op == RIGHTSHIFTOPEQ);
+        node.left->is_lvalue = leftNeedsLvalue;
+        node.right->is_lvalue = false;
+        auto restoreOperandLvalues = [&]() {
+            node.left->is_lvalue = leftOriginLvalue;
+            node.right->is_lvalue = rightOriginLvalue;
+        };
         auto leftInstrs = std::make_shared<IRBlock>();
         if(auto *ifExpr = dynamic_cast<ExprIf *>(& *node.left)){
             leftInstrs = normalVisit(*ifExpr);    
@@ -3247,6 +3254,7 @@ public:
                        leftvar->type == currentScope->lookupTypeSymbol("isize")){
                         node.ret = leftExpr;
                         node.is_lvalue = true;
+                        restoreOperandLvalues();
                         return block;
                     }
                     // 32-bit -> 64-bit: must zero/sign extend.
@@ -3279,6 +3287,7 @@ public:
                     }
                     node.ret = castVar;
                     node.is_lvalue = true;
+                    restoreOperandLvalues();
                     return block;
                 }else if(auto leftLit = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
                     if(targetTy){
@@ -3286,10 +3295,12 @@ public:
                     }
                     node.ret = leftLit;
                     node.is_lvalue = true;
+                    restoreOperandLvalues();
                     return block;
                 }
                 node.ret = leftExpr;
                 node.is_lvalue = true;
+                restoreOperandLvalues();
                 return block;
             }else if(rightCast->pathFirst->pathSegments.identifier == "i32" || rightCast->pathFirst->pathSegments.identifier == "u32"){
                 std::string targetName = rightCast->pathFirst->pathSegments.identifier;
@@ -3315,6 +3326,7 @@ public:
                         }
                         node.ret = castVar;
                         node.is_lvalue = true;
+                        restoreOperandLvalues();
                         return block;
                     }
                     if(leftvar->type == currentScope->lookupTypeSymbol("i32") || leftvar->type == currentScope->lookupTypeSymbol("u32")){
@@ -3323,6 +3335,7 @@ public:
                         if(srcSigned == tgtSigned){
                             node.ret = leftExpr;
                             node.is_lvalue = true;
+                            restoreOperandLvalues();
                             return block;
                         }
                         // i32<->u32 cast: must re-normalize high 32 bits because
@@ -3356,6 +3369,7 @@ public:
                         }
                         node.ret = castVar;
                         node.is_lvalue = true;
+                        restoreOperandLvalues();
                         return block;
                     }else{
                         auto castVar = std::make_shared<IRVar>();
@@ -3372,6 +3386,7 @@ public:
                         }
                         node.ret = castVar;
                         node.is_lvalue = true;
+                        restoreOperandLvalues();
                         return block;
                     }
                 }else if(auto leftLiteral = std::dynamic_pointer_cast<IRLiteral>(leftExpr)){
@@ -3380,6 +3395,7 @@ public:
                     }
                     node.ret = leftLiteral;
                     node.is_lvalue = true;
+                    restoreOperandLvalues();
                     return block;
                 }
             }
@@ -3397,6 +3413,8 @@ public:
         }else {
             rightInstrs = visit(*node.right);
         }
+        node.left->is_lvalue = leftOriginLvalue;
+        node.right->is_lvalue = rightOriginLvalue;
         if(rightInstrs){
             if(block->blockList.size() == 0){
                 for(auto & instr : rightInstrs->instrList){
@@ -3699,6 +3717,7 @@ public:
     std::shared_ptr<IRBlock> visit(ExprOpunary &node){
         auto block = std::make_shared<IRBlock>();
         if(node.op == DEREFERENCE){
+            bool wantLvalue = node.is_lvalue;
             node.right->is_lvalue = true;
             auto rightInstrs = visit(*node.right);
             if(rightInstrs){
@@ -3731,6 +3750,27 @@ public:
                         if(ptr->baseType == currentScope->lookupTypeSymbol("usize") ||
                            ptr->baseType == currentScope->lookupTypeSymbol("isize")){
                             retVar->isW64Stack = true;
+                        }
+                        if(!wantLvalue){
+                            auto loadInstr = std::make_shared<IRLoad>();
+                            auto valueVar = std::make_shared<IRVar>();
+                            valueVar->type = ptr->baseType;
+                            loadInstr->tmp = valueVar;
+                            loadInstr->addressVar = retVar;
+                            loadInstr->type = ptr->baseType;
+                            if(auto intType = std::dynamic_pointer_cast<IRIntType>(ptr->baseType)){
+                                if(intType->bitWidth == 64){
+                                    loadInstr->w64tag = true;
+                                }
+                                if(intType->bitWidth == 32 && intType->isUnsigned){
+                                    loadInstr->utag = true;
+                                }
+                            }else if(std::dynamic_pointer_cast<IRPtrType>(ptr->baseType)){
+                                loadInstr->w64tag = true;
+                            }
+                            appendToLastBlock(block, loadInstr);
+                            node.ret = valueVar;
+                            node.is_lvalue = true;
                         }
                     }
                 }

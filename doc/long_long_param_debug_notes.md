@@ -1460,6 +1460,68 @@ Next directions:
 - revisit long-parameter plus long-expression combinations in one call site
 - look for implementation asymmetries rather than adding only more same-shape scale
 
+## Found WA: Grouped Dereference In Long Param Expression
+
+Date: 2026-06-20
+
+Goal:
+
+- Combine long parameter passing with a long expression in the callee body.
+- Keep the case normal: scalar params, struct params, array params, bool params, reference params, helper-call arguments, and parenthesized subexpressions.
+
+Generated regression:
+
+- `local_tests/long_param_expr_combo_1536.rx`
+  - 1536 mixed parameters.
+  - Parameter cycle: `usize`, `i32`, `u32`, `isize`, `bool`, `Pair`, `[usize; 3]`, `&usize`.
+  - The callee returns one large parenthesized expression using all parameters.
+  - The call site mixes helper-call results, literals, aggregate literals, and references.
+  - Expected result: `21222912`.
+
+Reproduction before fix:
+
+- The 1536-param test compiled and linked, then printed `0`.
+- Debug print showed actual value `1627981312`/similar address-shaped values.
+- A minimized normal case with only 8 parameters also reproduced:
+  - expression ended with `+ (*p7)`
+  - asm added the address register for `p7` instead of loading the pointee:
+    - bad shape: `add ..., s8`
+    - expected shape: `ld tmp, 0(s8); add ..., tmp`
+
+Root cause:
+
+- `ExprGroup` previously did not force the inner expression to match the group's rvalue/lvalue context.
+- `ExprOpbinary` also reused child AST `is_lvalue` state without resetting it for ordinary operand reads.
+- As a result, `(*p)` inside a parenthesized expression could remain address-like when used as an rvalue in a larger binary expression.
+
+Fix:
+
+- In `IRBuilder.h`:
+  - `ExprGroup` now forwards the group's requested lvalue/rvalue context into the inner expression.
+  - `ExprOpbinary` saves/restores child `is_lvalue` flags and explicitly visits ordinary operands as rvalues.
+  - `DEREFERENCE` now materializes a scalar load immediately when the dereference expression is used as an rvalue.
+
+Verification:
+
+- Minimal `/tmp/fixed_combo_8.rx`: output changed from `0` plus address-shaped actual value to `1` and `29150`.
+- `local_tests/long_param_expr_combo_1536.rx`: RV64/qemu output `1`.
+- `bash /tmp/qt2.sh RCompiler-Testcases/long-param/src`: `PASS=34 FAIL=0`.
+- Focus local long-expression tests all output `1`:
+  - `long_expr_mixed_cast_chain_2048`
+  - `long_expr_call_chain_2048`
+  - `long_expr_array_struct_access_2048`
+  - `long_expr_bool_chain_2048`
+  - `long_expr_bool_chain_4096`
+  - `long_expr_bitwise_temp_2048`
+  - `long_expr_signed_isize_2048`
+  - `long_expr_call_bitwise_1536`
+
+Runner notes:
+
+- `/tmp/qemu_test.sh` is absent in this environment.
+- `bash /tmp/qt2.sh RCompiler-Testcases/semantic-2/src` still reports `PASS=1 FAIL=49`, same known bad oracle/layout issue as before.
+- `bash /tmp/qt2.sh RCompiler-Testcases/semantic-1/src` is not a valid semantic-1 oracle because it executes expected-CE tests through qemu.
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
