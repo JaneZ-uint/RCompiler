@@ -419,3 +419,64 @@ Next better directions:
   - arrays of structs by value
   - structs containing arrays of references
 - If continuing the scale ladder, try 4352, 4608, and 4864 with timeouts before 5120.
+
+## Bool-Heavy Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long parameter lists dominated by `bool` and bool-containing aggregates.
+- Exercise `bool` together with references, mutable references, arrays, structs, and `usize` fields.
+- Keep every parameter used, and include a `middle -> leaf` forwarding call so stack argument forwarding is still tested.
+
+Small probes:
+
+- `/tmp/bool_ref_probe.rx`
+  - Covered `bool`, `&bool`, `&mut bool`, `BoolPack` by value, `&BoolPack`, and `usize`.
+  - RV64/qemu output: `1`.
+- `/tmp/bool_array_repeat_probe.rx`
+  - Covered `[bool; 4]` with repeat init `[true; 4]`.
+  - RV64/qemu output: `1`.
+- `/tmp/bool_heavy_probe.rx`
+  - Tried explicit bool array literal `[true, false, true, false]`.
+  - `./build/RCompiler` aborted with `Wrong in expr array parsing,type mismatch.`
+  - Therefore long bool-array tests currently use repeat-init (`[true; 5]` / `[false; 5]`) instead of explicit mixed bool array literals.
+
+Generated long tests:
+
+- `local_tests/long_param_bool_heavy_2048.rx`
+  - 2048 explicit parameters.
+  - 9827 lines.
+  - Expected score: `3840`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_bool_heavy_3072.rx`
+  - 3072 explicit parameters.
+  - 14725 lines.
+  - Expected score: `5760`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `bool`
+- `&bool`
+- `&mut bool`
+- `[bool; 5]` by value, using repeat-init
+- `Flags` by value, where `Flags` has four bool fields and one `usize`
+- `&Flags`
+- `usize`
+- `&usize`
+
+Result:
+
+- Both 2048 and 3072 bool-heavy full-use/full-forwarding cases pass.
+- This lowers the priority of ordinary bool scalar/reference/aggregate combinations as the remaining hidden `long long param` WA cause.
+- The explicit bool array literal abort is a real uncovered implementation gap, but it would usually show as CE/RE rather than the reported hidden WA.
+
+Next better direction:
+
+- Aggregate-heavy long parameters:
+  - more by-value structs and arrays after the ABI register boundary
+  - arrays of structs by value
+  - structs containing arrays of references
+  - nested arrays such as `[[usize; 2]; 3]` and arrays of small structs
