@@ -1168,6 +1168,48 @@ Next better directions:
 - Re-check function-inline interactions with long parameters after recent test-only coverage.
 - If no runtime WA appears, consider inspecting OJ-style generated long-param tests for exact shape differences rather than adding more broad combinations.
 
+## Codegen And Inline Inspection Notes
+
+Date: 2026-06-20
+
+Findings:
+
+- Current `main.cpp` uses `src/linearScan/regalloc.h`.
+- The older `src/graphColoring/InstrSelect.h` backend still contains older long-call lowering logic, but it is not selected by the current executable.
+- Current `src/linearScan/InstrSelect.h` call lowering:
+  - uses `long long int totalParams`
+  - computes outgoing stack bytes with `long long int`
+  - materializes `sp - stackBytes` into a stable outgoing base before storing stack args
+  - stores stack args at positive offsets from that outgoing base
+  - moves register args only after stack args are materialized
+- Function entry parameter load also uses `long long int` for parameter count and stack offsets.
+
+Function inline pass:
+
+- `src/optimize/functionInline.h` only inlines very small functions:
+  - no blocks
+  - max 24 IR instructions
+  - return type only int or void
+- It will not inline the generated long-parameter functions.
+- It can inline helper functions used as arguments, which is already partially covered by:
+  - returned-value long-parameter tests
+  - call-temporary long-parameter tests
+  - nested-call long-parameter tests
+  - sparse nested-tail long-parameter tests
+
+IRBuilder parameter setup:
+
+- By-value struct/array parameters are bound as aggregate pointer-like values in scope, not copied into local scalar slots.
+- Existing tests covering this area:
+  - aggregate-heavy long parameters
+  - repeated aggregate alias/copy
+  - aggregate forward-after-mutation
+
+Implication:
+
+- No obvious current-backend stack offset truncation was found.
+- No obvious inline path remains that would directly explain a long-param-only runtime WA.
+
 ## Enum Parameter Probe
 
 Date: 2026-06-20
