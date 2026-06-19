@@ -919,3 +919,50 @@ Next better directions:
 
 - Sparse very-large list where only nested-call tail arguments are checked.
 - Long parameter lists with many arrays of references, because arrays of references are a more unusual but still spec-aligned aggregate shape.
+
+## Array-Of-References Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long parameter lists where aggregate parameters are arrays whose elements are references.
+- Include arrays of immutable references, mutable references, struct references, and array references.
+- Keep this spec-aligned and focused on parameter type combinations.
+
+Generated tests:
+
+- `local_tests/long_param_array_of_refs_1024.rx`
+  - 1024 explicit parameters.
+  - Includes writes through parameters of type `[&mut usize; 3]`, `[&mut Pair; 2]`, and `[&mut [usize; 3]; 2]`.
+  - `./build/RCompiler` aborted before codegen.
+  - Error: `Cannot assign to immutable variable: p5`.
+  - This is a real implementation gap for lvalue mutability through arrays of mutable references, but it is a CE/abort signal rather than the hidden WA being investigated.
+- `local_tests/long_param_array_of_refs_readonly_1024.rx`
+  - Same array-of-reference parameter families, but only reads through the references.
+  - 1024 explicit parameters.
+  - 5100 lines.
+  - Expected score: `1920`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `[&usize; 3]`
+- `[&mut usize; 3]`
+- `[&Pair; 2]`
+- `[&mut Pair; 2]`
+- `[&[usize; 3]; 2]`
+- `[&mut [usize; 3]; 2]`
+- `usize`
+- `Pair`
+
+Result:
+
+- Read-only array-of-reference long-parameter passing works.
+- Mutating through an array element whose element type is `&mut T` currently aborts during semantic/lvalue handling.
+- Since the OJ symptom is WA, this CE-style gap is noted but not treated as the target hidden `long long param` failure.
+
+Next better directions:
+
+- Sparse very-large list where only nested-call tail arguments are checked.
+- Look for width/sign bugs in stack-passed parameters returned from functions and then passed onward.
