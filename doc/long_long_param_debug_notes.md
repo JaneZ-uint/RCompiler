@@ -1089,3 +1089,41 @@ Next better directions:
 
 - Inspect aggregate-by-value argument lowering in IRBuilder for aliasing or lifetime issues.
 - Try long calls with repeated uses of the same aggregate object by value and by reference in the same argument list.
+
+## Repeated Aggregate Alias/Copy Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long calls where the same aggregate storage is reused many times as by-value, immutable-reference, and mutable-reference arguments.
+- Check that by-value aggregate arguments keep copy semantics even when other arguments mutate related storage.
+
+Generated long test:
+
+- `local_tests/long_param_repeated_aggregate_alias_1024.rx`
+  - 1024 explicit parameters.
+  - 3586 lines.
+  - Expected score: `1792`.
+  - RV64/qemu output: `1`.
+
+Argument families:
+
+- `Pair` by value from a shared `[Pair; 16]`.
+- `&Pair` from the same pool.
+- `&mut Pair` from a mutable pool.
+- `[usize; 3]` by value from a shared nested array pool.
+- `&[usize; 3]`.
+- `&mut [usize; 3]`.
+- `usize` by value.
+- `&mut usize`.
+
+Result:
+
+- Repeated aggregate by-value/reference/mutable-reference combinations pass.
+- This lowers the priority of ordinary alias/copy timing in long argument lists as the remaining WA cause.
+
+Next better directions:
+
+- Inspect function parameter setup for aggregate parameters stored into local slots.
+- Try enum parameters if enum value passing is supported well enough by current Rx implementation.
