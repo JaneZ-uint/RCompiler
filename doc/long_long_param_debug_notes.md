@@ -1127,3 +1127,28 @@ Next better directions:
 
 - Inspect function parameter setup for aggregate parameters stored into local slots.
 - Try enum parameters if enum value passing is supported well enough by current Rx implementation.
+
+## Enum Parameter Probe
+
+Date: 2026-06-20
+
+Goal:
+
+- Check whether enum values are usable enough to build a normal enum long-parameter test.
+
+Probe:
+
+- `/tmp/enum_param_probe.rx`
+  - Tried `enum Color { Red, Green, Blue }`.
+  - Used `Color::Red`, `[Color; 3]`, and `&Color` as function parameters.
+
+Result:
+
+- `./build/RCompiler` aborted before assembly.
+- Error: `Value symbol not found: Color`.
+- This is a CE/implementation-support issue for enum paths in the current toolchain, not a plausible reproduction of the hidden WA.
+
+Decision:
+
+- Do not commit enum long-parameter tests for now.
+- Continue with non-enum parameter combinations that compile and run.
