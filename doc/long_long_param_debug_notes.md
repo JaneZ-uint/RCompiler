@@ -820,3 +820,47 @@ Next better directions:
 - Typed/self by-value method variants if they parse and codegen cleanly.
 - Nested call expressions as arguments, where stack-passed arguments themselves contain calls that may clobber caller argument setup.
 - Inspect actual call lowering for nested calls around stack-passed argument positions if a runtime WA appears.
+
+## Nested Call Argument Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Stress outer call argument setup when many stack-passed arguments are themselves produced by nested function calls.
+- Check whether inner calls clobber temporaries or partially prepared stack arguments for the outer long call.
+- Keep the test normal: helper functions return scalar/aggregate values used as ordinary arguments.
+
+Generated long tests:
+
+- `local_tests/long_param_nested_call_args_512.rx`
+  - 512 explicit parameters.
+  - 1693 lines.
+  - Expected score: `768`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_nested_call_args_1024.rx`
+  - 1024 explicit parameters.
+  - 3357 lines.
+  - Expected score: `1536`.
+  - RV64/qemu output: `1`.
+
+Nested argument forms:
+
+- `make_usize(id(seed))`
+- `make_pair(id(seed), make_i32(id(seed)), make_bool(id(seed)))`
+- `make_arr(id(seed))`
+- `make_bool(id(seed))`
+- `make_i32(id(seed))`
+- references to prebuilt `Pair` / `[usize; 3]`
+- `&mut usize`
+
+Result:
+
+- Both nested-call argument cases pass.
+- This lowers the priority of ordinary nested helper calls clobbering long-call argument setup.
+
+Next better directions:
+
+- Typed/self by-value method variants if they parse and codegen cleanly.
+- Cases with nested calls specifically in the tail stack-passed argument region and sparse checking at the end of a much larger list.
+- Compare assembly around long call argument stores if a future test finally returns a wrong score.
