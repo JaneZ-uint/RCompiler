@@ -1340,6 +1340,34 @@ Next long-expr directions:
 - deeper but normal expression nesting that stresses temporaries without relying on unsupported syntax
 - larger scale variants only if compile time remains reasonable
 
+## Long Expr Bool Chain Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long boolean expressions and short-circuit lowering.
+- Keep the syntax normal: comparisons, `&&`, `||`, struct-field reads, array-index reads, and bool fields.
+
+Generated test:
+
+- `local_tests/long_expr_bool_chain_2048.rx`
+  - 2048 boolean groups chained together.
+  - Each group has a false left side of `||`, forcing evaluation of the right side.
+  - The right side uses multiple `&&` comparisons over `Entry.a`, `Entry.b`, `Entry.c`, `Entry.flag`, and `Entry.xs[j]`.
+  - Expected output: `1`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- Long short-circuit boolean expression lowering passes at 2048-group scale.
+
+Next long-expr directions:
+
+- scale this boolean/aggregate expression toward `long long expr`
+- try deep but balanced arithmetic nesting with many live temporaries
+- consider expression forms that create many basic blocks if scale alone exposes a runtime issue
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
