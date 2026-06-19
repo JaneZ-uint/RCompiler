@@ -1250,6 +1250,33 @@ Next better directions:
 - Shift focus toward `long expr` / `long long expr`, since broad long-param coverage has not produced a runtime mismatch.
 - Keep any further long-param work tied to concrete OJ-style clues rather than adding arbitrary broad combinations.
 
+## Long Expr Mixed Cast Chain Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Begin investigating the remaining `long expr` / `long long expr` hidden failures.
+- Start with a normal long arithmetic expression using explicit casts and grouping.
+
+Generated test:
+
+- `local_tests/long_expr_mixed_cast_chain_2048.rx`
+  - 2048-term addition chain.
+  - Terms mix `i32`, `u32`, `isize`, and `usize` casts into `usize`.
+  - Expected result: `2098176`.
+  - RV64/qemu output: `1`.
+
+Result:
+
+- This basic long expression/cast chain passes.
+
+Next long-expr directions:
+
+- long expression with many function calls and returned 64-bit values
+- long expression with array indexing and struct field access
+- long expression with nested conditional/match-like supported expressions, if normal syntax permits
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
