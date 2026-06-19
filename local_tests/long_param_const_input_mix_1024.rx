@@ -1,0 +1,3097 @@
+const BASE: usize = 0;
+
+struct Pair {
+    x: usize,
+    y: i32,
+    ok: bool,
+}
+
+fn check(
+    p0: usize,
+    p1: i32,
+    p2: usize,
+    p3: Pair,
+    p4: [usize; 3],
+    p5: bool,
+    p6: &Pair,
+    p7: &[usize; 3],
+    p8: usize,
+    p9: i32,
+    p10: usize,
+    p11: Pair,
+    p12: [usize; 3],
+    p13: bool,
+    p14: &Pair,
+    p15: &[usize; 3],
+    p16: usize,
+    p17: i32,
+    p18: usize,
+    p19: Pair,
+    p20: [usize; 3],
+    p21: bool,
+    p22: &Pair,
+    p23: &[usize; 3],
+    p24: usize,
+    p25: i32,
+    p26: usize,
+    p27: Pair,
+    p28: [usize; 3],
+    p29: bool,
+    p30: &Pair,
+    p31: &[usize; 3],
+    p32: usize,
+    p33: i32,
+    p34: usize,
+    p35: Pair,
+    p36: [usize; 3],
+    p37: bool,
+    p38: &Pair,
+    p39: &[usize; 3],
+    p40: usize,
+    p41: i32,
+    p42: usize,
+    p43: Pair,
+    p44: [usize; 3],
+    p45: bool,
+    p46: &Pair,
+    p47: &[usize; 3],
+    p48: usize,
+    p49: i32,
+    p50: usize,
+    p51: Pair,
+    p52: [usize; 3],
+    p53: bool,
+    p54: &Pair,
+    p55: &[usize; 3],
+    p56: usize,
+    p57: i32,
+    p58: usize,
+    p59: Pair,
+    p60: [usize; 3],
+    p61: bool,
+    p62: &Pair,
+    p63: &[usize; 3],
+    p64: usize,
+    p65: i32,
+    p66: usize,
+    p67: Pair,
+    p68: [usize; 3],
+    p69: bool,
+    p70: &Pair,
+    p71: &[usize; 3],
+    p72: usize,
+    p73: i32,
+    p74: usize,
+    p75: Pair,
+    p76: [usize; 3],
+    p77: bool,
+    p78: &Pair,
+    p79: &[usize; 3],
+    p80: usize,
+    p81: i32,
+    p82: usize,
+    p83: Pair,
+    p84: [usize; 3],
+    p85: bool,
+    p86: &Pair,
+    p87: &[usize; 3],
+    p88: usize,
+    p89: i32,
+    p90: usize,
+    p91: Pair,
+    p92: [usize; 3],
+    p93: bool,
+    p94: &Pair,
+    p95: &[usize; 3],
+    p96: usize,
+    p97: i32,
+    p98: usize,
+    p99: Pair,
+    p100: [usize; 3],
+    p101: bool,
+    p102: &Pair,
+    p103: &[usize; 3],
+    p104: usize,
+    p105: i32,
+    p106: usize,
+    p107: Pair,
+    p108: [usize; 3],
+    p109: bool,
+    p110: &Pair,
+    p111: &[usize; 3],
+    p112: usize,
+    p113: i32,
+    p114: usize,
+    p115: Pair,
+    p116: [usize; 3],
+    p117: bool,
+    p118: &Pair,
+    p119: &[usize; 3],
+    p120: usize,
+    p121: i32,
+    p122: usize,
+    p123: Pair,
+    p124: [usize; 3],
+    p125: bool,
+    p126: &Pair,
+    p127: &[usize; 3],
+    p128: usize,
+    p129: i32,
+    p130: usize,
+    p131: Pair,
+    p132: [usize; 3],
+    p133: bool,
+    p134: &Pair,
+    p135: &[usize; 3],
+    p136: usize,
+    p137: i32,
+    p138: usize,
+    p139: Pair,
+    p140: [usize; 3],
+    p141: bool,
+    p142: &Pair,
+    p143: &[usize; 3],
+    p144: usize,
+    p145: i32,
+    p146: usize,
+    p147: Pair,
+    p148: [usize; 3],
+    p149: bool,
+    p150: &Pair,
+    p151: &[usize; 3],
+    p152: usize,
+    p153: i32,
+    p154: usize,
+    p155: Pair,
+    p156: [usize; 3],
+    p157: bool,
+    p158: &Pair,
+    p159: &[usize; 3],
+    p160: usize,
+    p161: i32,
+    p162: usize,
+    p163: Pair,
+    p164: [usize; 3],
+    p165: bool,
+    p166: &Pair,
+    p167: &[usize; 3],
+    p168: usize,
+    p169: i32,
+    p170: usize,
+    p171: Pair,
+    p172: [usize; 3],
+    p173: bool,
+    p174: &Pair,
+    p175: &[usize; 3],
+    p176: usize,
+    p177: i32,
+    p178: usize,
+    p179: Pair,
+    p180: [usize; 3],
+    p181: bool,
+    p182: &Pair,
+    p183: &[usize; 3],
+    p184: usize,
+    p185: i32,
+    p186: usize,
+    p187: Pair,
+    p188: [usize; 3],
+    p189: bool,
+    p190: &Pair,
+    p191: &[usize; 3],
+    p192: usize,
+    p193: i32,
+    p194: usize,
+    p195: Pair,
+    p196: [usize; 3],
+    p197: bool,
+    p198: &Pair,
+    p199: &[usize; 3],
+    p200: usize,
+    p201: i32,
+    p202: usize,
+    p203: Pair,
+    p204: [usize; 3],
+    p205: bool,
+    p206: &Pair,
+    p207: &[usize; 3],
+    p208: usize,
+    p209: i32,
+    p210: usize,
+    p211: Pair,
+    p212: [usize; 3],
+    p213: bool,
+    p214: &Pair,
+    p215: &[usize; 3],
+    p216: usize,
+    p217: i32,
+    p218: usize,
+    p219: Pair,
+    p220: [usize; 3],
+    p221: bool,
+    p222: &Pair,
+    p223: &[usize; 3],
+    p224: usize,
+    p225: i32,
+    p226: usize,
+    p227: Pair,
+    p228: [usize; 3],
+    p229: bool,
+    p230: &Pair,
+    p231: &[usize; 3],
+    p232: usize,
+    p233: i32,
+    p234: usize,
+    p235: Pair,
+    p236: [usize; 3],
+    p237: bool,
+    p238: &Pair,
+    p239: &[usize; 3],
+    p240: usize,
+    p241: i32,
+    p242: usize,
+    p243: Pair,
+    p244: [usize; 3],
+    p245: bool,
+    p246: &Pair,
+    p247: &[usize; 3],
+    p248: usize,
+    p249: i32,
+    p250: usize,
+    p251: Pair,
+    p252: [usize; 3],
+    p253: bool,
+    p254: &Pair,
+    p255: &[usize; 3],
+    p256: usize,
+    p257: i32,
+    p258: usize,
+    p259: Pair,
+    p260: [usize; 3],
+    p261: bool,
+    p262: &Pair,
+    p263: &[usize; 3],
+    p264: usize,
+    p265: i32,
+    p266: usize,
+    p267: Pair,
+    p268: [usize; 3],
+    p269: bool,
+    p270: &Pair,
+    p271: &[usize; 3],
+    p272: usize,
+    p273: i32,
+    p274: usize,
+    p275: Pair,
+    p276: [usize; 3],
+    p277: bool,
+    p278: &Pair,
+    p279: &[usize; 3],
+    p280: usize,
+    p281: i32,
+    p282: usize,
+    p283: Pair,
+    p284: [usize; 3],
+    p285: bool,
+    p286: &Pair,
+    p287: &[usize; 3],
+    p288: usize,
+    p289: i32,
+    p290: usize,
+    p291: Pair,
+    p292: [usize; 3],
+    p293: bool,
+    p294: &Pair,
+    p295: &[usize; 3],
+    p296: usize,
+    p297: i32,
+    p298: usize,
+    p299: Pair,
+    p300: [usize; 3],
+    p301: bool,
+    p302: &Pair,
+    p303: &[usize; 3],
+    p304: usize,
+    p305: i32,
+    p306: usize,
+    p307: Pair,
+    p308: [usize; 3],
+    p309: bool,
+    p310: &Pair,
+    p311: &[usize; 3],
+    p312: usize,
+    p313: i32,
+    p314: usize,
+    p315: Pair,
+    p316: [usize; 3],
+    p317: bool,
+    p318: &Pair,
+    p319: &[usize; 3],
+    p320: usize,
+    p321: i32,
+    p322: usize,
+    p323: Pair,
+    p324: [usize; 3],
+    p325: bool,
+    p326: &Pair,
+    p327: &[usize; 3],
+    p328: usize,
+    p329: i32,
+    p330: usize,
+    p331: Pair,
+    p332: [usize; 3],
+    p333: bool,
+    p334: &Pair,
+    p335: &[usize; 3],
+    p336: usize,
+    p337: i32,
+    p338: usize,
+    p339: Pair,
+    p340: [usize; 3],
+    p341: bool,
+    p342: &Pair,
+    p343: &[usize; 3],
+    p344: usize,
+    p345: i32,
+    p346: usize,
+    p347: Pair,
+    p348: [usize; 3],
+    p349: bool,
+    p350: &Pair,
+    p351: &[usize; 3],
+    p352: usize,
+    p353: i32,
+    p354: usize,
+    p355: Pair,
+    p356: [usize; 3],
+    p357: bool,
+    p358: &Pair,
+    p359: &[usize; 3],
+    p360: usize,
+    p361: i32,
+    p362: usize,
+    p363: Pair,
+    p364: [usize; 3],
+    p365: bool,
+    p366: &Pair,
+    p367: &[usize; 3],
+    p368: usize,
+    p369: i32,
+    p370: usize,
+    p371: Pair,
+    p372: [usize; 3],
+    p373: bool,
+    p374: &Pair,
+    p375: &[usize; 3],
+    p376: usize,
+    p377: i32,
+    p378: usize,
+    p379: Pair,
+    p380: [usize; 3],
+    p381: bool,
+    p382: &Pair,
+    p383: &[usize; 3],
+    p384: usize,
+    p385: i32,
+    p386: usize,
+    p387: Pair,
+    p388: [usize; 3],
+    p389: bool,
+    p390: &Pair,
+    p391: &[usize; 3],
+    p392: usize,
+    p393: i32,
+    p394: usize,
+    p395: Pair,
+    p396: [usize; 3],
+    p397: bool,
+    p398: &Pair,
+    p399: &[usize; 3],
+    p400: usize,
+    p401: i32,
+    p402: usize,
+    p403: Pair,
+    p404: [usize; 3],
+    p405: bool,
+    p406: &Pair,
+    p407: &[usize; 3],
+    p408: usize,
+    p409: i32,
+    p410: usize,
+    p411: Pair,
+    p412: [usize; 3],
+    p413: bool,
+    p414: &Pair,
+    p415: &[usize; 3],
+    p416: usize,
+    p417: i32,
+    p418: usize,
+    p419: Pair,
+    p420: [usize; 3],
+    p421: bool,
+    p422: &Pair,
+    p423: &[usize; 3],
+    p424: usize,
+    p425: i32,
+    p426: usize,
+    p427: Pair,
+    p428: [usize; 3],
+    p429: bool,
+    p430: &Pair,
+    p431: &[usize; 3],
+    p432: usize,
+    p433: i32,
+    p434: usize,
+    p435: Pair,
+    p436: [usize; 3],
+    p437: bool,
+    p438: &Pair,
+    p439: &[usize; 3],
+    p440: usize,
+    p441: i32,
+    p442: usize,
+    p443: Pair,
+    p444: [usize; 3],
+    p445: bool,
+    p446: &Pair,
+    p447: &[usize; 3],
+    p448: usize,
+    p449: i32,
+    p450: usize,
+    p451: Pair,
+    p452: [usize; 3],
+    p453: bool,
+    p454: &Pair,
+    p455: &[usize; 3],
+    p456: usize,
+    p457: i32,
+    p458: usize,
+    p459: Pair,
+    p460: [usize; 3],
+    p461: bool,
+    p462: &Pair,
+    p463: &[usize; 3],
+    p464: usize,
+    p465: i32,
+    p466: usize,
+    p467: Pair,
+    p468: [usize; 3],
+    p469: bool,
+    p470: &Pair,
+    p471: &[usize; 3],
+    p472: usize,
+    p473: i32,
+    p474: usize,
+    p475: Pair,
+    p476: [usize; 3],
+    p477: bool,
+    p478: &Pair,
+    p479: &[usize; 3],
+    p480: usize,
+    p481: i32,
+    p482: usize,
+    p483: Pair,
+    p484: [usize; 3],
+    p485: bool,
+    p486: &Pair,
+    p487: &[usize; 3],
+    p488: usize,
+    p489: i32,
+    p490: usize,
+    p491: Pair,
+    p492: [usize; 3],
+    p493: bool,
+    p494: &Pair,
+    p495: &[usize; 3],
+    p496: usize,
+    p497: i32,
+    p498: usize,
+    p499: Pair,
+    p500: [usize; 3],
+    p501: bool,
+    p502: &Pair,
+    p503: &[usize; 3],
+    p504: usize,
+    p505: i32,
+    p506: usize,
+    p507: Pair,
+    p508: [usize; 3],
+    p509: bool,
+    p510: &Pair,
+    p511: &[usize; 3],
+    p512: usize,
+    p513: i32,
+    p514: usize,
+    p515: Pair,
+    p516: [usize; 3],
+    p517: bool,
+    p518: &Pair,
+    p519: &[usize; 3],
+    p520: usize,
+    p521: i32,
+    p522: usize,
+    p523: Pair,
+    p524: [usize; 3],
+    p525: bool,
+    p526: &Pair,
+    p527: &[usize; 3],
+    p528: usize,
+    p529: i32,
+    p530: usize,
+    p531: Pair,
+    p532: [usize; 3],
+    p533: bool,
+    p534: &Pair,
+    p535: &[usize; 3],
+    p536: usize,
+    p537: i32,
+    p538: usize,
+    p539: Pair,
+    p540: [usize; 3],
+    p541: bool,
+    p542: &Pair,
+    p543: &[usize; 3],
+    p544: usize,
+    p545: i32,
+    p546: usize,
+    p547: Pair,
+    p548: [usize; 3],
+    p549: bool,
+    p550: &Pair,
+    p551: &[usize; 3],
+    p552: usize,
+    p553: i32,
+    p554: usize,
+    p555: Pair,
+    p556: [usize; 3],
+    p557: bool,
+    p558: &Pair,
+    p559: &[usize; 3],
+    p560: usize,
+    p561: i32,
+    p562: usize,
+    p563: Pair,
+    p564: [usize; 3],
+    p565: bool,
+    p566: &Pair,
+    p567: &[usize; 3],
+    p568: usize,
+    p569: i32,
+    p570: usize,
+    p571: Pair,
+    p572: [usize; 3],
+    p573: bool,
+    p574: &Pair,
+    p575: &[usize; 3],
+    p576: usize,
+    p577: i32,
+    p578: usize,
+    p579: Pair,
+    p580: [usize; 3],
+    p581: bool,
+    p582: &Pair,
+    p583: &[usize; 3],
+    p584: usize,
+    p585: i32,
+    p586: usize,
+    p587: Pair,
+    p588: [usize; 3],
+    p589: bool,
+    p590: &Pair,
+    p591: &[usize; 3],
+    p592: usize,
+    p593: i32,
+    p594: usize,
+    p595: Pair,
+    p596: [usize; 3],
+    p597: bool,
+    p598: &Pair,
+    p599: &[usize; 3],
+    p600: usize,
+    p601: i32,
+    p602: usize,
+    p603: Pair,
+    p604: [usize; 3],
+    p605: bool,
+    p606: &Pair,
+    p607: &[usize; 3],
+    p608: usize,
+    p609: i32,
+    p610: usize,
+    p611: Pair,
+    p612: [usize; 3],
+    p613: bool,
+    p614: &Pair,
+    p615: &[usize; 3],
+    p616: usize,
+    p617: i32,
+    p618: usize,
+    p619: Pair,
+    p620: [usize; 3],
+    p621: bool,
+    p622: &Pair,
+    p623: &[usize; 3],
+    p624: usize,
+    p625: i32,
+    p626: usize,
+    p627: Pair,
+    p628: [usize; 3],
+    p629: bool,
+    p630: &Pair,
+    p631: &[usize; 3],
+    p632: usize,
+    p633: i32,
+    p634: usize,
+    p635: Pair,
+    p636: [usize; 3],
+    p637: bool,
+    p638: &Pair,
+    p639: &[usize; 3],
+    p640: usize,
+    p641: i32,
+    p642: usize,
+    p643: Pair,
+    p644: [usize; 3],
+    p645: bool,
+    p646: &Pair,
+    p647: &[usize; 3],
+    p648: usize,
+    p649: i32,
+    p650: usize,
+    p651: Pair,
+    p652: [usize; 3],
+    p653: bool,
+    p654: &Pair,
+    p655: &[usize; 3],
+    p656: usize,
+    p657: i32,
+    p658: usize,
+    p659: Pair,
+    p660: [usize; 3],
+    p661: bool,
+    p662: &Pair,
+    p663: &[usize; 3],
+    p664: usize,
+    p665: i32,
+    p666: usize,
+    p667: Pair,
+    p668: [usize; 3],
+    p669: bool,
+    p670: &Pair,
+    p671: &[usize; 3],
+    p672: usize,
+    p673: i32,
+    p674: usize,
+    p675: Pair,
+    p676: [usize; 3],
+    p677: bool,
+    p678: &Pair,
+    p679: &[usize; 3],
+    p680: usize,
+    p681: i32,
+    p682: usize,
+    p683: Pair,
+    p684: [usize; 3],
+    p685: bool,
+    p686: &Pair,
+    p687: &[usize; 3],
+    p688: usize,
+    p689: i32,
+    p690: usize,
+    p691: Pair,
+    p692: [usize; 3],
+    p693: bool,
+    p694: &Pair,
+    p695: &[usize; 3],
+    p696: usize,
+    p697: i32,
+    p698: usize,
+    p699: Pair,
+    p700: [usize; 3],
+    p701: bool,
+    p702: &Pair,
+    p703: &[usize; 3],
+    p704: usize,
+    p705: i32,
+    p706: usize,
+    p707: Pair,
+    p708: [usize; 3],
+    p709: bool,
+    p710: &Pair,
+    p711: &[usize; 3],
+    p712: usize,
+    p713: i32,
+    p714: usize,
+    p715: Pair,
+    p716: [usize; 3],
+    p717: bool,
+    p718: &Pair,
+    p719: &[usize; 3],
+    p720: usize,
+    p721: i32,
+    p722: usize,
+    p723: Pair,
+    p724: [usize; 3],
+    p725: bool,
+    p726: &Pair,
+    p727: &[usize; 3],
+    p728: usize,
+    p729: i32,
+    p730: usize,
+    p731: Pair,
+    p732: [usize; 3],
+    p733: bool,
+    p734: &Pair,
+    p735: &[usize; 3],
+    p736: usize,
+    p737: i32,
+    p738: usize,
+    p739: Pair,
+    p740: [usize; 3],
+    p741: bool,
+    p742: &Pair,
+    p743: &[usize; 3],
+    p744: usize,
+    p745: i32,
+    p746: usize,
+    p747: Pair,
+    p748: [usize; 3],
+    p749: bool,
+    p750: &Pair,
+    p751: &[usize; 3],
+    p752: usize,
+    p753: i32,
+    p754: usize,
+    p755: Pair,
+    p756: [usize; 3],
+    p757: bool,
+    p758: &Pair,
+    p759: &[usize; 3],
+    p760: usize,
+    p761: i32,
+    p762: usize,
+    p763: Pair,
+    p764: [usize; 3],
+    p765: bool,
+    p766: &Pair,
+    p767: &[usize; 3],
+    p768: usize,
+    p769: i32,
+    p770: usize,
+    p771: Pair,
+    p772: [usize; 3],
+    p773: bool,
+    p774: &Pair,
+    p775: &[usize; 3],
+    p776: usize,
+    p777: i32,
+    p778: usize,
+    p779: Pair,
+    p780: [usize; 3],
+    p781: bool,
+    p782: &Pair,
+    p783: &[usize; 3],
+    p784: usize,
+    p785: i32,
+    p786: usize,
+    p787: Pair,
+    p788: [usize; 3],
+    p789: bool,
+    p790: &Pair,
+    p791: &[usize; 3],
+    p792: usize,
+    p793: i32,
+    p794: usize,
+    p795: Pair,
+    p796: [usize; 3],
+    p797: bool,
+    p798: &Pair,
+    p799: &[usize; 3],
+    p800: usize,
+    p801: i32,
+    p802: usize,
+    p803: Pair,
+    p804: [usize; 3],
+    p805: bool,
+    p806: &Pair,
+    p807: &[usize; 3],
+    p808: usize,
+    p809: i32,
+    p810: usize,
+    p811: Pair,
+    p812: [usize; 3],
+    p813: bool,
+    p814: &Pair,
+    p815: &[usize; 3],
+    p816: usize,
+    p817: i32,
+    p818: usize,
+    p819: Pair,
+    p820: [usize; 3],
+    p821: bool,
+    p822: &Pair,
+    p823: &[usize; 3],
+    p824: usize,
+    p825: i32,
+    p826: usize,
+    p827: Pair,
+    p828: [usize; 3],
+    p829: bool,
+    p830: &Pair,
+    p831: &[usize; 3],
+    p832: usize,
+    p833: i32,
+    p834: usize,
+    p835: Pair,
+    p836: [usize; 3],
+    p837: bool,
+    p838: &Pair,
+    p839: &[usize; 3],
+    p840: usize,
+    p841: i32,
+    p842: usize,
+    p843: Pair,
+    p844: [usize; 3],
+    p845: bool,
+    p846: &Pair,
+    p847: &[usize; 3],
+    p848: usize,
+    p849: i32,
+    p850: usize,
+    p851: Pair,
+    p852: [usize; 3],
+    p853: bool,
+    p854: &Pair,
+    p855: &[usize; 3],
+    p856: usize,
+    p857: i32,
+    p858: usize,
+    p859: Pair,
+    p860: [usize; 3],
+    p861: bool,
+    p862: &Pair,
+    p863: &[usize; 3],
+    p864: usize,
+    p865: i32,
+    p866: usize,
+    p867: Pair,
+    p868: [usize; 3],
+    p869: bool,
+    p870: &Pair,
+    p871: &[usize; 3],
+    p872: usize,
+    p873: i32,
+    p874: usize,
+    p875: Pair,
+    p876: [usize; 3],
+    p877: bool,
+    p878: &Pair,
+    p879: &[usize; 3],
+    p880: usize,
+    p881: i32,
+    p882: usize,
+    p883: Pair,
+    p884: [usize; 3],
+    p885: bool,
+    p886: &Pair,
+    p887: &[usize; 3],
+    p888: usize,
+    p889: i32,
+    p890: usize,
+    p891: Pair,
+    p892: [usize; 3],
+    p893: bool,
+    p894: &Pair,
+    p895: &[usize; 3],
+    p896: usize,
+    p897: i32,
+    p898: usize,
+    p899: Pair,
+    p900: [usize; 3],
+    p901: bool,
+    p902: &Pair,
+    p903: &[usize; 3],
+    p904: usize,
+    p905: i32,
+    p906: usize,
+    p907: Pair,
+    p908: [usize; 3],
+    p909: bool,
+    p910: &Pair,
+    p911: &[usize; 3],
+    p912: usize,
+    p913: i32,
+    p914: usize,
+    p915: Pair,
+    p916: [usize; 3],
+    p917: bool,
+    p918: &Pair,
+    p919: &[usize; 3],
+    p920: usize,
+    p921: i32,
+    p922: usize,
+    p923: Pair,
+    p924: [usize; 3],
+    p925: bool,
+    p926: &Pair,
+    p927: &[usize; 3],
+    p928: usize,
+    p929: i32,
+    p930: usize,
+    p931: Pair,
+    p932: [usize; 3],
+    p933: bool,
+    p934: &Pair,
+    p935: &[usize; 3],
+    p936: usize,
+    p937: i32,
+    p938: usize,
+    p939: Pair,
+    p940: [usize; 3],
+    p941: bool,
+    p942: &Pair,
+    p943: &[usize; 3],
+    p944: usize,
+    p945: i32,
+    p946: usize,
+    p947: Pair,
+    p948: [usize; 3],
+    p949: bool,
+    p950: &Pair,
+    p951: &[usize; 3],
+    p952: usize,
+    p953: i32,
+    p954: usize,
+    p955: Pair,
+    p956: [usize; 3],
+    p957: bool,
+    p958: &Pair,
+    p959: &[usize; 3],
+    p960: usize,
+    p961: i32,
+    p962: usize,
+    p963: Pair,
+    p964: [usize; 3],
+    p965: bool,
+    p966: &Pair,
+    p967: &[usize; 3],
+    p968: usize,
+    p969: i32,
+    p970: usize,
+    p971: Pair,
+    p972: [usize; 3],
+    p973: bool,
+    p974: &Pair,
+    p975: &[usize; 3],
+    p976: usize,
+    p977: i32,
+    p978: usize,
+    p979: Pair,
+    p980: [usize; 3],
+    p981: bool,
+    p982: &Pair,
+    p983: &[usize; 3],
+    p984: usize,
+    p985: i32,
+    p986: usize,
+    p987: Pair,
+    p988: [usize; 3],
+    p989: bool,
+    p990: &Pair,
+    p991: &[usize; 3],
+    p992: usize,
+    p993: i32,
+    p994: usize,
+    p995: Pair,
+    p996: [usize; 3],
+    p997: bool,
+    p998: &Pair,
+    p999: &[usize; 3],
+    p1000: usize,
+    p1001: i32,
+    p1002: usize,
+    p1003: Pair,
+    p1004: [usize; 3],
+    p1005: bool,
+    p1006: &Pair,
+    p1007: &[usize; 3],
+    p1008: usize,
+    p1009: i32,
+    p1010: usize,
+    p1011: Pair,
+    p1012: [usize; 3],
+    p1013: bool,
+    p1014: &Pair,
+    p1015: &[usize; 3],
+    p1016: usize,
+    p1017: i32,
+    p1018: usize,
+    p1019: Pair,
+    p1020: [usize; 3],
+    p1021: bool,
+    p1022: &Pair,
+    p1023: &[usize; 3]
+) -> usize {
+    let mut score: usize = 0usize;
+    if (p0 == 4294967296usize + BASE + 8000usize) { score += 1usize; }
+    if (p1 == -492) { score += 1usize; }
+    if (p2 == 4294967296usize + BASE + 9009usize) { score += 1usize; }
+    if (p3.x == 4294967296usize + BASE + 1003usize) { score += 1usize; }
+    if (p3.ok == false) { score += 1usize; }
+    if (p4[0] == 4294967296usize + BASE + 3004usize) { score += 1usize; }
+    if (p4[2] == 4294967296usize + BASE + 5004usize) { score += 1usize; }
+    if (p5 == true) { score += 1usize; }
+    if (p6.x == 4294967296usize + BASE + 2006usize) { score += 1usize; }
+    if (p6.ok == true) { score += 1usize; }
+    if (p7[1] == 4294967296usize + BASE + 7007usize) { score += 1usize; }
+    if (p7[2] == 4294967296usize + BASE + 8007usize) { score += 1usize; }
+    if (p8 == 4294967296usize + BASE + 8008usize) { score += 1usize; }
+    if (p9 == -484) { score += 1usize; }
+    if (p10 == 4294967296usize + BASE + 9017usize) { score += 1usize; }
+    if (p11.x == 4294967296usize + BASE + 1011usize) { score += 1usize; }
+    if (p11.ok == false) { score += 1usize; }
+    if (p12[0] == 4294967296usize + BASE + 3012usize) { score += 1usize; }
+    if (p12[2] == 4294967296usize + BASE + 5012usize) { score += 1usize; }
+    if (p13 == true) { score += 1usize; }
+    if (p14.x == 4294967296usize + BASE + 2014usize) { score += 1usize; }
+    if (p14.ok == true) { score += 1usize; }
+    if (p15[1] == 4294967296usize + BASE + 7015usize) { score += 1usize; }
+    if (p15[2] == 4294967296usize + BASE + 8015usize) { score += 1usize; }
+    if (p16 == 4294967296usize + BASE + 8016usize) { score += 1usize; }
+    if (p17 == -476) { score += 1usize; }
+    if (p18 == 4294967296usize + BASE + 9025usize) { score += 1usize; }
+    if (p19.x == 4294967296usize + BASE + 1019usize) { score += 1usize; }
+    if (p19.ok == false) { score += 1usize; }
+    if (p20[0] == 4294967296usize + BASE + 3020usize) { score += 1usize; }
+    if (p20[2] == 4294967296usize + BASE + 5020usize) { score += 1usize; }
+    if (p21 == true) { score += 1usize; }
+    if (p22.x == 4294967296usize + BASE + 2022usize) { score += 1usize; }
+    if (p22.ok == true) { score += 1usize; }
+    if (p23[1] == 4294967296usize + BASE + 7023usize) { score += 1usize; }
+    if (p23[2] == 4294967296usize + BASE + 8023usize) { score += 1usize; }
+    if (p24 == 4294967296usize + BASE + 8024usize) { score += 1usize; }
+    if (p25 == -468) { score += 1usize; }
+    if (p26 == 4294967296usize + BASE + 9033usize) { score += 1usize; }
+    if (p27.x == 4294967296usize + BASE + 1027usize) { score += 1usize; }
+    if (p27.ok == false) { score += 1usize; }
+    if (p28[0] == 4294967296usize + BASE + 3028usize) { score += 1usize; }
+    if (p28[2] == 4294967296usize + BASE + 5028usize) { score += 1usize; }
+    if (p29 == true) { score += 1usize; }
+    if (p30.x == 4294967296usize + BASE + 2030usize) { score += 1usize; }
+    if (p30.ok == true) { score += 1usize; }
+    if (p31[1] == 4294967296usize + BASE + 7031usize) { score += 1usize; }
+    if (p31[2] == 4294967296usize + BASE + 8031usize) { score += 1usize; }
+    if (p32 == 4294967296usize + BASE + 8032usize) { score += 1usize; }
+    if (p33 == -460) { score += 1usize; }
+    if (p34 == 4294967296usize + BASE + 9041usize) { score += 1usize; }
+    if (p35.x == 4294967296usize + BASE + 1035usize) { score += 1usize; }
+    if (p35.ok == false) { score += 1usize; }
+    if (p36[0] == 4294967296usize + BASE + 3036usize) { score += 1usize; }
+    if (p36[2] == 4294967296usize + BASE + 5036usize) { score += 1usize; }
+    if (p37 == true) { score += 1usize; }
+    if (p38.x == 4294967296usize + BASE + 2038usize) { score += 1usize; }
+    if (p38.ok == true) { score += 1usize; }
+    if (p39[1] == 4294967296usize + BASE + 7039usize) { score += 1usize; }
+    if (p39[2] == 4294967296usize + BASE + 8039usize) { score += 1usize; }
+    if (p40 == 4294967296usize + BASE + 8040usize) { score += 1usize; }
+    if (p41 == -452) { score += 1usize; }
+    if (p42 == 4294967296usize + BASE + 9049usize) { score += 1usize; }
+    if (p43.x == 4294967296usize + BASE + 1043usize) { score += 1usize; }
+    if (p43.ok == false) { score += 1usize; }
+    if (p44[0] == 4294967296usize + BASE + 3044usize) { score += 1usize; }
+    if (p44[2] == 4294967296usize + BASE + 5044usize) { score += 1usize; }
+    if (p45 == true) { score += 1usize; }
+    if (p46.x == 4294967296usize + BASE + 2046usize) { score += 1usize; }
+    if (p46.ok == true) { score += 1usize; }
+    if (p47[1] == 4294967296usize + BASE + 7047usize) { score += 1usize; }
+    if (p47[2] == 4294967296usize + BASE + 8047usize) { score += 1usize; }
+    if (p48 == 4294967296usize + BASE + 8048usize) { score += 1usize; }
+    if (p49 == -444) { score += 1usize; }
+    if (p50 == 4294967296usize + BASE + 9057usize) { score += 1usize; }
+    if (p51.x == 4294967296usize + BASE + 1051usize) { score += 1usize; }
+    if (p51.ok == false) { score += 1usize; }
+    if (p52[0] == 4294967296usize + BASE + 3052usize) { score += 1usize; }
+    if (p52[2] == 4294967296usize + BASE + 5052usize) { score += 1usize; }
+    if (p53 == true) { score += 1usize; }
+    if (p54.x == 4294967296usize + BASE + 2054usize) { score += 1usize; }
+    if (p54.ok == true) { score += 1usize; }
+    if (p55[1] == 4294967296usize + BASE + 7055usize) { score += 1usize; }
+    if (p55[2] == 4294967296usize + BASE + 8055usize) { score += 1usize; }
+    if (p56 == 4294967296usize + BASE + 8056usize) { score += 1usize; }
+    if (p57 == -436) { score += 1usize; }
+    if (p58 == 4294967296usize + BASE + 9065usize) { score += 1usize; }
+    if (p59.x == 4294967296usize + BASE + 1059usize) { score += 1usize; }
+    if (p59.ok == false) { score += 1usize; }
+    if (p60[0] == 4294967296usize + BASE + 3060usize) { score += 1usize; }
+    if (p60[2] == 4294967296usize + BASE + 5060usize) { score += 1usize; }
+    if (p61 == true) { score += 1usize; }
+    if (p62.x == 4294967296usize + BASE + 2062usize) { score += 1usize; }
+    if (p62.ok == true) { score += 1usize; }
+    if (p63[1] == 4294967296usize + BASE + 7063usize) { score += 1usize; }
+    if (p63[2] == 4294967296usize + BASE + 8063usize) { score += 1usize; }
+    if (p64 == 4294967296usize + BASE + 8064usize) { score += 1usize; }
+    if (p65 == -428) { score += 1usize; }
+    if (p66 == 4294967296usize + BASE + 9073usize) { score += 1usize; }
+    if (p67.x == 4294967296usize + BASE + 1067usize) { score += 1usize; }
+    if (p67.ok == false) { score += 1usize; }
+    if (p68[0] == 4294967296usize + BASE + 3068usize) { score += 1usize; }
+    if (p68[2] == 4294967296usize + BASE + 5068usize) { score += 1usize; }
+    if (p69 == true) { score += 1usize; }
+    if (p70.x == 4294967296usize + BASE + 2070usize) { score += 1usize; }
+    if (p70.ok == true) { score += 1usize; }
+    if (p71[1] == 4294967296usize + BASE + 7071usize) { score += 1usize; }
+    if (p71[2] == 4294967296usize + BASE + 8071usize) { score += 1usize; }
+    if (p72 == 4294967296usize + BASE + 8072usize) { score += 1usize; }
+    if (p73 == -420) { score += 1usize; }
+    if (p74 == 4294967296usize + BASE + 9081usize) { score += 1usize; }
+    if (p75.x == 4294967296usize + BASE + 1075usize) { score += 1usize; }
+    if (p75.ok == false) { score += 1usize; }
+    if (p76[0] == 4294967296usize + BASE + 3076usize) { score += 1usize; }
+    if (p76[2] == 4294967296usize + BASE + 5076usize) { score += 1usize; }
+    if (p77 == true) { score += 1usize; }
+    if (p78.x == 4294967296usize + BASE + 2078usize) { score += 1usize; }
+    if (p78.ok == true) { score += 1usize; }
+    if (p79[1] == 4294967296usize + BASE + 7079usize) { score += 1usize; }
+    if (p79[2] == 4294967296usize + BASE + 8079usize) { score += 1usize; }
+    if (p80 == 4294967296usize + BASE + 8080usize) { score += 1usize; }
+    if (p81 == -412) { score += 1usize; }
+    if (p82 == 4294967296usize + BASE + 9089usize) { score += 1usize; }
+    if (p83.x == 4294967296usize + BASE + 1083usize) { score += 1usize; }
+    if (p83.ok == false) { score += 1usize; }
+    if (p84[0] == 4294967296usize + BASE + 3084usize) { score += 1usize; }
+    if (p84[2] == 4294967296usize + BASE + 5084usize) { score += 1usize; }
+    if (p85 == true) { score += 1usize; }
+    if (p86.x == 4294967296usize + BASE + 2086usize) { score += 1usize; }
+    if (p86.ok == true) { score += 1usize; }
+    if (p87[1] == 4294967296usize + BASE + 7087usize) { score += 1usize; }
+    if (p87[2] == 4294967296usize + BASE + 8087usize) { score += 1usize; }
+    if (p88 == 4294967296usize + BASE + 8088usize) { score += 1usize; }
+    if (p89 == -404) { score += 1usize; }
+    if (p90 == 4294967296usize + BASE + 9097usize) { score += 1usize; }
+    if (p91.x == 4294967296usize + BASE + 1091usize) { score += 1usize; }
+    if (p91.ok == false) { score += 1usize; }
+    if (p92[0] == 4294967296usize + BASE + 3092usize) { score += 1usize; }
+    if (p92[2] == 4294967296usize + BASE + 5092usize) { score += 1usize; }
+    if (p93 == true) { score += 1usize; }
+    if (p94.x == 4294967296usize + BASE + 2094usize) { score += 1usize; }
+    if (p94.ok == true) { score += 1usize; }
+    if (p95[1] == 4294967296usize + BASE + 7095usize) { score += 1usize; }
+    if (p95[2] == 4294967296usize + BASE + 8095usize) { score += 1usize; }
+    if (p96 == 4294967296usize + BASE + 8096usize) { score += 1usize; }
+    if (p97 == -396) { score += 1usize; }
+    if (p98 == 4294967296usize + BASE + 9105usize) { score += 1usize; }
+    if (p99.x == 4294967296usize + BASE + 1099usize) { score += 1usize; }
+    if (p99.ok == false) { score += 1usize; }
+    if (p100[0] == 4294967296usize + BASE + 3100usize) { score += 1usize; }
+    if (p100[2] == 4294967296usize + BASE + 5100usize) { score += 1usize; }
+    if (p101 == true) { score += 1usize; }
+    if (p102.x == 4294967296usize + BASE + 2102usize) { score += 1usize; }
+    if (p102.ok == true) { score += 1usize; }
+    if (p103[1] == 4294967296usize + BASE + 7103usize) { score += 1usize; }
+    if (p103[2] == 4294967296usize + BASE + 8103usize) { score += 1usize; }
+    if (p104 == 4294967296usize + BASE + 8104usize) { score += 1usize; }
+    if (p105 == -388) { score += 1usize; }
+    if (p106 == 4294967296usize + BASE + 9113usize) { score += 1usize; }
+    if (p107.x == 4294967296usize + BASE + 1107usize) { score += 1usize; }
+    if (p107.ok == false) { score += 1usize; }
+    if (p108[0] == 4294967296usize + BASE + 3108usize) { score += 1usize; }
+    if (p108[2] == 4294967296usize + BASE + 5108usize) { score += 1usize; }
+    if (p109 == true) { score += 1usize; }
+    if (p110.x == 4294967296usize + BASE + 2110usize) { score += 1usize; }
+    if (p110.ok == true) { score += 1usize; }
+    if (p111[1] == 4294967296usize + BASE + 7111usize) { score += 1usize; }
+    if (p111[2] == 4294967296usize + BASE + 8111usize) { score += 1usize; }
+    if (p112 == 4294967296usize + BASE + 8112usize) { score += 1usize; }
+    if (p113 == -380) { score += 1usize; }
+    if (p114 == 4294967296usize + BASE + 9121usize) { score += 1usize; }
+    if (p115.x == 4294967296usize + BASE + 1115usize) { score += 1usize; }
+    if (p115.ok == false) { score += 1usize; }
+    if (p116[0] == 4294967296usize + BASE + 3116usize) { score += 1usize; }
+    if (p116[2] == 4294967296usize + BASE + 5116usize) { score += 1usize; }
+    if (p117 == true) { score += 1usize; }
+    if (p118.x == 4294967296usize + BASE + 2118usize) { score += 1usize; }
+    if (p118.ok == true) { score += 1usize; }
+    if (p119[1] == 4294967296usize + BASE + 7119usize) { score += 1usize; }
+    if (p119[2] == 4294967296usize + BASE + 8119usize) { score += 1usize; }
+    if (p120 == 4294967296usize + BASE + 8120usize) { score += 1usize; }
+    if (p121 == -372) { score += 1usize; }
+    if (p122 == 4294967296usize + BASE + 9129usize) { score += 1usize; }
+    if (p123.x == 4294967296usize + BASE + 1123usize) { score += 1usize; }
+    if (p123.ok == false) { score += 1usize; }
+    if (p124[0] == 4294967296usize + BASE + 3124usize) { score += 1usize; }
+    if (p124[2] == 4294967296usize + BASE + 5124usize) { score += 1usize; }
+    if (p125 == true) { score += 1usize; }
+    if (p126.x == 4294967296usize + BASE + 2126usize) { score += 1usize; }
+    if (p126.ok == true) { score += 1usize; }
+    if (p127[1] == 4294967296usize + BASE + 7127usize) { score += 1usize; }
+    if (p127[2] == 4294967296usize + BASE + 8127usize) { score += 1usize; }
+    if (p128 == 4294967296usize + BASE + 8128usize) { score += 1usize; }
+    if (p129 == -364) { score += 1usize; }
+    if (p130 == 4294967296usize + BASE + 9137usize) { score += 1usize; }
+    if (p131.x == 4294967296usize + BASE + 1131usize) { score += 1usize; }
+    if (p131.ok == false) { score += 1usize; }
+    if (p132[0] == 4294967296usize + BASE + 3132usize) { score += 1usize; }
+    if (p132[2] == 4294967296usize + BASE + 5132usize) { score += 1usize; }
+    if (p133 == true) { score += 1usize; }
+    if (p134.x == 4294967296usize + BASE + 2134usize) { score += 1usize; }
+    if (p134.ok == true) { score += 1usize; }
+    if (p135[1] == 4294967296usize + BASE + 7135usize) { score += 1usize; }
+    if (p135[2] == 4294967296usize + BASE + 8135usize) { score += 1usize; }
+    if (p136 == 4294967296usize + BASE + 8136usize) { score += 1usize; }
+    if (p137 == -356) { score += 1usize; }
+    if (p138 == 4294967296usize + BASE + 9145usize) { score += 1usize; }
+    if (p139.x == 4294967296usize + BASE + 1139usize) { score += 1usize; }
+    if (p139.ok == false) { score += 1usize; }
+    if (p140[0] == 4294967296usize + BASE + 3140usize) { score += 1usize; }
+    if (p140[2] == 4294967296usize + BASE + 5140usize) { score += 1usize; }
+    if (p141 == true) { score += 1usize; }
+    if (p142.x == 4294967296usize + BASE + 2142usize) { score += 1usize; }
+    if (p142.ok == true) { score += 1usize; }
+    if (p143[1] == 4294967296usize + BASE + 7143usize) { score += 1usize; }
+    if (p143[2] == 4294967296usize + BASE + 8143usize) { score += 1usize; }
+    if (p144 == 4294967296usize + BASE + 8144usize) { score += 1usize; }
+    if (p145 == -348) { score += 1usize; }
+    if (p146 == 4294967296usize + BASE + 9153usize) { score += 1usize; }
+    if (p147.x == 4294967296usize + BASE + 1147usize) { score += 1usize; }
+    if (p147.ok == false) { score += 1usize; }
+    if (p148[0] == 4294967296usize + BASE + 3148usize) { score += 1usize; }
+    if (p148[2] == 4294967296usize + BASE + 5148usize) { score += 1usize; }
+    if (p149 == true) { score += 1usize; }
+    if (p150.x == 4294967296usize + BASE + 2150usize) { score += 1usize; }
+    if (p150.ok == true) { score += 1usize; }
+    if (p151[1] == 4294967296usize + BASE + 7151usize) { score += 1usize; }
+    if (p151[2] == 4294967296usize + BASE + 8151usize) { score += 1usize; }
+    if (p152 == 4294967296usize + BASE + 8152usize) { score += 1usize; }
+    if (p153 == -340) { score += 1usize; }
+    if (p154 == 4294967296usize + BASE + 9161usize) { score += 1usize; }
+    if (p155.x == 4294967296usize + BASE + 1155usize) { score += 1usize; }
+    if (p155.ok == false) { score += 1usize; }
+    if (p156[0] == 4294967296usize + BASE + 3156usize) { score += 1usize; }
+    if (p156[2] == 4294967296usize + BASE + 5156usize) { score += 1usize; }
+    if (p157 == true) { score += 1usize; }
+    if (p158.x == 4294967296usize + BASE + 2158usize) { score += 1usize; }
+    if (p158.ok == true) { score += 1usize; }
+    if (p159[1] == 4294967296usize + BASE + 7159usize) { score += 1usize; }
+    if (p159[2] == 4294967296usize + BASE + 8159usize) { score += 1usize; }
+    if (p160 == 4294967296usize + BASE + 8160usize) { score += 1usize; }
+    if (p161 == -332) { score += 1usize; }
+    if (p162 == 4294967296usize + BASE + 9169usize) { score += 1usize; }
+    if (p163.x == 4294967296usize + BASE + 1163usize) { score += 1usize; }
+    if (p163.ok == false) { score += 1usize; }
+    if (p164[0] == 4294967296usize + BASE + 3164usize) { score += 1usize; }
+    if (p164[2] == 4294967296usize + BASE + 5164usize) { score += 1usize; }
+    if (p165 == true) { score += 1usize; }
+    if (p166.x == 4294967296usize + BASE + 2166usize) { score += 1usize; }
+    if (p166.ok == true) { score += 1usize; }
+    if (p167[1] == 4294967296usize + BASE + 7167usize) { score += 1usize; }
+    if (p167[2] == 4294967296usize + BASE + 8167usize) { score += 1usize; }
+    if (p168 == 4294967296usize + BASE + 8168usize) { score += 1usize; }
+    if (p169 == -324) { score += 1usize; }
+    if (p170 == 4294967296usize + BASE + 9177usize) { score += 1usize; }
+    if (p171.x == 4294967296usize + BASE + 1171usize) { score += 1usize; }
+    if (p171.ok == false) { score += 1usize; }
+    if (p172[0] == 4294967296usize + BASE + 3172usize) { score += 1usize; }
+    if (p172[2] == 4294967296usize + BASE + 5172usize) { score += 1usize; }
+    if (p173 == true) { score += 1usize; }
+    if (p174.x == 4294967296usize + BASE + 2174usize) { score += 1usize; }
+    if (p174.ok == true) { score += 1usize; }
+    if (p175[1] == 4294967296usize + BASE + 7175usize) { score += 1usize; }
+    if (p175[2] == 4294967296usize + BASE + 8175usize) { score += 1usize; }
+    if (p176 == 4294967296usize + BASE + 8176usize) { score += 1usize; }
+    if (p177 == -316) { score += 1usize; }
+    if (p178 == 4294967296usize + BASE + 9185usize) { score += 1usize; }
+    if (p179.x == 4294967296usize + BASE + 1179usize) { score += 1usize; }
+    if (p179.ok == false) { score += 1usize; }
+    if (p180[0] == 4294967296usize + BASE + 3180usize) { score += 1usize; }
+    if (p180[2] == 4294967296usize + BASE + 5180usize) { score += 1usize; }
+    if (p181 == true) { score += 1usize; }
+    if (p182.x == 4294967296usize + BASE + 2182usize) { score += 1usize; }
+    if (p182.ok == true) { score += 1usize; }
+    if (p183[1] == 4294967296usize + BASE + 7183usize) { score += 1usize; }
+    if (p183[2] == 4294967296usize + BASE + 8183usize) { score += 1usize; }
+    if (p184 == 4294967296usize + BASE + 8184usize) { score += 1usize; }
+    if (p185 == -308) { score += 1usize; }
+    if (p186 == 4294967296usize + BASE + 9193usize) { score += 1usize; }
+    if (p187.x == 4294967296usize + BASE + 1187usize) { score += 1usize; }
+    if (p187.ok == false) { score += 1usize; }
+    if (p188[0] == 4294967296usize + BASE + 3188usize) { score += 1usize; }
+    if (p188[2] == 4294967296usize + BASE + 5188usize) { score += 1usize; }
+    if (p189 == true) { score += 1usize; }
+    if (p190.x == 4294967296usize + BASE + 2190usize) { score += 1usize; }
+    if (p190.ok == true) { score += 1usize; }
+    if (p191[1] == 4294967296usize + BASE + 7191usize) { score += 1usize; }
+    if (p191[2] == 4294967296usize + BASE + 8191usize) { score += 1usize; }
+    if (p192 == 4294967296usize + BASE + 8192usize) { score += 1usize; }
+    if (p193 == -300) { score += 1usize; }
+    if (p194 == 4294967296usize + BASE + 9201usize) { score += 1usize; }
+    if (p195.x == 4294967296usize + BASE + 1195usize) { score += 1usize; }
+    if (p195.ok == false) { score += 1usize; }
+    if (p196[0] == 4294967296usize + BASE + 3196usize) { score += 1usize; }
+    if (p196[2] == 4294967296usize + BASE + 5196usize) { score += 1usize; }
+    if (p197 == true) { score += 1usize; }
+    if (p198.x == 4294967296usize + BASE + 2198usize) { score += 1usize; }
+    if (p198.ok == true) { score += 1usize; }
+    if (p199[1] == 4294967296usize + BASE + 7199usize) { score += 1usize; }
+    if (p199[2] == 4294967296usize + BASE + 8199usize) { score += 1usize; }
+    if (p200 == 4294967296usize + BASE + 8200usize) { score += 1usize; }
+    if (p201 == -292) { score += 1usize; }
+    if (p202 == 4294967296usize + BASE + 9209usize) { score += 1usize; }
+    if (p203.x == 4294967296usize + BASE + 1203usize) { score += 1usize; }
+    if (p203.ok == false) { score += 1usize; }
+    if (p204[0] == 4294967296usize + BASE + 3204usize) { score += 1usize; }
+    if (p204[2] == 4294967296usize + BASE + 5204usize) { score += 1usize; }
+    if (p205 == true) { score += 1usize; }
+    if (p206.x == 4294967296usize + BASE + 2206usize) { score += 1usize; }
+    if (p206.ok == true) { score += 1usize; }
+    if (p207[1] == 4294967296usize + BASE + 7207usize) { score += 1usize; }
+    if (p207[2] == 4294967296usize + BASE + 8207usize) { score += 1usize; }
+    if (p208 == 4294967296usize + BASE + 8208usize) { score += 1usize; }
+    if (p209 == -284) { score += 1usize; }
+    if (p210 == 4294967296usize + BASE + 9217usize) { score += 1usize; }
+    if (p211.x == 4294967296usize + BASE + 1211usize) { score += 1usize; }
+    if (p211.ok == false) { score += 1usize; }
+    if (p212[0] == 4294967296usize + BASE + 3212usize) { score += 1usize; }
+    if (p212[2] == 4294967296usize + BASE + 5212usize) { score += 1usize; }
+    if (p213 == true) { score += 1usize; }
+    if (p214.x == 4294967296usize + BASE + 2214usize) { score += 1usize; }
+    if (p214.ok == true) { score += 1usize; }
+    if (p215[1] == 4294967296usize + BASE + 7215usize) { score += 1usize; }
+    if (p215[2] == 4294967296usize + BASE + 8215usize) { score += 1usize; }
+    if (p216 == 4294967296usize + BASE + 8216usize) { score += 1usize; }
+    if (p217 == -276) { score += 1usize; }
+    if (p218 == 4294967296usize + BASE + 9225usize) { score += 1usize; }
+    if (p219.x == 4294967296usize + BASE + 1219usize) { score += 1usize; }
+    if (p219.ok == false) { score += 1usize; }
+    if (p220[0] == 4294967296usize + BASE + 3220usize) { score += 1usize; }
+    if (p220[2] == 4294967296usize + BASE + 5220usize) { score += 1usize; }
+    if (p221 == true) { score += 1usize; }
+    if (p222.x == 4294967296usize + BASE + 2222usize) { score += 1usize; }
+    if (p222.ok == true) { score += 1usize; }
+    if (p223[1] == 4294967296usize + BASE + 7223usize) { score += 1usize; }
+    if (p223[2] == 4294967296usize + BASE + 8223usize) { score += 1usize; }
+    if (p224 == 4294967296usize + BASE + 8224usize) { score += 1usize; }
+    if (p225 == -268) { score += 1usize; }
+    if (p226 == 4294967296usize + BASE + 9233usize) { score += 1usize; }
+    if (p227.x == 4294967296usize + BASE + 1227usize) { score += 1usize; }
+    if (p227.ok == false) { score += 1usize; }
+    if (p228[0] == 4294967296usize + BASE + 3228usize) { score += 1usize; }
+    if (p228[2] == 4294967296usize + BASE + 5228usize) { score += 1usize; }
+    if (p229 == true) { score += 1usize; }
+    if (p230.x == 4294967296usize + BASE + 2230usize) { score += 1usize; }
+    if (p230.ok == true) { score += 1usize; }
+    if (p231[1] == 4294967296usize + BASE + 7231usize) { score += 1usize; }
+    if (p231[2] == 4294967296usize + BASE + 8231usize) { score += 1usize; }
+    if (p232 == 4294967296usize + BASE + 8232usize) { score += 1usize; }
+    if (p233 == -260) { score += 1usize; }
+    if (p234 == 4294967296usize + BASE + 9241usize) { score += 1usize; }
+    if (p235.x == 4294967296usize + BASE + 1235usize) { score += 1usize; }
+    if (p235.ok == false) { score += 1usize; }
+    if (p236[0] == 4294967296usize + BASE + 3236usize) { score += 1usize; }
+    if (p236[2] == 4294967296usize + BASE + 5236usize) { score += 1usize; }
+    if (p237 == true) { score += 1usize; }
+    if (p238.x == 4294967296usize + BASE + 2238usize) { score += 1usize; }
+    if (p238.ok == true) { score += 1usize; }
+    if (p239[1] == 4294967296usize + BASE + 7239usize) { score += 1usize; }
+    if (p239[2] == 4294967296usize + BASE + 8239usize) { score += 1usize; }
+    if (p240 == 4294967296usize + BASE + 8240usize) { score += 1usize; }
+    if (p241 == -252) { score += 1usize; }
+    if (p242 == 4294967296usize + BASE + 9249usize) { score += 1usize; }
+    if (p243.x == 4294967296usize + BASE + 1243usize) { score += 1usize; }
+    if (p243.ok == false) { score += 1usize; }
+    if (p244[0] == 4294967296usize + BASE + 3244usize) { score += 1usize; }
+    if (p244[2] == 4294967296usize + BASE + 5244usize) { score += 1usize; }
+    if (p245 == true) { score += 1usize; }
+    if (p246.x == 4294967296usize + BASE + 2246usize) { score += 1usize; }
+    if (p246.ok == true) { score += 1usize; }
+    if (p247[1] == 4294967296usize + BASE + 7247usize) { score += 1usize; }
+    if (p247[2] == 4294967296usize + BASE + 8247usize) { score += 1usize; }
+    if (p248 == 4294967296usize + BASE + 8248usize) { score += 1usize; }
+    if (p249 == -244) { score += 1usize; }
+    if (p250 == 4294967296usize + BASE + 9257usize) { score += 1usize; }
+    if (p251.x == 4294967296usize + BASE + 1251usize) { score += 1usize; }
+    if (p251.ok == false) { score += 1usize; }
+    if (p252[0] == 4294967296usize + BASE + 3252usize) { score += 1usize; }
+    if (p252[2] == 4294967296usize + BASE + 5252usize) { score += 1usize; }
+    if (p253 == true) { score += 1usize; }
+    if (p254.x == 4294967296usize + BASE + 2254usize) { score += 1usize; }
+    if (p254.ok == true) { score += 1usize; }
+    if (p255[1] == 4294967296usize + BASE + 7255usize) { score += 1usize; }
+    if (p255[2] == 4294967296usize + BASE + 8255usize) { score += 1usize; }
+    if (p256 == 4294967296usize + BASE + 8256usize) { score += 1usize; }
+    if (p257 == -236) { score += 1usize; }
+    if (p258 == 4294967296usize + BASE + 9265usize) { score += 1usize; }
+    if (p259.x == 4294967296usize + BASE + 1259usize) { score += 1usize; }
+    if (p259.ok == false) { score += 1usize; }
+    if (p260[0] == 4294967296usize + BASE + 3260usize) { score += 1usize; }
+    if (p260[2] == 4294967296usize + BASE + 5260usize) { score += 1usize; }
+    if (p261 == true) { score += 1usize; }
+    if (p262.x == 4294967296usize + BASE + 2262usize) { score += 1usize; }
+    if (p262.ok == true) { score += 1usize; }
+    if (p263[1] == 4294967296usize + BASE + 7263usize) { score += 1usize; }
+    if (p263[2] == 4294967296usize + BASE + 8263usize) { score += 1usize; }
+    if (p264 == 4294967296usize + BASE + 8264usize) { score += 1usize; }
+    if (p265 == -228) { score += 1usize; }
+    if (p266 == 4294967296usize + BASE + 9273usize) { score += 1usize; }
+    if (p267.x == 4294967296usize + BASE + 1267usize) { score += 1usize; }
+    if (p267.ok == false) { score += 1usize; }
+    if (p268[0] == 4294967296usize + BASE + 3268usize) { score += 1usize; }
+    if (p268[2] == 4294967296usize + BASE + 5268usize) { score += 1usize; }
+    if (p269 == true) { score += 1usize; }
+    if (p270.x == 4294967296usize + BASE + 2270usize) { score += 1usize; }
+    if (p270.ok == true) { score += 1usize; }
+    if (p271[1] == 4294967296usize + BASE + 7271usize) { score += 1usize; }
+    if (p271[2] == 4294967296usize + BASE + 8271usize) { score += 1usize; }
+    if (p272 == 4294967296usize + BASE + 8272usize) { score += 1usize; }
+    if (p273 == -220) { score += 1usize; }
+    if (p274 == 4294967296usize + BASE + 9281usize) { score += 1usize; }
+    if (p275.x == 4294967296usize + BASE + 1275usize) { score += 1usize; }
+    if (p275.ok == false) { score += 1usize; }
+    if (p276[0] == 4294967296usize + BASE + 3276usize) { score += 1usize; }
+    if (p276[2] == 4294967296usize + BASE + 5276usize) { score += 1usize; }
+    if (p277 == true) { score += 1usize; }
+    if (p278.x == 4294967296usize + BASE + 2278usize) { score += 1usize; }
+    if (p278.ok == true) { score += 1usize; }
+    if (p279[1] == 4294967296usize + BASE + 7279usize) { score += 1usize; }
+    if (p279[2] == 4294967296usize + BASE + 8279usize) { score += 1usize; }
+    if (p280 == 4294967296usize + BASE + 8280usize) { score += 1usize; }
+    if (p281 == -212) { score += 1usize; }
+    if (p282 == 4294967296usize + BASE + 9289usize) { score += 1usize; }
+    if (p283.x == 4294967296usize + BASE + 1283usize) { score += 1usize; }
+    if (p283.ok == false) { score += 1usize; }
+    if (p284[0] == 4294967296usize + BASE + 3284usize) { score += 1usize; }
+    if (p284[2] == 4294967296usize + BASE + 5284usize) { score += 1usize; }
+    if (p285 == true) { score += 1usize; }
+    if (p286.x == 4294967296usize + BASE + 2286usize) { score += 1usize; }
+    if (p286.ok == true) { score += 1usize; }
+    if (p287[1] == 4294967296usize + BASE + 7287usize) { score += 1usize; }
+    if (p287[2] == 4294967296usize + BASE + 8287usize) { score += 1usize; }
+    if (p288 == 4294967296usize + BASE + 8288usize) { score += 1usize; }
+    if (p289 == -204) { score += 1usize; }
+    if (p290 == 4294967296usize + BASE + 9297usize) { score += 1usize; }
+    if (p291.x == 4294967296usize + BASE + 1291usize) { score += 1usize; }
+    if (p291.ok == false) { score += 1usize; }
+    if (p292[0] == 4294967296usize + BASE + 3292usize) { score += 1usize; }
+    if (p292[2] == 4294967296usize + BASE + 5292usize) { score += 1usize; }
+    if (p293 == true) { score += 1usize; }
+    if (p294.x == 4294967296usize + BASE + 2294usize) { score += 1usize; }
+    if (p294.ok == true) { score += 1usize; }
+    if (p295[1] == 4294967296usize + BASE + 7295usize) { score += 1usize; }
+    if (p295[2] == 4294967296usize + BASE + 8295usize) { score += 1usize; }
+    if (p296 == 4294967296usize + BASE + 8296usize) { score += 1usize; }
+    if (p297 == -196) { score += 1usize; }
+    if (p298 == 4294967296usize + BASE + 9305usize) { score += 1usize; }
+    if (p299.x == 4294967296usize + BASE + 1299usize) { score += 1usize; }
+    if (p299.ok == false) { score += 1usize; }
+    if (p300[0] == 4294967296usize + BASE + 3300usize) { score += 1usize; }
+    if (p300[2] == 4294967296usize + BASE + 5300usize) { score += 1usize; }
+    if (p301 == true) { score += 1usize; }
+    if (p302.x == 4294967296usize + BASE + 2302usize) { score += 1usize; }
+    if (p302.ok == true) { score += 1usize; }
+    if (p303[1] == 4294967296usize + BASE + 7303usize) { score += 1usize; }
+    if (p303[2] == 4294967296usize + BASE + 8303usize) { score += 1usize; }
+    if (p304 == 4294967296usize + BASE + 8304usize) { score += 1usize; }
+    if (p305 == -188) { score += 1usize; }
+    if (p306 == 4294967296usize + BASE + 9313usize) { score += 1usize; }
+    if (p307.x == 4294967296usize + BASE + 1307usize) { score += 1usize; }
+    if (p307.ok == false) { score += 1usize; }
+    if (p308[0] == 4294967296usize + BASE + 3308usize) { score += 1usize; }
+    if (p308[2] == 4294967296usize + BASE + 5308usize) { score += 1usize; }
+    if (p309 == true) { score += 1usize; }
+    if (p310.x == 4294967296usize + BASE + 2310usize) { score += 1usize; }
+    if (p310.ok == true) { score += 1usize; }
+    if (p311[1] == 4294967296usize + BASE + 7311usize) { score += 1usize; }
+    if (p311[2] == 4294967296usize + BASE + 8311usize) { score += 1usize; }
+    if (p312 == 4294967296usize + BASE + 8312usize) { score += 1usize; }
+    if (p313 == -180) { score += 1usize; }
+    if (p314 == 4294967296usize + BASE + 9321usize) { score += 1usize; }
+    if (p315.x == 4294967296usize + BASE + 1315usize) { score += 1usize; }
+    if (p315.ok == false) { score += 1usize; }
+    if (p316[0] == 4294967296usize + BASE + 3316usize) { score += 1usize; }
+    if (p316[2] == 4294967296usize + BASE + 5316usize) { score += 1usize; }
+    if (p317 == true) { score += 1usize; }
+    if (p318.x == 4294967296usize + BASE + 2318usize) { score += 1usize; }
+    if (p318.ok == true) { score += 1usize; }
+    if (p319[1] == 4294967296usize + BASE + 7319usize) { score += 1usize; }
+    if (p319[2] == 4294967296usize + BASE + 8319usize) { score += 1usize; }
+    if (p320 == 4294967296usize + BASE + 8320usize) { score += 1usize; }
+    if (p321 == -172) { score += 1usize; }
+    if (p322 == 4294967296usize + BASE + 9329usize) { score += 1usize; }
+    if (p323.x == 4294967296usize + BASE + 1323usize) { score += 1usize; }
+    if (p323.ok == false) { score += 1usize; }
+    if (p324[0] == 4294967296usize + BASE + 3324usize) { score += 1usize; }
+    if (p324[2] == 4294967296usize + BASE + 5324usize) { score += 1usize; }
+    if (p325 == true) { score += 1usize; }
+    if (p326.x == 4294967296usize + BASE + 2326usize) { score += 1usize; }
+    if (p326.ok == true) { score += 1usize; }
+    if (p327[1] == 4294967296usize + BASE + 7327usize) { score += 1usize; }
+    if (p327[2] == 4294967296usize + BASE + 8327usize) { score += 1usize; }
+    if (p328 == 4294967296usize + BASE + 8328usize) { score += 1usize; }
+    if (p329 == -164) { score += 1usize; }
+    if (p330 == 4294967296usize + BASE + 9337usize) { score += 1usize; }
+    if (p331.x == 4294967296usize + BASE + 1331usize) { score += 1usize; }
+    if (p331.ok == false) { score += 1usize; }
+    if (p332[0] == 4294967296usize + BASE + 3332usize) { score += 1usize; }
+    if (p332[2] == 4294967296usize + BASE + 5332usize) { score += 1usize; }
+    if (p333 == true) { score += 1usize; }
+    if (p334.x == 4294967296usize + BASE + 2334usize) { score += 1usize; }
+    if (p334.ok == true) { score += 1usize; }
+    if (p335[1] == 4294967296usize + BASE + 7335usize) { score += 1usize; }
+    if (p335[2] == 4294967296usize + BASE + 8335usize) { score += 1usize; }
+    if (p336 == 4294967296usize + BASE + 8336usize) { score += 1usize; }
+    if (p337 == -156) { score += 1usize; }
+    if (p338 == 4294967296usize + BASE + 9345usize) { score += 1usize; }
+    if (p339.x == 4294967296usize + BASE + 1339usize) { score += 1usize; }
+    if (p339.ok == false) { score += 1usize; }
+    if (p340[0] == 4294967296usize + BASE + 3340usize) { score += 1usize; }
+    if (p340[2] == 4294967296usize + BASE + 5340usize) { score += 1usize; }
+    if (p341 == true) { score += 1usize; }
+    if (p342.x == 4294967296usize + BASE + 2342usize) { score += 1usize; }
+    if (p342.ok == true) { score += 1usize; }
+    if (p343[1] == 4294967296usize + BASE + 7343usize) { score += 1usize; }
+    if (p343[2] == 4294967296usize + BASE + 8343usize) { score += 1usize; }
+    if (p344 == 4294967296usize + BASE + 8344usize) { score += 1usize; }
+    if (p345 == -148) { score += 1usize; }
+    if (p346 == 4294967296usize + BASE + 9353usize) { score += 1usize; }
+    if (p347.x == 4294967296usize + BASE + 1347usize) { score += 1usize; }
+    if (p347.ok == false) { score += 1usize; }
+    if (p348[0] == 4294967296usize + BASE + 3348usize) { score += 1usize; }
+    if (p348[2] == 4294967296usize + BASE + 5348usize) { score += 1usize; }
+    if (p349 == true) { score += 1usize; }
+    if (p350.x == 4294967296usize + BASE + 2350usize) { score += 1usize; }
+    if (p350.ok == true) { score += 1usize; }
+    if (p351[1] == 4294967296usize + BASE + 7351usize) { score += 1usize; }
+    if (p351[2] == 4294967296usize + BASE + 8351usize) { score += 1usize; }
+    if (p352 == 4294967296usize + BASE + 8352usize) { score += 1usize; }
+    if (p353 == -140) { score += 1usize; }
+    if (p354 == 4294967296usize + BASE + 9361usize) { score += 1usize; }
+    if (p355.x == 4294967296usize + BASE + 1355usize) { score += 1usize; }
+    if (p355.ok == false) { score += 1usize; }
+    if (p356[0] == 4294967296usize + BASE + 3356usize) { score += 1usize; }
+    if (p356[2] == 4294967296usize + BASE + 5356usize) { score += 1usize; }
+    if (p357 == true) { score += 1usize; }
+    if (p358.x == 4294967296usize + BASE + 2358usize) { score += 1usize; }
+    if (p358.ok == true) { score += 1usize; }
+    if (p359[1] == 4294967296usize + BASE + 7359usize) { score += 1usize; }
+    if (p359[2] == 4294967296usize + BASE + 8359usize) { score += 1usize; }
+    if (p360 == 4294967296usize + BASE + 8360usize) { score += 1usize; }
+    if (p361 == -132) { score += 1usize; }
+    if (p362 == 4294967296usize + BASE + 9369usize) { score += 1usize; }
+    if (p363.x == 4294967296usize + BASE + 1363usize) { score += 1usize; }
+    if (p363.ok == false) { score += 1usize; }
+    if (p364[0] == 4294967296usize + BASE + 3364usize) { score += 1usize; }
+    if (p364[2] == 4294967296usize + BASE + 5364usize) { score += 1usize; }
+    if (p365 == true) { score += 1usize; }
+    if (p366.x == 4294967296usize + BASE + 2366usize) { score += 1usize; }
+    if (p366.ok == true) { score += 1usize; }
+    if (p367[1] == 4294967296usize + BASE + 7367usize) { score += 1usize; }
+    if (p367[2] == 4294967296usize + BASE + 8367usize) { score += 1usize; }
+    if (p368 == 4294967296usize + BASE + 8368usize) { score += 1usize; }
+    if (p369 == -124) { score += 1usize; }
+    if (p370 == 4294967296usize + BASE + 9377usize) { score += 1usize; }
+    if (p371.x == 4294967296usize + BASE + 1371usize) { score += 1usize; }
+    if (p371.ok == false) { score += 1usize; }
+    if (p372[0] == 4294967296usize + BASE + 3372usize) { score += 1usize; }
+    if (p372[2] == 4294967296usize + BASE + 5372usize) { score += 1usize; }
+    if (p373 == true) { score += 1usize; }
+    if (p374.x == 4294967296usize + BASE + 2374usize) { score += 1usize; }
+    if (p374.ok == true) { score += 1usize; }
+    if (p375[1] == 4294967296usize + BASE + 7375usize) { score += 1usize; }
+    if (p375[2] == 4294967296usize + BASE + 8375usize) { score += 1usize; }
+    if (p376 == 4294967296usize + BASE + 8376usize) { score += 1usize; }
+    if (p377 == -116) { score += 1usize; }
+    if (p378 == 4294967296usize + BASE + 9385usize) { score += 1usize; }
+    if (p379.x == 4294967296usize + BASE + 1379usize) { score += 1usize; }
+    if (p379.ok == false) { score += 1usize; }
+    if (p380[0] == 4294967296usize + BASE + 3380usize) { score += 1usize; }
+    if (p380[2] == 4294967296usize + BASE + 5380usize) { score += 1usize; }
+    if (p381 == true) { score += 1usize; }
+    if (p382.x == 4294967296usize + BASE + 2382usize) { score += 1usize; }
+    if (p382.ok == true) { score += 1usize; }
+    if (p383[1] == 4294967296usize + BASE + 7383usize) { score += 1usize; }
+    if (p383[2] == 4294967296usize + BASE + 8383usize) { score += 1usize; }
+    if (p384 == 4294967296usize + BASE + 8384usize) { score += 1usize; }
+    if (p385 == -108) { score += 1usize; }
+    if (p386 == 4294967296usize + BASE + 9393usize) { score += 1usize; }
+    if (p387.x == 4294967296usize + BASE + 1387usize) { score += 1usize; }
+    if (p387.ok == false) { score += 1usize; }
+    if (p388[0] == 4294967296usize + BASE + 3388usize) { score += 1usize; }
+    if (p388[2] == 4294967296usize + BASE + 5388usize) { score += 1usize; }
+    if (p389 == true) { score += 1usize; }
+    if (p390.x == 4294967296usize + BASE + 2390usize) { score += 1usize; }
+    if (p390.ok == true) { score += 1usize; }
+    if (p391[1] == 4294967296usize + BASE + 7391usize) { score += 1usize; }
+    if (p391[2] == 4294967296usize + BASE + 8391usize) { score += 1usize; }
+    if (p392 == 4294967296usize + BASE + 8392usize) { score += 1usize; }
+    if (p393 == -100) { score += 1usize; }
+    if (p394 == 4294967296usize + BASE + 9401usize) { score += 1usize; }
+    if (p395.x == 4294967296usize + BASE + 1395usize) { score += 1usize; }
+    if (p395.ok == false) { score += 1usize; }
+    if (p396[0] == 4294967296usize + BASE + 3396usize) { score += 1usize; }
+    if (p396[2] == 4294967296usize + BASE + 5396usize) { score += 1usize; }
+    if (p397 == true) { score += 1usize; }
+    if (p398.x == 4294967296usize + BASE + 2398usize) { score += 1usize; }
+    if (p398.ok == true) { score += 1usize; }
+    if (p399[1] == 4294967296usize + BASE + 7399usize) { score += 1usize; }
+    if (p399[2] == 4294967296usize + BASE + 8399usize) { score += 1usize; }
+    if (p400 == 4294967296usize + BASE + 8400usize) { score += 1usize; }
+    if (p401 == -92) { score += 1usize; }
+    if (p402 == 4294967296usize + BASE + 9409usize) { score += 1usize; }
+    if (p403.x == 4294967296usize + BASE + 1403usize) { score += 1usize; }
+    if (p403.ok == false) { score += 1usize; }
+    if (p404[0] == 4294967296usize + BASE + 3404usize) { score += 1usize; }
+    if (p404[2] == 4294967296usize + BASE + 5404usize) { score += 1usize; }
+    if (p405 == true) { score += 1usize; }
+    if (p406.x == 4294967296usize + BASE + 2406usize) { score += 1usize; }
+    if (p406.ok == true) { score += 1usize; }
+    if (p407[1] == 4294967296usize + BASE + 7407usize) { score += 1usize; }
+    if (p407[2] == 4294967296usize + BASE + 8407usize) { score += 1usize; }
+    if (p408 == 4294967296usize + BASE + 8408usize) { score += 1usize; }
+    if (p409 == -84) { score += 1usize; }
+    if (p410 == 4294967296usize + BASE + 9417usize) { score += 1usize; }
+    if (p411.x == 4294967296usize + BASE + 1411usize) { score += 1usize; }
+    if (p411.ok == false) { score += 1usize; }
+    if (p412[0] == 4294967296usize + BASE + 3412usize) { score += 1usize; }
+    if (p412[2] == 4294967296usize + BASE + 5412usize) { score += 1usize; }
+    if (p413 == true) { score += 1usize; }
+    if (p414.x == 4294967296usize + BASE + 2414usize) { score += 1usize; }
+    if (p414.ok == true) { score += 1usize; }
+    if (p415[1] == 4294967296usize + BASE + 7415usize) { score += 1usize; }
+    if (p415[2] == 4294967296usize + BASE + 8415usize) { score += 1usize; }
+    if (p416 == 4294967296usize + BASE + 8416usize) { score += 1usize; }
+    if (p417 == -76) { score += 1usize; }
+    if (p418 == 4294967296usize + BASE + 9425usize) { score += 1usize; }
+    if (p419.x == 4294967296usize + BASE + 1419usize) { score += 1usize; }
+    if (p419.ok == false) { score += 1usize; }
+    if (p420[0] == 4294967296usize + BASE + 3420usize) { score += 1usize; }
+    if (p420[2] == 4294967296usize + BASE + 5420usize) { score += 1usize; }
+    if (p421 == true) { score += 1usize; }
+    if (p422.x == 4294967296usize + BASE + 2422usize) { score += 1usize; }
+    if (p422.ok == true) { score += 1usize; }
+    if (p423[1] == 4294967296usize + BASE + 7423usize) { score += 1usize; }
+    if (p423[2] == 4294967296usize + BASE + 8423usize) { score += 1usize; }
+    if (p424 == 4294967296usize + BASE + 8424usize) { score += 1usize; }
+    if (p425 == -68) { score += 1usize; }
+    if (p426 == 4294967296usize + BASE + 9433usize) { score += 1usize; }
+    if (p427.x == 4294967296usize + BASE + 1427usize) { score += 1usize; }
+    if (p427.ok == false) { score += 1usize; }
+    if (p428[0] == 4294967296usize + BASE + 3428usize) { score += 1usize; }
+    if (p428[2] == 4294967296usize + BASE + 5428usize) { score += 1usize; }
+    if (p429 == true) { score += 1usize; }
+    if (p430.x == 4294967296usize + BASE + 2430usize) { score += 1usize; }
+    if (p430.ok == true) { score += 1usize; }
+    if (p431[1] == 4294967296usize + BASE + 7431usize) { score += 1usize; }
+    if (p431[2] == 4294967296usize + BASE + 8431usize) { score += 1usize; }
+    if (p432 == 4294967296usize + BASE + 8432usize) { score += 1usize; }
+    if (p433 == -60) { score += 1usize; }
+    if (p434 == 4294967296usize + BASE + 9441usize) { score += 1usize; }
+    if (p435.x == 4294967296usize + BASE + 1435usize) { score += 1usize; }
+    if (p435.ok == false) { score += 1usize; }
+    if (p436[0] == 4294967296usize + BASE + 3436usize) { score += 1usize; }
+    if (p436[2] == 4294967296usize + BASE + 5436usize) { score += 1usize; }
+    if (p437 == true) { score += 1usize; }
+    if (p438.x == 4294967296usize + BASE + 2438usize) { score += 1usize; }
+    if (p438.ok == true) { score += 1usize; }
+    if (p439[1] == 4294967296usize + BASE + 7439usize) { score += 1usize; }
+    if (p439[2] == 4294967296usize + BASE + 8439usize) { score += 1usize; }
+    if (p440 == 4294967296usize + BASE + 8440usize) { score += 1usize; }
+    if (p441 == -52) { score += 1usize; }
+    if (p442 == 4294967296usize + BASE + 9449usize) { score += 1usize; }
+    if (p443.x == 4294967296usize + BASE + 1443usize) { score += 1usize; }
+    if (p443.ok == false) { score += 1usize; }
+    if (p444[0] == 4294967296usize + BASE + 3444usize) { score += 1usize; }
+    if (p444[2] == 4294967296usize + BASE + 5444usize) { score += 1usize; }
+    if (p445 == true) { score += 1usize; }
+    if (p446.x == 4294967296usize + BASE + 2446usize) { score += 1usize; }
+    if (p446.ok == true) { score += 1usize; }
+    if (p447[1] == 4294967296usize + BASE + 7447usize) { score += 1usize; }
+    if (p447[2] == 4294967296usize + BASE + 8447usize) { score += 1usize; }
+    if (p448 == 4294967296usize + BASE + 8448usize) { score += 1usize; }
+    if (p449 == -44) { score += 1usize; }
+    if (p450 == 4294967296usize + BASE + 9457usize) { score += 1usize; }
+    if (p451.x == 4294967296usize + BASE + 1451usize) { score += 1usize; }
+    if (p451.ok == false) { score += 1usize; }
+    if (p452[0] == 4294967296usize + BASE + 3452usize) { score += 1usize; }
+    if (p452[2] == 4294967296usize + BASE + 5452usize) { score += 1usize; }
+    if (p453 == true) { score += 1usize; }
+    if (p454.x == 4294967296usize + BASE + 2454usize) { score += 1usize; }
+    if (p454.ok == true) { score += 1usize; }
+    if (p455[1] == 4294967296usize + BASE + 7455usize) { score += 1usize; }
+    if (p455[2] == 4294967296usize + BASE + 8455usize) { score += 1usize; }
+    if (p456 == 4294967296usize + BASE + 8456usize) { score += 1usize; }
+    if (p457 == -36) { score += 1usize; }
+    if (p458 == 4294967296usize + BASE + 9465usize) { score += 1usize; }
+    if (p459.x == 4294967296usize + BASE + 1459usize) { score += 1usize; }
+    if (p459.ok == false) { score += 1usize; }
+    if (p460[0] == 4294967296usize + BASE + 3460usize) { score += 1usize; }
+    if (p460[2] == 4294967296usize + BASE + 5460usize) { score += 1usize; }
+    if (p461 == true) { score += 1usize; }
+    if (p462.x == 4294967296usize + BASE + 2462usize) { score += 1usize; }
+    if (p462.ok == true) { score += 1usize; }
+    if (p463[1] == 4294967296usize + BASE + 7463usize) { score += 1usize; }
+    if (p463[2] == 4294967296usize + BASE + 8463usize) { score += 1usize; }
+    if (p464 == 4294967296usize + BASE + 8464usize) { score += 1usize; }
+    if (p465 == -28) { score += 1usize; }
+    if (p466 == 4294967296usize + BASE + 9473usize) { score += 1usize; }
+    if (p467.x == 4294967296usize + BASE + 1467usize) { score += 1usize; }
+    if (p467.ok == false) { score += 1usize; }
+    if (p468[0] == 4294967296usize + BASE + 3468usize) { score += 1usize; }
+    if (p468[2] == 4294967296usize + BASE + 5468usize) { score += 1usize; }
+    if (p469 == true) { score += 1usize; }
+    if (p470.x == 4294967296usize + BASE + 2470usize) { score += 1usize; }
+    if (p470.ok == true) { score += 1usize; }
+    if (p471[1] == 4294967296usize + BASE + 7471usize) { score += 1usize; }
+    if (p471[2] == 4294967296usize + BASE + 8471usize) { score += 1usize; }
+    if (p472 == 4294967296usize + BASE + 8472usize) { score += 1usize; }
+    if (p473 == -20) { score += 1usize; }
+    if (p474 == 4294967296usize + BASE + 9481usize) { score += 1usize; }
+    if (p475.x == 4294967296usize + BASE + 1475usize) { score += 1usize; }
+    if (p475.ok == false) { score += 1usize; }
+    if (p476[0] == 4294967296usize + BASE + 3476usize) { score += 1usize; }
+    if (p476[2] == 4294967296usize + BASE + 5476usize) { score += 1usize; }
+    if (p477 == true) { score += 1usize; }
+    if (p478.x == 4294967296usize + BASE + 2478usize) { score += 1usize; }
+    if (p478.ok == true) { score += 1usize; }
+    if (p479[1] == 4294967296usize + BASE + 7479usize) { score += 1usize; }
+    if (p479[2] == 4294967296usize + BASE + 8479usize) { score += 1usize; }
+    if (p480 == 4294967296usize + BASE + 8480usize) { score += 1usize; }
+    if (p481 == -12) { score += 1usize; }
+    if (p482 == 4294967296usize + BASE + 9489usize) { score += 1usize; }
+    if (p483.x == 4294967296usize + BASE + 1483usize) { score += 1usize; }
+    if (p483.ok == false) { score += 1usize; }
+    if (p484[0] == 4294967296usize + BASE + 3484usize) { score += 1usize; }
+    if (p484[2] == 4294967296usize + BASE + 5484usize) { score += 1usize; }
+    if (p485 == true) { score += 1usize; }
+    if (p486.x == 4294967296usize + BASE + 2486usize) { score += 1usize; }
+    if (p486.ok == true) { score += 1usize; }
+    if (p487[1] == 4294967296usize + BASE + 7487usize) { score += 1usize; }
+    if (p487[2] == 4294967296usize + BASE + 8487usize) { score += 1usize; }
+    if (p488 == 4294967296usize + BASE + 8488usize) { score += 1usize; }
+    if (p489 == -4) { score += 1usize; }
+    if (p490 == 4294967296usize + BASE + 9497usize) { score += 1usize; }
+    if (p491.x == 4294967296usize + BASE + 1491usize) { score += 1usize; }
+    if (p491.ok == false) { score += 1usize; }
+    if (p492[0] == 4294967296usize + BASE + 3492usize) { score += 1usize; }
+    if (p492[2] == 4294967296usize + BASE + 5492usize) { score += 1usize; }
+    if (p493 == true) { score += 1usize; }
+    if (p494.x == 4294967296usize + BASE + 2494usize) { score += 1usize; }
+    if (p494.ok == true) { score += 1usize; }
+    if (p495[1] == 4294967296usize + BASE + 7495usize) { score += 1usize; }
+    if (p495[2] == 4294967296usize + BASE + 8495usize) { score += 1usize; }
+    if (p496 == 4294967296usize + BASE + 8496usize) { score += 1usize; }
+    if (p497 == 4) { score += 1usize; }
+    if (p498 == 4294967296usize + BASE + 9505usize) { score += 1usize; }
+    if (p499.x == 4294967296usize + BASE + 1499usize) { score += 1usize; }
+    if (p499.ok == false) { score += 1usize; }
+    if (p500[0] == 4294967296usize + BASE + 3500usize) { score += 1usize; }
+    if (p500[2] == 4294967296usize + BASE + 5500usize) { score += 1usize; }
+    if (p501 == true) { score += 1usize; }
+    if (p502.x == 4294967296usize + BASE + 2502usize) { score += 1usize; }
+    if (p502.ok == true) { score += 1usize; }
+    if (p503[1] == 4294967296usize + BASE + 7503usize) { score += 1usize; }
+    if (p503[2] == 4294967296usize + BASE + 8503usize) { score += 1usize; }
+    if (p504 == 4294967296usize + BASE + 8504usize) { score += 1usize; }
+    if (p505 == 12) { score += 1usize; }
+    if (p506 == 4294967296usize + BASE + 9513usize) { score += 1usize; }
+    if (p507.x == 4294967296usize + BASE + 1507usize) { score += 1usize; }
+    if (p507.ok == false) { score += 1usize; }
+    if (p508[0] == 4294967296usize + BASE + 3508usize) { score += 1usize; }
+    if (p508[2] == 4294967296usize + BASE + 5508usize) { score += 1usize; }
+    if (p509 == true) { score += 1usize; }
+    if (p510.x == 4294967296usize + BASE + 2510usize) { score += 1usize; }
+    if (p510.ok == true) { score += 1usize; }
+    if (p511[1] == 4294967296usize + BASE + 7511usize) { score += 1usize; }
+    if (p511[2] == 4294967296usize + BASE + 8511usize) { score += 1usize; }
+    if (p512 == 4294967296usize + BASE + 8512usize) { score += 1usize; }
+    if (p513 == 20) { score += 1usize; }
+    if (p514 == 4294967296usize + BASE + 9521usize) { score += 1usize; }
+    if (p515.x == 4294967296usize + BASE + 1515usize) { score += 1usize; }
+    if (p515.ok == false) { score += 1usize; }
+    if (p516[0] == 4294967296usize + BASE + 3516usize) { score += 1usize; }
+    if (p516[2] == 4294967296usize + BASE + 5516usize) { score += 1usize; }
+    if (p517 == true) { score += 1usize; }
+    if (p518.x == 4294967296usize + BASE + 2518usize) { score += 1usize; }
+    if (p518.ok == true) { score += 1usize; }
+    if (p519[1] == 4294967296usize + BASE + 7519usize) { score += 1usize; }
+    if (p519[2] == 4294967296usize + BASE + 8519usize) { score += 1usize; }
+    if (p520 == 4294967296usize + BASE + 8520usize) { score += 1usize; }
+    if (p521 == 28) { score += 1usize; }
+    if (p522 == 4294967296usize + BASE + 9529usize) { score += 1usize; }
+    if (p523.x == 4294967296usize + BASE + 1523usize) { score += 1usize; }
+    if (p523.ok == false) { score += 1usize; }
+    if (p524[0] == 4294967296usize + BASE + 3524usize) { score += 1usize; }
+    if (p524[2] == 4294967296usize + BASE + 5524usize) { score += 1usize; }
+    if (p525 == true) { score += 1usize; }
+    if (p526.x == 4294967296usize + BASE + 2526usize) { score += 1usize; }
+    if (p526.ok == true) { score += 1usize; }
+    if (p527[1] == 4294967296usize + BASE + 7527usize) { score += 1usize; }
+    if (p527[2] == 4294967296usize + BASE + 8527usize) { score += 1usize; }
+    if (p528 == 4294967296usize + BASE + 8528usize) { score += 1usize; }
+    if (p529 == 36) { score += 1usize; }
+    if (p530 == 4294967296usize + BASE + 9537usize) { score += 1usize; }
+    if (p531.x == 4294967296usize + BASE + 1531usize) { score += 1usize; }
+    if (p531.ok == false) { score += 1usize; }
+    if (p532[0] == 4294967296usize + BASE + 3532usize) { score += 1usize; }
+    if (p532[2] == 4294967296usize + BASE + 5532usize) { score += 1usize; }
+    if (p533 == true) { score += 1usize; }
+    if (p534.x == 4294967296usize + BASE + 2534usize) { score += 1usize; }
+    if (p534.ok == true) { score += 1usize; }
+    if (p535[1] == 4294967296usize + BASE + 7535usize) { score += 1usize; }
+    if (p535[2] == 4294967296usize + BASE + 8535usize) { score += 1usize; }
+    if (p536 == 4294967296usize + BASE + 8536usize) { score += 1usize; }
+    if (p537 == 44) { score += 1usize; }
+    if (p538 == 4294967296usize + BASE + 9545usize) { score += 1usize; }
+    if (p539.x == 4294967296usize + BASE + 1539usize) { score += 1usize; }
+    if (p539.ok == false) { score += 1usize; }
+    if (p540[0] == 4294967296usize + BASE + 3540usize) { score += 1usize; }
+    if (p540[2] == 4294967296usize + BASE + 5540usize) { score += 1usize; }
+    if (p541 == true) { score += 1usize; }
+    if (p542.x == 4294967296usize + BASE + 2542usize) { score += 1usize; }
+    if (p542.ok == true) { score += 1usize; }
+    if (p543[1] == 4294967296usize + BASE + 7543usize) { score += 1usize; }
+    if (p543[2] == 4294967296usize + BASE + 8543usize) { score += 1usize; }
+    if (p544 == 4294967296usize + BASE + 8544usize) { score += 1usize; }
+    if (p545 == 52) { score += 1usize; }
+    if (p546 == 4294967296usize + BASE + 9553usize) { score += 1usize; }
+    if (p547.x == 4294967296usize + BASE + 1547usize) { score += 1usize; }
+    if (p547.ok == false) { score += 1usize; }
+    if (p548[0] == 4294967296usize + BASE + 3548usize) { score += 1usize; }
+    if (p548[2] == 4294967296usize + BASE + 5548usize) { score += 1usize; }
+    if (p549 == true) { score += 1usize; }
+    if (p550.x == 4294967296usize + BASE + 2550usize) { score += 1usize; }
+    if (p550.ok == true) { score += 1usize; }
+    if (p551[1] == 4294967296usize + BASE + 7551usize) { score += 1usize; }
+    if (p551[2] == 4294967296usize + BASE + 8551usize) { score += 1usize; }
+    if (p552 == 4294967296usize + BASE + 8552usize) { score += 1usize; }
+    if (p553 == 60) { score += 1usize; }
+    if (p554 == 4294967296usize + BASE + 9561usize) { score += 1usize; }
+    if (p555.x == 4294967296usize + BASE + 1555usize) { score += 1usize; }
+    if (p555.ok == false) { score += 1usize; }
+    if (p556[0] == 4294967296usize + BASE + 3556usize) { score += 1usize; }
+    if (p556[2] == 4294967296usize + BASE + 5556usize) { score += 1usize; }
+    if (p557 == true) { score += 1usize; }
+    if (p558.x == 4294967296usize + BASE + 2558usize) { score += 1usize; }
+    if (p558.ok == true) { score += 1usize; }
+    if (p559[1] == 4294967296usize + BASE + 7559usize) { score += 1usize; }
+    if (p559[2] == 4294967296usize + BASE + 8559usize) { score += 1usize; }
+    if (p560 == 4294967296usize + BASE + 8560usize) { score += 1usize; }
+    if (p561 == 68) { score += 1usize; }
+    if (p562 == 4294967296usize + BASE + 9569usize) { score += 1usize; }
+    if (p563.x == 4294967296usize + BASE + 1563usize) { score += 1usize; }
+    if (p563.ok == false) { score += 1usize; }
+    if (p564[0] == 4294967296usize + BASE + 3564usize) { score += 1usize; }
+    if (p564[2] == 4294967296usize + BASE + 5564usize) { score += 1usize; }
+    if (p565 == true) { score += 1usize; }
+    if (p566.x == 4294967296usize + BASE + 2566usize) { score += 1usize; }
+    if (p566.ok == true) { score += 1usize; }
+    if (p567[1] == 4294967296usize + BASE + 7567usize) { score += 1usize; }
+    if (p567[2] == 4294967296usize + BASE + 8567usize) { score += 1usize; }
+    if (p568 == 4294967296usize + BASE + 8568usize) { score += 1usize; }
+    if (p569 == 76) { score += 1usize; }
+    if (p570 == 4294967296usize + BASE + 9577usize) { score += 1usize; }
+    if (p571.x == 4294967296usize + BASE + 1571usize) { score += 1usize; }
+    if (p571.ok == false) { score += 1usize; }
+    if (p572[0] == 4294967296usize + BASE + 3572usize) { score += 1usize; }
+    if (p572[2] == 4294967296usize + BASE + 5572usize) { score += 1usize; }
+    if (p573 == true) { score += 1usize; }
+    if (p574.x == 4294967296usize + BASE + 2574usize) { score += 1usize; }
+    if (p574.ok == true) { score += 1usize; }
+    if (p575[1] == 4294967296usize + BASE + 7575usize) { score += 1usize; }
+    if (p575[2] == 4294967296usize + BASE + 8575usize) { score += 1usize; }
+    if (p576 == 4294967296usize + BASE + 8576usize) { score += 1usize; }
+    if (p577 == 84) { score += 1usize; }
+    if (p578 == 4294967296usize + BASE + 9585usize) { score += 1usize; }
+    if (p579.x == 4294967296usize + BASE + 1579usize) { score += 1usize; }
+    if (p579.ok == false) { score += 1usize; }
+    if (p580[0] == 4294967296usize + BASE + 3580usize) { score += 1usize; }
+    if (p580[2] == 4294967296usize + BASE + 5580usize) { score += 1usize; }
+    if (p581 == true) { score += 1usize; }
+    if (p582.x == 4294967296usize + BASE + 2582usize) { score += 1usize; }
+    if (p582.ok == true) { score += 1usize; }
+    if (p583[1] == 4294967296usize + BASE + 7583usize) { score += 1usize; }
+    if (p583[2] == 4294967296usize + BASE + 8583usize) { score += 1usize; }
+    if (p584 == 4294967296usize + BASE + 8584usize) { score += 1usize; }
+    if (p585 == 92) { score += 1usize; }
+    if (p586 == 4294967296usize + BASE + 9593usize) { score += 1usize; }
+    if (p587.x == 4294967296usize + BASE + 1587usize) { score += 1usize; }
+    if (p587.ok == false) { score += 1usize; }
+    if (p588[0] == 4294967296usize + BASE + 3588usize) { score += 1usize; }
+    if (p588[2] == 4294967296usize + BASE + 5588usize) { score += 1usize; }
+    if (p589 == true) { score += 1usize; }
+    if (p590.x == 4294967296usize + BASE + 2590usize) { score += 1usize; }
+    if (p590.ok == true) { score += 1usize; }
+    if (p591[1] == 4294967296usize + BASE + 7591usize) { score += 1usize; }
+    if (p591[2] == 4294967296usize + BASE + 8591usize) { score += 1usize; }
+    if (p592 == 4294967296usize + BASE + 8592usize) { score += 1usize; }
+    if (p593 == 100) { score += 1usize; }
+    if (p594 == 4294967296usize + BASE + 9601usize) { score += 1usize; }
+    if (p595.x == 4294967296usize + BASE + 1595usize) { score += 1usize; }
+    if (p595.ok == false) { score += 1usize; }
+    if (p596[0] == 4294967296usize + BASE + 3596usize) { score += 1usize; }
+    if (p596[2] == 4294967296usize + BASE + 5596usize) { score += 1usize; }
+    if (p597 == true) { score += 1usize; }
+    if (p598.x == 4294967296usize + BASE + 2598usize) { score += 1usize; }
+    if (p598.ok == true) { score += 1usize; }
+    if (p599[1] == 4294967296usize + BASE + 7599usize) { score += 1usize; }
+    if (p599[2] == 4294967296usize + BASE + 8599usize) { score += 1usize; }
+    if (p600 == 4294967296usize + BASE + 8600usize) { score += 1usize; }
+    if (p601 == 108) { score += 1usize; }
+    if (p602 == 4294967296usize + BASE + 9609usize) { score += 1usize; }
+    if (p603.x == 4294967296usize + BASE + 1603usize) { score += 1usize; }
+    if (p603.ok == false) { score += 1usize; }
+    if (p604[0] == 4294967296usize + BASE + 3604usize) { score += 1usize; }
+    if (p604[2] == 4294967296usize + BASE + 5604usize) { score += 1usize; }
+    if (p605 == true) { score += 1usize; }
+    if (p606.x == 4294967296usize + BASE + 2606usize) { score += 1usize; }
+    if (p606.ok == true) { score += 1usize; }
+    if (p607[1] == 4294967296usize + BASE + 7607usize) { score += 1usize; }
+    if (p607[2] == 4294967296usize + BASE + 8607usize) { score += 1usize; }
+    if (p608 == 4294967296usize + BASE + 8608usize) { score += 1usize; }
+    if (p609 == 116) { score += 1usize; }
+    if (p610 == 4294967296usize + BASE + 9617usize) { score += 1usize; }
+    if (p611.x == 4294967296usize + BASE + 1611usize) { score += 1usize; }
+    if (p611.ok == false) { score += 1usize; }
+    if (p612[0] == 4294967296usize + BASE + 3612usize) { score += 1usize; }
+    if (p612[2] == 4294967296usize + BASE + 5612usize) { score += 1usize; }
+    if (p613 == true) { score += 1usize; }
+    if (p614.x == 4294967296usize + BASE + 2614usize) { score += 1usize; }
+    if (p614.ok == true) { score += 1usize; }
+    if (p615[1] == 4294967296usize + BASE + 7615usize) { score += 1usize; }
+    if (p615[2] == 4294967296usize + BASE + 8615usize) { score += 1usize; }
+    if (p616 == 4294967296usize + BASE + 8616usize) { score += 1usize; }
+    if (p617 == 124) { score += 1usize; }
+    if (p618 == 4294967296usize + BASE + 9625usize) { score += 1usize; }
+    if (p619.x == 4294967296usize + BASE + 1619usize) { score += 1usize; }
+    if (p619.ok == false) { score += 1usize; }
+    if (p620[0] == 4294967296usize + BASE + 3620usize) { score += 1usize; }
+    if (p620[2] == 4294967296usize + BASE + 5620usize) { score += 1usize; }
+    if (p621 == true) { score += 1usize; }
+    if (p622.x == 4294967296usize + BASE + 2622usize) { score += 1usize; }
+    if (p622.ok == true) { score += 1usize; }
+    if (p623[1] == 4294967296usize + BASE + 7623usize) { score += 1usize; }
+    if (p623[2] == 4294967296usize + BASE + 8623usize) { score += 1usize; }
+    if (p624 == 4294967296usize + BASE + 8624usize) { score += 1usize; }
+    if (p625 == 132) { score += 1usize; }
+    if (p626 == 4294967296usize + BASE + 9633usize) { score += 1usize; }
+    if (p627.x == 4294967296usize + BASE + 1627usize) { score += 1usize; }
+    if (p627.ok == false) { score += 1usize; }
+    if (p628[0] == 4294967296usize + BASE + 3628usize) { score += 1usize; }
+    if (p628[2] == 4294967296usize + BASE + 5628usize) { score += 1usize; }
+    if (p629 == true) { score += 1usize; }
+    if (p630.x == 4294967296usize + BASE + 2630usize) { score += 1usize; }
+    if (p630.ok == true) { score += 1usize; }
+    if (p631[1] == 4294967296usize + BASE + 7631usize) { score += 1usize; }
+    if (p631[2] == 4294967296usize + BASE + 8631usize) { score += 1usize; }
+    if (p632 == 4294967296usize + BASE + 8632usize) { score += 1usize; }
+    if (p633 == 140) { score += 1usize; }
+    if (p634 == 4294967296usize + BASE + 9641usize) { score += 1usize; }
+    if (p635.x == 4294967296usize + BASE + 1635usize) { score += 1usize; }
+    if (p635.ok == false) { score += 1usize; }
+    if (p636[0] == 4294967296usize + BASE + 3636usize) { score += 1usize; }
+    if (p636[2] == 4294967296usize + BASE + 5636usize) { score += 1usize; }
+    if (p637 == true) { score += 1usize; }
+    if (p638.x == 4294967296usize + BASE + 2638usize) { score += 1usize; }
+    if (p638.ok == true) { score += 1usize; }
+    if (p639[1] == 4294967296usize + BASE + 7639usize) { score += 1usize; }
+    if (p639[2] == 4294967296usize + BASE + 8639usize) { score += 1usize; }
+    if (p640 == 4294967296usize + BASE + 8640usize) { score += 1usize; }
+    if (p641 == 148) { score += 1usize; }
+    if (p642 == 4294967296usize + BASE + 9649usize) { score += 1usize; }
+    if (p643.x == 4294967296usize + BASE + 1643usize) { score += 1usize; }
+    if (p643.ok == false) { score += 1usize; }
+    if (p644[0] == 4294967296usize + BASE + 3644usize) { score += 1usize; }
+    if (p644[2] == 4294967296usize + BASE + 5644usize) { score += 1usize; }
+    if (p645 == true) { score += 1usize; }
+    if (p646.x == 4294967296usize + BASE + 2646usize) { score += 1usize; }
+    if (p646.ok == true) { score += 1usize; }
+    if (p647[1] == 4294967296usize + BASE + 7647usize) { score += 1usize; }
+    if (p647[2] == 4294967296usize + BASE + 8647usize) { score += 1usize; }
+    if (p648 == 4294967296usize + BASE + 8648usize) { score += 1usize; }
+    if (p649 == 156) { score += 1usize; }
+    if (p650 == 4294967296usize + BASE + 9657usize) { score += 1usize; }
+    if (p651.x == 4294967296usize + BASE + 1651usize) { score += 1usize; }
+    if (p651.ok == false) { score += 1usize; }
+    if (p652[0] == 4294967296usize + BASE + 3652usize) { score += 1usize; }
+    if (p652[2] == 4294967296usize + BASE + 5652usize) { score += 1usize; }
+    if (p653 == true) { score += 1usize; }
+    if (p654.x == 4294967296usize + BASE + 2654usize) { score += 1usize; }
+    if (p654.ok == true) { score += 1usize; }
+    if (p655[1] == 4294967296usize + BASE + 7655usize) { score += 1usize; }
+    if (p655[2] == 4294967296usize + BASE + 8655usize) { score += 1usize; }
+    if (p656 == 4294967296usize + BASE + 8656usize) { score += 1usize; }
+    if (p657 == 164) { score += 1usize; }
+    if (p658 == 4294967296usize + BASE + 9665usize) { score += 1usize; }
+    if (p659.x == 4294967296usize + BASE + 1659usize) { score += 1usize; }
+    if (p659.ok == false) { score += 1usize; }
+    if (p660[0] == 4294967296usize + BASE + 3660usize) { score += 1usize; }
+    if (p660[2] == 4294967296usize + BASE + 5660usize) { score += 1usize; }
+    if (p661 == true) { score += 1usize; }
+    if (p662.x == 4294967296usize + BASE + 2662usize) { score += 1usize; }
+    if (p662.ok == true) { score += 1usize; }
+    if (p663[1] == 4294967296usize + BASE + 7663usize) { score += 1usize; }
+    if (p663[2] == 4294967296usize + BASE + 8663usize) { score += 1usize; }
+    if (p664 == 4294967296usize + BASE + 8664usize) { score += 1usize; }
+    if (p665 == 172) { score += 1usize; }
+    if (p666 == 4294967296usize + BASE + 9673usize) { score += 1usize; }
+    if (p667.x == 4294967296usize + BASE + 1667usize) { score += 1usize; }
+    if (p667.ok == false) { score += 1usize; }
+    if (p668[0] == 4294967296usize + BASE + 3668usize) { score += 1usize; }
+    if (p668[2] == 4294967296usize + BASE + 5668usize) { score += 1usize; }
+    if (p669 == true) { score += 1usize; }
+    if (p670.x == 4294967296usize + BASE + 2670usize) { score += 1usize; }
+    if (p670.ok == true) { score += 1usize; }
+    if (p671[1] == 4294967296usize + BASE + 7671usize) { score += 1usize; }
+    if (p671[2] == 4294967296usize + BASE + 8671usize) { score += 1usize; }
+    if (p672 == 4294967296usize + BASE + 8672usize) { score += 1usize; }
+    if (p673 == 180) { score += 1usize; }
+    if (p674 == 4294967296usize + BASE + 9681usize) { score += 1usize; }
+    if (p675.x == 4294967296usize + BASE + 1675usize) { score += 1usize; }
+    if (p675.ok == false) { score += 1usize; }
+    if (p676[0] == 4294967296usize + BASE + 3676usize) { score += 1usize; }
+    if (p676[2] == 4294967296usize + BASE + 5676usize) { score += 1usize; }
+    if (p677 == true) { score += 1usize; }
+    if (p678.x == 4294967296usize + BASE + 2678usize) { score += 1usize; }
+    if (p678.ok == true) { score += 1usize; }
+    if (p679[1] == 4294967296usize + BASE + 7679usize) { score += 1usize; }
+    if (p679[2] == 4294967296usize + BASE + 8679usize) { score += 1usize; }
+    if (p680 == 4294967296usize + BASE + 8680usize) { score += 1usize; }
+    if (p681 == 188) { score += 1usize; }
+    if (p682 == 4294967296usize + BASE + 9689usize) { score += 1usize; }
+    if (p683.x == 4294967296usize + BASE + 1683usize) { score += 1usize; }
+    if (p683.ok == false) { score += 1usize; }
+    if (p684[0] == 4294967296usize + BASE + 3684usize) { score += 1usize; }
+    if (p684[2] == 4294967296usize + BASE + 5684usize) { score += 1usize; }
+    if (p685 == true) { score += 1usize; }
+    if (p686.x == 4294967296usize + BASE + 2686usize) { score += 1usize; }
+    if (p686.ok == true) { score += 1usize; }
+    if (p687[1] == 4294967296usize + BASE + 7687usize) { score += 1usize; }
+    if (p687[2] == 4294967296usize + BASE + 8687usize) { score += 1usize; }
+    if (p688 == 4294967296usize + BASE + 8688usize) { score += 1usize; }
+    if (p689 == 196) { score += 1usize; }
+    if (p690 == 4294967296usize + BASE + 9697usize) { score += 1usize; }
+    if (p691.x == 4294967296usize + BASE + 1691usize) { score += 1usize; }
+    if (p691.ok == false) { score += 1usize; }
+    if (p692[0] == 4294967296usize + BASE + 3692usize) { score += 1usize; }
+    if (p692[2] == 4294967296usize + BASE + 5692usize) { score += 1usize; }
+    if (p693 == true) { score += 1usize; }
+    if (p694.x == 4294967296usize + BASE + 2694usize) { score += 1usize; }
+    if (p694.ok == true) { score += 1usize; }
+    if (p695[1] == 4294967296usize + BASE + 7695usize) { score += 1usize; }
+    if (p695[2] == 4294967296usize + BASE + 8695usize) { score += 1usize; }
+    if (p696 == 4294967296usize + BASE + 8696usize) { score += 1usize; }
+    if (p697 == 204) { score += 1usize; }
+    if (p698 == 4294967296usize + BASE + 9705usize) { score += 1usize; }
+    if (p699.x == 4294967296usize + BASE + 1699usize) { score += 1usize; }
+    if (p699.ok == false) { score += 1usize; }
+    if (p700[0] == 4294967296usize + BASE + 3700usize) { score += 1usize; }
+    if (p700[2] == 4294967296usize + BASE + 5700usize) { score += 1usize; }
+    if (p701 == true) { score += 1usize; }
+    if (p702.x == 4294967296usize + BASE + 2702usize) { score += 1usize; }
+    if (p702.ok == true) { score += 1usize; }
+    if (p703[1] == 4294967296usize + BASE + 7703usize) { score += 1usize; }
+    if (p703[2] == 4294967296usize + BASE + 8703usize) { score += 1usize; }
+    if (p704 == 4294967296usize + BASE + 8704usize) { score += 1usize; }
+    if (p705 == 212) { score += 1usize; }
+    if (p706 == 4294967296usize + BASE + 9713usize) { score += 1usize; }
+    if (p707.x == 4294967296usize + BASE + 1707usize) { score += 1usize; }
+    if (p707.ok == false) { score += 1usize; }
+    if (p708[0] == 4294967296usize + BASE + 3708usize) { score += 1usize; }
+    if (p708[2] == 4294967296usize + BASE + 5708usize) { score += 1usize; }
+    if (p709 == true) { score += 1usize; }
+    if (p710.x == 4294967296usize + BASE + 2710usize) { score += 1usize; }
+    if (p710.ok == true) { score += 1usize; }
+    if (p711[1] == 4294967296usize + BASE + 7711usize) { score += 1usize; }
+    if (p711[2] == 4294967296usize + BASE + 8711usize) { score += 1usize; }
+    if (p712 == 4294967296usize + BASE + 8712usize) { score += 1usize; }
+    if (p713 == 220) { score += 1usize; }
+    if (p714 == 4294967296usize + BASE + 9721usize) { score += 1usize; }
+    if (p715.x == 4294967296usize + BASE + 1715usize) { score += 1usize; }
+    if (p715.ok == false) { score += 1usize; }
+    if (p716[0] == 4294967296usize + BASE + 3716usize) { score += 1usize; }
+    if (p716[2] == 4294967296usize + BASE + 5716usize) { score += 1usize; }
+    if (p717 == true) { score += 1usize; }
+    if (p718.x == 4294967296usize + BASE + 2718usize) { score += 1usize; }
+    if (p718.ok == true) { score += 1usize; }
+    if (p719[1] == 4294967296usize + BASE + 7719usize) { score += 1usize; }
+    if (p719[2] == 4294967296usize + BASE + 8719usize) { score += 1usize; }
+    if (p720 == 4294967296usize + BASE + 8720usize) { score += 1usize; }
+    if (p721 == 228) { score += 1usize; }
+    if (p722 == 4294967296usize + BASE + 9729usize) { score += 1usize; }
+    if (p723.x == 4294967296usize + BASE + 1723usize) { score += 1usize; }
+    if (p723.ok == false) { score += 1usize; }
+    if (p724[0] == 4294967296usize + BASE + 3724usize) { score += 1usize; }
+    if (p724[2] == 4294967296usize + BASE + 5724usize) { score += 1usize; }
+    if (p725 == true) { score += 1usize; }
+    if (p726.x == 4294967296usize + BASE + 2726usize) { score += 1usize; }
+    if (p726.ok == true) { score += 1usize; }
+    if (p727[1] == 4294967296usize + BASE + 7727usize) { score += 1usize; }
+    if (p727[2] == 4294967296usize + BASE + 8727usize) { score += 1usize; }
+    if (p728 == 4294967296usize + BASE + 8728usize) { score += 1usize; }
+    if (p729 == 236) { score += 1usize; }
+    if (p730 == 4294967296usize + BASE + 9737usize) { score += 1usize; }
+    if (p731.x == 4294967296usize + BASE + 1731usize) { score += 1usize; }
+    if (p731.ok == false) { score += 1usize; }
+    if (p732[0] == 4294967296usize + BASE + 3732usize) { score += 1usize; }
+    if (p732[2] == 4294967296usize + BASE + 5732usize) { score += 1usize; }
+    if (p733 == true) { score += 1usize; }
+    if (p734.x == 4294967296usize + BASE + 2734usize) { score += 1usize; }
+    if (p734.ok == true) { score += 1usize; }
+    if (p735[1] == 4294967296usize + BASE + 7735usize) { score += 1usize; }
+    if (p735[2] == 4294967296usize + BASE + 8735usize) { score += 1usize; }
+    if (p736 == 4294967296usize + BASE + 8736usize) { score += 1usize; }
+    if (p737 == 244) { score += 1usize; }
+    if (p738 == 4294967296usize + BASE + 9745usize) { score += 1usize; }
+    if (p739.x == 4294967296usize + BASE + 1739usize) { score += 1usize; }
+    if (p739.ok == false) { score += 1usize; }
+    if (p740[0] == 4294967296usize + BASE + 3740usize) { score += 1usize; }
+    if (p740[2] == 4294967296usize + BASE + 5740usize) { score += 1usize; }
+    if (p741 == true) { score += 1usize; }
+    if (p742.x == 4294967296usize + BASE + 2742usize) { score += 1usize; }
+    if (p742.ok == true) { score += 1usize; }
+    if (p743[1] == 4294967296usize + BASE + 7743usize) { score += 1usize; }
+    if (p743[2] == 4294967296usize + BASE + 8743usize) { score += 1usize; }
+    if (p744 == 4294967296usize + BASE + 8744usize) { score += 1usize; }
+    if (p745 == 252) { score += 1usize; }
+    if (p746 == 4294967296usize + BASE + 9753usize) { score += 1usize; }
+    if (p747.x == 4294967296usize + BASE + 1747usize) { score += 1usize; }
+    if (p747.ok == false) { score += 1usize; }
+    if (p748[0] == 4294967296usize + BASE + 3748usize) { score += 1usize; }
+    if (p748[2] == 4294967296usize + BASE + 5748usize) { score += 1usize; }
+    if (p749 == true) { score += 1usize; }
+    if (p750.x == 4294967296usize + BASE + 2750usize) { score += 1usize; }
+    if (p750.ok == true) { score += 1usize; }
+    if (p751[1] == 4294967296usize + BASE + 7751usize) { score += 1usize; }
+    if (p751[2] == 4294967296usize + BASE + 8751usize) { score += 1usize; }
+    if (p752 == 4294967296usize + BASE + 8752usize) { score += 1usize; }
+    if (p753 == 260) { score += 1usize; }
+    if (p754 == 4294967296usize + BASE + 9761usize) { score += 1usize; }
+    if (p755.x == 4294967296usize + BASE + 1755usize) { score += 1usize; }
+    if (p755.ok == false) { score += 1usize; }
+    if (p756[0] == 4294967296usize + BASE + 3756usize) { score += 1usize; }
+    if (p756[2] == 4294967296usize + BASE + 5756usize) { score += 1usize; }
+    if (p757 == true) { score += 1usize; }
+    if (p758.x == 4294967296usize + BASE + 2758usize) { score += 1usize; }
+    if (p758.ok == true) { score += 1usize; }
+    if (p759[1] == 4294967296usize + BASE + 7759usize) { score += 1usize; }
+    if (p759[2] == 4294967296usize + BASE + 8759usize) { score += 1usize; }
+    if (p760 == 4294967296usize + BASE + 8760usize) { score += 1usize; }
+    if (p761 == 268) { score += 1usize; }
+    if (p762 == 4294967296usize + BASE + 9769usize) { score += 1usize; }
+    if (p763.x == 4294967296usize + BASE + 1763usize) { score += 1usize; }
+    if (p763.ok == false) { score += 1usize; }
+    if (p764[0] == 4294967296usize + BASE + 3764usize) { score += 1usize; }
+    if (p764[2] == 4294967296usize + BASE + 5764usize) { score += 1usize; }
+    if (p765 == true) { score += 1usize; }
+    if (p766.x == 4294967296usize + BASE + 2766usize) { score += 1usize; }
+    if (p766.ok == true) { score += 1usize; }
+    if (p767[1] == 4294967296usize + BASE + 7767usize) { score += 1usize; }
+    if (p767[2] == 4294967296usize + BASE + 8767usize) { score += 1usize; }
+    if (p768 == 4294967296usize + BASE + 8768usize) { score += 1usize; }
+    if (p769 == 276) { score += 1usize; }
+    if (p770 == 4294967296usize + BASE + 9777usize) { score += 1usize; }
+    if (p771.x == 4294967296usize + BASE + 1771usize) { score += 1usize; }
+    if (p771.ok == false) { score += 1usize; }
+    if (p772[0] == 4294967296usize + BASE + 3772usize) { score += 1usize; }
+    if (p772[2] == 4294967296usize + BASE + 5772usize) { score += 1usize; }
+    if (p773 == true) { score += 1usize; }
+    if (p774.x == 4294967296usize + BASE + 2774usize) { score += 1usize; }
+    if (p774.ok == true) { score += 1usize; }
+    if (p775[1] == 4294967296usize + BASE + 7775usize) { score += 1usize; }
+    if (p775[2] == 4294967296usize + BASE + 8775usize) { score += 1usize; }
+    if (p776 == 4294967296usize + BASE + 8776usize) { score += 1usize; }
+    if (p777 == 284) { score += 1usize; }
+    if (p778 == 4294967296usize + BASE + 9785usize) { score += 1usize; }
+    if (p779.x == 4294967296usize + BASE + 1779usize) { score += 1usize; }
+    if (p779.ok == false) { score += 1usize; }
+    if (p780[0] == 4294967296usize + BASE + 3780usize) { score += 1usize; }
+    if (p780[2] == 4294967296usize + BASE + 5780usize) { score += 1usize; }
+    if (p781 == true) { score += 1usize; }
+    if (p782.x == 4294967296usize + BASE + 2782usize) { score += 1usize; }
+    if (p782.ok == true) { score += 1usize; }
+    if (p783[1] == 4294967296usize + BASE + 7783usize) { score += 1usize; }
+    if (p783[2] == 4294967296usize + BASE + 8783usize) { score += 1usize; }
+    if (p784 == 4294967296usize + BASE + 8784usize) { score += 1usize; }
+    if (p785 == 292) { score += 1usize; }
+    if (p786 == 4294967296usize + BASE + 9793usize) { score += 1usize; }
+    if (p787.x == 4294967296usize + BASE + 1787usize) { score += 1usize; }
+    if (p787.ok == false) { score += 1usize; }
+    if (p788[0] == 4294967296usize + BASE + 3788usize) { score += 1usize; }
+    if (p788[2] == 4294967296usize + BASE + 5788usize) { score += 1usize; }
+    if (p789 == true) { score += 1usize; }
+    if (p790.x == 4294967296usize + BASE + 2790usize) { score += 1usize; }
+    if (p790.ok == true) { score += 1usize; }
+    if (p791[1] == 4294967296usize + BASE + 7791usize) { score += 1usize; }
+    if (p791[2] == 4294967296usize + BASE + 8791usize) { score += 1usize; }
+    if (p792 == 4294967296usize + BASE + 8792usize) { score += 1usize; }
+    if (p793 == 300) { score += 1usize; }
+    if (p794 == 4294967296usize + BASE + 9801usize) { score += 1usize; }
+    if (p795.x == 4294967296usize + BASE + 1795usize) { score += 1usize; }
+    if (p795.ok == false) { score += 1usize; }
+    if (p796[0] == 4294967296usize + BASE + 3796usize) { score += 1usize; }
+    if (p796[2] == 4294967296usize + BASE + 5796usize) { score += 1usize; }
+    if (p797 == true) { score += 1usize; }
+    if (p798.x == 4294967296usize + BASE + 2798usize) { score += 1usize; }
+    if (p798.ok == true) { score += 1usize; }
+    if (p799[1] == 4294967296usize + BASE + 7799usize) { score += 1usize; }
+    if (p799[2] == 4294967296usize + BASE + 8799usize) { score += 1usize; }
+    if (p800 == 4294967296usize + BASE + 8800usize) { score += 1usize; }
+    if (p801 == 308) { score += 1usize; }
+    if (p802 == 4294967296usize + BASE + 9809usize) { score += 1usize; }
+    if (p803.x == 4294967296usize + BASE + 1803usize) { score += 1usize; }
+    if (p803.ok == false) { score += 1usize; }
+    if (p804[0] == 4294967296usize + BASE + 3804usize) { score += 1usize; }
+    if (p804[2] == 4294967296usize + BASE + 5804usize) { score += 1usize; }
+    if (p805 == true) { score += 1usize; }
+    if (p806.x == 4294967296usize + BASE + 2806usize) { score += 1usize; }
+    if (p806.ok == true) { score += 1usize; }
+    if (p807[1] == 4294967296usize + BASE + 7807usize) { score += 1usize; }
+    if (p807[2] == 4294967296usize + BASE + 8807usize) { score += 1usize; }
+    if (p808 == 4294967296usize + BASE + 8808usize) { score += 1usize; }
+    if (p809 == 316) { score += 1usize; }
+    if (p810 == 4294967296usize + BASE + 9817usize) { score += 1usize; }
+    if (p811.x == 4294967296usize + BASE + 1811usize) { score += 1usize; }
+    if (p811.ok == false) { score += 1usize; }
+    if (p812[0] == 4294967296usize + BASE + 3812usize) { score += 1usize; }
+    if (p812[2] == 4294967296usize + BASE + 5812usize) { score += 1usize; }
+    if (p813 == true) { score += 1usize; }
+    if (p814.x == 4294967296usize + BASE + 2814usize) { score += 1usize; }
+    if (p814.ok == true) { score += 1usize; }
+    if (p815[1] == 4294967296usize + BASE + 7815usize) { score += 1usize; }
+    if (p815[2] == 4294967296usize + BASE + 8815usize) { score += 1usize; }
+    if (p816 == 4294967296usize + BASE + 8816usize) { score += 1usize; }
+    if (p817 == 324) { score += 1usize; }
+    if (p818 == 4294967296usize + BASE + 9825usize) { score += 1usize; }
+    if (p819.x == 4294967296usize + BASE + 1819usize) { score += 1usize; }
+    if (p819.ok == false) { score += 1usize; }
+    if (p820[0] == 4294967296usize + BASE + 3820usize) { score += 1usize; }
+    if (p820[2] == 4294967296usize + BASE + 5820usize) { score += 1usize; }
+    if (p821 == true) { score += 1usize; }
+    if (p822.x == 4294967296usize + BASE + 2822usize) { score += 1usize; }
+    if (p822.ok == true) { score += 1usize; }
+    if (p823[1] == 4294967296usize + BASE + 7823usize) { score += 1usize; }
+    if (p823[2] == 4294967296usize + BASE + 8823usize) { score += 1usize; }
+    if (p824 == 4294967296usize + BASE + 8824usize) { score += 1usize; }
+    if (p825 == 332) { score += 1usize; }
+    if (p826 == 4294967296usize + BASE + 9833usize) { score += 1usize; }
+    if (p827.x == 4294967296usize + BASE + 1827usize) { score += 1usize; }
+    if (p827.ok == false) { score += 1usize; }
+    if (p828[0] == 4294967296usize + BASE + 3828usize) { score += 1usize; }
+    if (p828[2] == 4294967296usize + BASE + 5828usize) { score += 1usize; }
+    if (p829 == true) { score += 1usize; }
+    if (p830.x == 4294967296usize + BASE + 2830usize) { score += 1usize; }
+    if (p830.ok == true) { score += 1usize; }
+    if (p831[1] == 4294967296usize + BASE + 7831usize) { score += 1usize; }
+    if (p831[2] == 4294967296usize + BASE + 8831usize) { score += 1usize; }
+    if (p832 == 4294967296usize + BASE + 8832usize) { score += 1usize; }
+    if (p833 == 340) { score += 1usize; }
+    if (p834 == 4294967296usize + BASE + 9841usize) { score += 1usize; }
+    if (p835.x == 4294967296usize + BASE + 1835usize) { score += 1usize; }
+    if (p835.ok == false) { score += 1usize; }
+    if (p836[0] == 4294967296usize + BASE + 3836usize) { score += 1usize; }
+    if (p836[2] == 4294967296usize + BASE + 5836usize) { score += 1usize; }
+    if (p837 == true) { score += 1usize; }
+    if (p838.x == 4294967296usize + BASE + 2838usize) { score += 1usize; }
+    if (p838.ok == true) { score += 1usize; }
+    if (p839[1] == 4294967296usize + BASE + 7839usize) { score += 1usize; }
+    if (p839[2] == 4294967296usize + BASE + 8839usize) { score += 1usize; }
+    if (p840 == 4294967296usize + BASE + 8840usize) { score += 1usize; }
+    if (p841 == 348) { score += 1usize; }
+    if (p842 == 4294967296usize + BASE + 9849usize) { score += 1usize; }
+    if (p843.x == 4294967296usize + BASE + 1843usize) { score += 1usize; }
+    if (p843.ok == false) { score += 1usize; }
+    if (p844[0] == 4294967296usize + BASE + 3844usize) { score += 1usize; }
+    if (p844[2] == 4294967296usize + BASE + 5844usize) { score += 1usize; }
+    if (p845 == true) { score += 1usize; }
+    if (p846.x == 4294967296usize + BASE + 2846usize) { score += 1usize; }
+    if (p846.ok == true) { score += 1usize; }
+    if (p847[1] == 4294967296usize + BASE + 7847usize) { score += 1usize; }
+    if (p847[2] == 4294967296usize + BASE + 8847usize) { score += 1usize; }
+    if (p848 == 4294967296usize + BASE + 8848usize) { score += 1usize; }
+    if (p849 == 356) { score += 1usize; }
+    if (p850 == 4294967296usize + BASE + 9857usize) { score += 1usize; }
+    if (p851.x == 4294967296usize + BASE + 1851usize) { score += 1usize; }
+    if (p851.ok == false) { score += 1usize; }
+    if (p852[0] == 4294967296usize + BASE + 3852usize) { score += 1usize; }
+    if (p852[2] == 4294967296usize + BASE + 5852usize) { score += 1usize; }
+    if (p853 == true) { score += 1usize; }
+    if (p854.x == 4294967296usize + BASE + 2854usize) { score += 1usize; }
+    if (p854.ok == true) { score += 1usize; }
+    if (p855[1] == 4294967296usize + BASE + 7855usize) { score += 1usize; }
+    if (p855[2] == 4294967296usize + BASE + 8855usize) { score += 1usize; }
+    if (p856 == 4294967296usize + BASE + 8856usize) { score += 1usize; }
+    if (p857 == 364) { score += 1usize; }
+    if (p858 == 4294967296usize + BASE + 9865usize) { score += 1usize; }
+    if (p859.x == 4294967296usize + BASE + 1859usize) { score += 1usize; }
+    if (p859.ok == false) { score += 1usize; }
+    if (p860[0] == 4294967296usize + BASE + 3860usize) { score += 1usize; }
+    if (p860[2] == 4294967296usize + BASE + 5860usize) { score += 1usize; }
+    if (p861 == true) { score += 1usize; }
+    if (p862.x == 4294967296usize + BASE + 2862usize) { score += 1usize; }
+    if (p862.ok == true) { score += 1usize; }
+    if (p863[1] == 4294967296usize + BASE + 7863usize) { score += 1usize; }
+    if (p863[2] == 4294967296usize + BASE + 8863usize) { score += 1usize; }
+    if (p864 == 4294967296usize + BASE + 8864usize) { score += 1usize; }
+    if (p865 == 372) { score += 1usize; }
+    if (p866 == 4294967296usize + BASE + 9873usize) { score += 1usize; }
+    if (p867.x == 4294967296usize + BASE + 1867usize) { score += 1usize; }
+    if (p867.ok == false) { score += 1usize; }
+    if (p868[0] == 4294967296usize + BASE + 3868usize) { score += 1usize; }
+    if (p868[2] == 4294967296usize + BASE + 5868usize) { score += 1usize; }
+    if (p869 == true) { score += 1usize; }
+    if (p870.x == 4294967296usize + BASE + 2870usize) { score += 1usize; }
+    if (p870.ok == true) { score += 1usize; }
+    if (p871[1] == 4294967296usize + BASE + 7871usize) { score += 1usize; }
+    if (p871[2] == 4294967296usize + BASE + 8871usize) { score += 1usize; }
+    if (p872 == 4294967296usize + BASE + 8872usize) { score += 1usize; }
+    if (p873 == 380) { score += 1usize; }
+    if (p874 == 4294967296usize + BASE + 9881usize) { score += 1usize; }
+    if (p875.x == 4294967296usize + BASE + 1875usize) { score += 1usize; }
+    if (p875.ok == false) { score += 1usize; }
+    if (p876[0] == 4294967296usize + BASE + 3876usize) { score += 1usize; }
+    if (p876[2] == 4294967296usize + BASE + 5876usize) { score += 1usize; }
+    if (p877 == true) { score += 1usize; }
+    if (p878.x == 4294967296usize + BASE + 2878usize) { score += 1usize; }
+    if (p878.ok == true) { score += 1usize; }
+    if (p879[1] == 4294967296usize + BASE + 7879usize) { score += 1usize; }
+    if (p879[2] == 4294967296usize + BASE + 8879usize) { score += 1usize; }
+    if (p880 == 4294967296usize + BASE + 8880usize) { score += 1usize; }
+    if (p881 == 388) { score += 1usize; }
+    if (p882 == 4294967296usize + BASE + 9889usize) { score += 1usize; }
+    if (p883.x == 4294967296usize + BASE + 1883usize) { score += 1usize; }
+    if (p883.ok == false) { score += 1usize; }
+    if (p884[0] == 4294967296usize + BASE + 3884usize) { score += 1usize; }
+    if (p884[2] == 4294967296usize + BASE + 5884usize) { score += 1usize; }
+    if (p885 == true) { score += 1usize; }
+    if (p886.x == 4294967296usize + BASE + 2886usize) { score += 1usize; }
+    if (p886.ok == true) { score += 1usize; }
+    if (p887[1] == 4294967296usize + BASE + 7887usize) { score += 1usize; }
+    if (p887[2] == 4294967296usize + BASE + 8887usize) { score += 1usize; }
+    if (p888 == 4294967296usize + BASE + 8888usize) { score += 1usize; }
+    if (p889 == 396) { score += 1usize; }
+    if (p890 == 4294967296usize + BASE + 9897usize) { score += 1usize; }
+    if (p891.x == 4294967296usize + BASE + 1891usize) { score += 1usize; }
+    if (p891.ok == false) { score += 1usize; }
+    if (p892[0] == 4294967296usize + BASE + 3892usize) { score += 1usize; }
+    if (p892[2] == 4294967296usize + BASE + 5892usize) { score += 1usize; }
+    if (p893 == true) { score += 1usize; }
+    if (p894.x == 4294967296usize + BASE + 2894usize) { score += 1usize; }
+    if (p894.ok == true) { score += 1usize; }
+    if (p895[1] == 4294967296usize + BASE + 7895usize) { score += 1usize; }
+    if (p895[2] == 4294967296usize + BASE + 8895usize) { score += 1usize; }
+    if (p896 == 4294967296usize + BASE + 8896usize) { score += 1usize; }
+    if (p897 == 404) { score += 1usize; }
+    if (p898 == 4294967296usize + BASE + 9905usize) { score += 1usize; }
+    if (p899.x == 4294967296usize + BASE + 1899usize) { score += 1usize; }
+    if (p899.ok == false) { score += 1usize; }
+    if (p900[0] == 4294967296usize + BASE + 3900usize) { score += 1usize; }
+    if (p900[2] == 4294967296usize + BASE + 5900usize) { score += 1usize; }
+    if (p901 == true) { score += 1usize; }
+    if (p902.x == 4294967296usize + BASE + 2902usize) { score += 1usize; }
+    if (p902.ok == true) { score += 1usize; }
+    if (p903[1] == 4294967296usize + BASE + 7903usize) { score += 1usize; }
+    if (p903[2] == 4294967296usize + BASE + 8903usize) { score += 1usize; }
+    if (p904 == 4294967296usize + BASE + 8904usize) { score += 1usize; }
+    if (p905 == 412) { score += 1usize; }
+    if (p906 == 4294967296usize + BASE + 9913usize) { score += 1usize; }
+    if (p907.x == 4294967296usize + BASE + 1907usize) { score += 1usize; }
+    if (p907.ok == false) { score += 1usize; }
+    if (p908[0] == 4294967296usize + BASE + 3908usize) { score += 1usize; }
+    if (p908[2] == 4294967296usize + BASE + 5908usize) { score += 1usize; }
+    if (p909 == true) { score += 1usize; }
+    if (p910.x == 4294967296usize + BASE + 2910usize) { score += 1usize; }
+    if (p910.ok == true) { score += 1usize; }
+    if (p911[1] == 4294967296usize + BASE + 7911usize) { score += 1usize; }
+    if (p911[2] == 4294967296usize + BASE + 8911usize) { score += 1usize; }
+    if (p912 == 4294967296usize + BASE + 8912usize) { score += 1usize; }
+    if (p913 == 420) { score += 1usize; }
+    if (p914 == 4294967296usize + BASE + 9921usize) { score += 1usize; }
+    if (p915.x == 4294967296usize + BASE + 1915usize) { score += 1usize; }
+    if (p915.ok == false) { score += 1usize; }
+    if (p916[0] == 4294967296usize + BASE + 3916usize) { score += 1usize; }
+    if (p916[2] == 4294967296usize + BASE + 5916usize) { score += 1usize; }
+    if (p917 == true) { score += 1usize; }
+    if (p918.x == 4294967296usize + BASE + 2918usize) { score += 1usize; }
+    if (p918.ok == true) { score += 1usize; }
+    if (p919[1] == 4294967296usize + BASE + 7919usize) { score += 1usize; }
+    if (p919[2] == 4294967296usize + BASE + 8919usize) { score += 1usize; }
+    if (p920 == 4294967296usize + BASE + 8920usize) { score += 1usize; }
+    if (p921 == 428) { score += 1usize; }
+    if (p922 == 4294967296usize + BASE + 9929usize) { score += 1usize; }
+    if (p923.x == 4294967296usize + BASE + 1923usize) { score += 1usize; }
+    if (p923.ok == false) { score += 1usize; }
+    if (p924[0] == 4294967296usize + BASE + 3924usize) { score += 1usize; }
+    if (p924[2] == 4294967296usize + BASE + 5924usize) { score += 1usize; }
+    if (p925 == true) { score += 1usize; }
+    if (p926.x == 4294967296usize + BASE + 2926usize) { score += 1usize; }
+    if (p926.ok == true) { score += 1usize; }
+    if (p927[1] == 4294967296usize + BASE + 7927usize) { score += 1usize; }
+    if (p927[2] == 4294967296usize + BASE + 8927usize) { score += 1usize; }
+    if (p928 == 4294967296usize + BASE + 8928usize) { score += 1usize; }
+    if (p929 == 436) { score += 1usize; }
+    if (p930 == 4294967296usize + BASE + 9937usize) { score += 1usize; }
+    if (p931.x == 4294967296usize + BASE + 1931usize) { score += 1usize; }
+    if (p931.ok == false) { score += 1usize; }
+    if (p932[0] == 4294967296usize + BASE + 3932usize) { score += 1usize; }
+    if (p932[2] == 4294967296usize + BASE + 5932usize) { score += 1usize; }
+    if (p933 == true) { score += 1usize; }
+    if (p934.x == 4294967296usize + BASE + 2934usize) { score += 1usize; }
+    if (p934.ok == true) { score += 1usize; }
+    if (p935[1] == 4294967296usize + BASE + 7935usize) { score += 1usize; }
+    if (p935[2] == 4294967296usize + BASE + 8935usize) { score += 1usize; }
+    if (p936 == 4294967296usize + BASE + 8936usize) { score += 1usize; }
+    if (p937 == 444) { score += 1usize; }
+    if (p938 == 4294967296usize + BASE + 9945usize) { score += 1usize; }
+    if (p939.x == 4294967296usize + BASE + 1939usize) { score += 1usize; }
+    if (p939.ok == false) { score += 1usize; }
+    if (p940[0] == 4294967296usize + BASE + 3940usize) { score += 1usize; }
+    if (p940[2] == 4294967296usize + BASE + 5940usize) { score += 1usize; }
+    if (p941 == true) { score += 1usize; }
+    if (p942.x == 4294967296usize + BASE + 2942usize) { score += 1usize; }
+    if (p942.ok == true) { score += 1usize; }
+    if (p943[1] == 4294967296usize + BASE + 7943usize) { score += 1usize; }
+    if (p943[2] == 4294967296usize + BASE + 8943usize) { score += 1usize; }
+    if (p944 == 4294967296usize + BASE + 8944usize) { score += 1usize; }
+    if (p945 == 452) { score += 1usize; }
+    if (p946 == 4294967296usize + BASE + 9953usize) { score += 1usize; }
+    if (p947.x == 4294967296usize + BASE + 1947usize) { score += 1usize; }
+    if (p947.ok == false) { score += 1usize; }
+    if (p948[0] == 4294967296usize + BASE + 3948usize) { score += 1usize; }
+    if (p948[2] == 4294967296usize + BASE + 5948usize) { score += 1usize; }
+    if (p949 == true) { score += 1usize; }
+    if (p950.x == 4294967296usize + BASE + 2950usize) { score += 1usize; }
+    if (p950.ok == true) { score += 1usize; }
+    if (p951[1] == 4294967296usize + BASE + 7951usize) { score += 1usize; }
+    if (p951[2] == 4294967296usize + BASE + 8951usize) { score += 1usize; }
+    if (p952 == 4294967296usize + BASE + 8952usize) { score += 1usize; }
+    if (p953 == 460) { score += 1usize; }
+    if (p954 == 4294967296usize + BASE + 9961usize) { score += 1usize; }
+    if (p955.x == 4294967296usize + BASE + 1955usize) { score += 1usize; }
+    if (p955.ok == false) { score += 1usize; }
+    if (p956[0] == 4294967296usize + BASE + 3956usize) { score += 1usize; }
+    if (p956[2] == 4294967296usize + BASE + 5956usize) { score += 1usize; }
+    if (p957 == true) { score += 1usize; }
+    if (p958.x == 4294967296usize + BASE + 2958usize) { score += 1usize; }
+    if (p958.ok == true) { score += 1usize; }
+    if (p959[1] == 4294967296usize + BASE + 7959usize) { score += 1usize; }
+    if (p959[2] == 4294967296usize + BASE + 8959usize) { score += 1usize; }
+    if (p960 == 4294967296usize + BASE + 8960usize) { score += 1usize; }
+    if (p961 == 468) { score += 1usize; }
+    if (p962 == 4294967296usize + BASE + 9969usize) { score += 1usize; }
+    if (p963.x == 4294967296usize + BASE + 1963usize) { score += 1usize; }
+    if (p963.ok == false) { score += 1usize; }
+    if (p964[0] == 4294967296usize + BASE + 3964usize) { score += 1usize; }
+    if (p964[2] == 4294967296usize + BASE + 5964usize) { score += 1usize; }
+    if (p965 == true) { score += 1usize; }
+    if (p966.x == 4294967296usize + BASE + 2966usize) { score += 1usize; }
+    if (p966.ok == true) { score += 1usize; }
+    if (p967[1] == 4294967296usize + BASE + 7967usize) { score += 1usize; }
+    if (p967[2] == 4294967296usize + BASE + 8967usize) { score += 1usize; }
+    if (p968 == 4294967296usize + BASE + 8968usize) { score += 1usize; }
+    if (p969 == 476) { score += 1usize; }
+    if (p970 == 4294967296usize + BASE + 9977usize) { score += 1usize; }
+    if (p971.x == 4294967296usize + BASE + 1971usize) { score += 1usize; }
+    if (p971.ok == false) { score += 1usize; }
+    if (p972[0] == 4294967296usize + BASE + 3972usize) { score += 1usize; }
+    if (p972[2] == 4294967296usize + BASE + 5972usize) { score += 1usize; }
+    if (p973 == true) { score += 1usize; }
+    if (p974.x == 4294967296usize + BASE + 2974usize) { score += 1usize; }
+    if (p974.ok == true) { score += 1usize; }
+    if (p975[1] == 4294967296usize + BASE + 7975usize) { score += 1usize; }
+    if (p975[2] == 4294967296usize + BASE + 8975usize) { score += 1usize; }
+    if (p976 == 4294967296usize + BASE + 8976usize) { score += 1usize; }
+    if (p977 == 484) { score += 1usize; }
+    if (p978 == 4294967296usize + BASE + 9985usize) { score += 1usize; }
+    if (p979.x == 4294967296usize + BASE + 1979usize) { score += 1usize; }
+    if (p979.ok == false) { score += 1usize; }
+    if (p980[0] == 4294967296usize + BASE + 3980usize) { score += 1usize; }
+    if (p980[2] == 4294967296usize + BASE + 5980usize) { score += 1usize; }
+    if (p981 == true) { score += 1usize; }
+    if (p982.x == 4294967296usize + BASE + 2982usize) { score += 1usize; }
+    if (p982.ok == true) { score += 1usize; }
+    if (p983[1] == 4294967296usize + BASE + 7983usize) { score += 1usize; }
+    if (p983[2] == 4294967296usize + BASE + 8983usize) { score += 1usize; }
+    if (p984 == 4294967296usize + BASE + 8984usize) { score += 1usize; }
+    if (p985 == 492) { score += 1usize; }
+    if (p986 == 4294967296usize + BASE + 9993usize) { score += 1usize; }
+    if (p987.x == 4294967296usize + BASE + 1987usize) { score += 1usize; }
+    if (p987.ok == false) { score += 1usize; }
+    if (p988[0] == 4294967296usize + BASE + 3988usize) { score += 1usize; }
+    if (p988[2] == 4294967296usize + BASE + 5988usize) { score += 1usize; }
+    if (p989 == true) { score += 1usize; }
+    if (p990.x == 4294967296usize + BASE + 2990usize) { score += 1usize; }
+    if (p990.ok == true) { score += 1usize; }
+    if (p991[1] == 4294967296usize + BASE + 7991usize) { score += 1usize; }
+    if (p991[2] == 4294967296usize + BASE + 8991usize) { score += 1usize; }
+    if (p992 == 4294967296usize + BASE + 8992usize) { score += 1usize; }
+    if (p993 == 500) { score += 1usize; }
+    if (p994 == 4294967296usize + BASE + 10001usize) { score += 1usize; }
+    if (p995.x == 4294967296usize + BASE + 1995usize) { score += 1usize; }
+    if (p995.ok == false) { score += 1usize; }
+    if (p996[0] == 4294967296usize + BASE + 3996usize) { score += 1usize; }
+    if (p996[2] == 4294967296usize + BASE + 5996usize) { score += 1usize; }
+    if (p997 == true) { score += 1usize; }
+    if (p998.x == 4294967296usize + BASE + 2998usize) { score += 1usize; }
+    if (p998.ok == true) { score += 1usize; }
+    if (p999[1] == 4294967296usize + BASE + 7999usize) { score += 1usize; }
+    if (p999[2] == 4294967296usize + BASE + 8999usize) { score += 1usize; }
+    if (p1000 == 4294967296usize + BASE + 9000usize) { score += 1usize; }
+    if (p1001 == -492) { score += 1usize; }
+    if (p1002 == 4294967296usize + BASE + 10009usize) { score += 1usize; }
+    if (p1003.x == 4294967296usize + BASE + 2003usize) { score += 1usize; }
+    if (p1003.ok == false) { score += 1usize; }
+    if (p1004[0] == 4294967296usize + BASE + 4004usize) { score += 1usize; }
+    if (p1004[2] == 4294967296usize + BASE + 6004usize) { score += 1usize; }
+    if (p1005 == true) { score += 1usize; }
+    if (p1006.x == 4294967296usize + BASE + 3006usize) { score += 1usize; }
+    if (p1006.ok == true) { score += 1usize; }
+    if (p1007[1] == 4294967296usize + BASE + 8007usize) { score += 1usize; }
+    if (p1007[2] == 4294967296usize + BASE + 9007usize) { score += 1usize; }
+    if (p1008 == 4294967296usize + BASE + 9008usize) { score += 1usize; }
+    if (p1009 == -484) { score += 1usize; }
+    if (p1010 == 4294967296usize + BASE + 10017usize) { score += 1usize; }
+    if (p1011.x == 4294967296usize + BASE + 2011usize) { score += 1usize; }
+    if (p1011.ok == false) { score += 1usize; }
+    if (p1012[0] == 4294967296usize + BASE + 4012usize) { score += 1usize; }
+    if (p1012[2] == 4294967296usize + BASE + 6012usize) { score += 1usize; }
+    if (p1013 == true) { score += 1usize; }
+    if (p1014.x == 4294967296usize + BASE + 3014usize) { score += 1usize; }
+    if (p1014.ok == true) { score += 1usize; }
+    if (p1015[1] == 4294967296usize + BASE + 8015usize) { score += 1usize; }
+    if (p1015[2] == 4294967296usize + BASE + 9015usize) { score += 1usize; }
+    if (p1016 == 4294967296usize + BASE + 9016usize) { score += 1usize; }
+    if (p1017 == -476) { score += 1usize; }
+    if (p1018 == 4294967296usize + BASE + 10025usize) { score += 1usize; }
+    if (p1019.x == 4294967296usize + BASE + 2019usize) { score += 1usize; }
+    if (p1019.ok == false) { score += 1usize; }
+    if (p1020[0] == 4294967296usize + BASE + 4020usize) { score += 1usize; }
+    if (p1020[2] == 4294967296usize + BASE + 6020usize) { score += 1usize; }
+    if (p1021 == true) { score += 1usize; }
+    if (p1022.x == 4294967296usize + BASE + 3022usize) { score += 1usize; }
+    if (p1022.ok == true) { score += 1usize; }
+    if (p1023[1] == 4294967296usize + BASE + 8023usize) { score += 1usize; }
+    if (p1023[2] == 4294967296usize + BASE + 9023usize) { score += 1usize; }
+    return score;
+}
+
+fn main() {
+    let input: i32 = getInt();
+    let pr6: Pair = Pair { x: 4294967296usize + BASE + 2006usize, y: -494, ok: true };
+    let ar7: [usize; 3] = [4294967296usize + BASE + 6007usize, 4294967296usize + BASE + 7007usize, 4294967296usize + BASE + 8007usize];
+    let pr14: Pair = Pair { x: 4294967296usize + BASE + 2014usize, y: -486, ok: true };
+    let ar15: [usize; 3] = [4294967296usize + BASE + 6015usize, 4294967296usize + BASE + 7015usize, 4294967296usize + BASE + 8015usize];
+    let pr22: Pair = Pair { x: 4294967296usize + BASE + 2022usize, y: -478, ok: true };
+    let ar23: [usize; 3] = [4294967296usize + BASE + 6023usize, 4294967296usize + BASE + 7023usize, 4294967296usize + BASE + 8023usize];
+    let pr30: Pair = Pair { x: 4294967296usize + BASE + 2030usize, y: -470, ok: true };
+    let ar31: [usize; 3] = [4294967296usize + BASE + 6031usize, 4294967296usize + BASE + 7031usize, 4294967296usize + BASE + 8031usize];
+    let pr38: Pair = Pair { x: 4294967296usize + BASE + 2038usize, y: -462, ok: true };
+    let ar39: [usize; 3] = [4294967296usize + BASE + 6039usize, 4294967296usize + BASE + 7039usize, 4294967296usize + BASE + 8039usize];
+    let pr46: Pair = Pair { x: 4294967296usize + BASE + 2046usize, y: -454, ok: true };
+    let ar47: [usize; 3] = [4294967296usize + BASE + 6047usize, 4294967296usize + BASE + 7047usize, 4294967296usize + BASE + 8047usize];
+    let pr54: Pair = Pair { x: 4294967296usize + BASE + 2054usize, y: -446, ok: true };
+    let ar55: [usize; 3] = [4294967296usize + BASE + 6055usize, 4294967296usize + BASE + 7055usize, 4294967296usize + BASE + 8055usize];
+    let pr62: Pair = Pair { x: 4294967296usize + BASE + 2062usize, y: -438, ok: true };
+    let ar63: [usize; 3] = [4294967296usize + BASE + 6063usize, 4294967296usize + BASE + 7063usize, 4294967296usize + BASE + 8063usize];
+    let pr70: Pair = Pair { x: 4294967296usize + BASE + 2070usize, y: -430, ok: true };
+    let ar71: [usize; 3] = [4294967296usize + BASE + 6071usize, 4294967296usize + BASE + 7071usize, 4294967296usize + BASE + 8071usize];
+    let pr78: Pair = Pair { x: 4294967296usize + BASE + 2078usize, y: -422, ok: true };
+    let ar79: [usize; 3] = [4294967296usize + BASE + 6079usize, 4294967296usize + BASE + 7079usize, 4294967296usize + BASE + 8079usize];
+    let pr86: Pair = Pair { x: 4294967296usize + BASE + 2086usize, y: -414, ok: true };
+    let ar87: [usize; 3] = [4294967296usize + BASE + 6087usize, 4294967296usize + BASE + 7087usize, 4294967296usize + BASE + 8087usize];
+    let pr94: Pair = Pair { x: 4294967296usize + BASE + 2094usize, y: -406, ok: true };
+    let ar95: [usize; 3] = [4294967296usize + BASE + 6095usize, 4294967296usize + BASE + 7095usize, 4294967296usize + BASE + 8095usize];
+    let pr102: Pair = Pair { x: 4294967296usize + BASE + 2102usize, y: -398, ok: true };
+    let ar103: [usize; 3] = [4294967296usize + BASE + 6103usize, 4294967296usize + BASE + 7103usize, 4294967296usize + BASE + 8103usize];
+    let pr110: Pair = Pair { x: 4294967296usize + BASE + 2110usize, y: -390, ok: true };
+    let ar111: [usize; 3] = [4294967296usize + BASE + 6111usize, 4294967296usize + BASE + 7111usize, 4294967296usize + BASE + 8111usize];
+    let pr118: Pair = Pair { x: 4294967296usize + BASE + 2118usize, y: -382, ok: true };
+    let ar119: [usize; 3] = [4294967296usize + BASE + 6119usize, 4294967296usize + BASE + 7119usize, 4294967296usize + BASE + 8119usize];
+    let pr126: Pair = Pair { x: 4294967296usize + BASE + 2126usize, y: -374, ok: true };
+    let ar127: [usize; 3] = [4294967296usize + BASE + 6127usize, 4294967296usize + BASE + 7127usize, 4294967296usize + BASE + 8127usize];
+    let pr134: Pair = Pair { x: 4294967296usize + BASE + 2134usize, y: -366, ok: true };
+    let ar135: [usize; 3] = [4294967296usize + BASE + 6135usize, 4294967296usize + BASE + 7135usize, 4294967296usize + BASE + 8135usize];
+    let pr142: Pair = Pair { x: 4294967296usize + BASE + 2142usize, y: -358, ok: true };
+    let ar143: [usize; 3] = [4294967296usize + BASE + 6143usize, 4294967296usize + BASE + 7143usize, 4294967296usize + BASE + 8143usize];
+    let pr150: Pair = Pair { x: 4294967296usize + BASE + 2150usize, y: -350, ok: true };
+    let ar151: [usize; 3] = [4294967296usize + BASE + 6151usize, 4294967296usize + BASE + 7151usize, 4294967296usize + BASE + 8151usize];
+    let pr158: Pair = Pair { x: 4294967296usize + BASE + 2158usize, y: -342, ok: true };
+    let ar159: [usize; 3] = [4294967296usize + BASE + 6159usize, 4294967296usize + BASE + 7159usize, 4294967296usize + BASE + 8159usize];
+    let pr166: Pair = Pair { x: 4294967296usize + BASE + 2166usize, y: -334, ok: true };
+    let ar167: [usize; 3] = [4294967296usize + BASE + 6167usize, 4294967296usize + BASE + 7167usize, 4294967296usize + BASE + 8167usize];
+    let pr174: Pair = Pair { x: 4294967296usize + BASE + 2174usize, y: -326, ok: true };
+    let ar175: [usize; 3] = [4294967296usize + BASE + 6175usize, 4294967296usize + BASE + 7175usize, 4294967296usize + BASE + 8175usize];
+    let pr182: Pair = Pair { x: 4294967296usize + BASE + 2182usize, y: -318, ok: true };
+    let ar183: [usize; 3] = [4294967296usize + BASE + 6183usize, 4294967296usize + BASE + 7183usize, 4294967296usize + BASE + 8183usize];
+    let pr190: Pair = Pair { x: 4294967296usize + BASE + 2190usize, y: -310, ok: true };
+    let ar191: [usize; 3] = [4294967296usize + BASE + 6191usize, 4294967296usize + BASE + 7191usize, 4294967296usize + BASE + 8191usize];
+    let pr198: Pair = Pair { x: 4294967296usize + BASE + 2198usize, y: -302, ok: true };
+    let ar199: [usize; 3] = [4294967296usize + BASE + 6199usize, 4294967296usize + BASE + 7199usize, 4294967296usize + BASE + 8199usize];
+    let pr206: Pair = Pair { x: 4294967296usize + BASE + 2206usize, y: -294, ok: true };
+    let ar207: [usize; 3] = [4294967296usize + BASE + 6207usize, 4294967296usize + BASE + 7207usize, 4294967296usize + BASE + 8207usize];
+    let pr214: Pair = Pair { x: 4294967296usize + BASE + 2214usize, y: -286, ok: true };
+    let ar215: [usize; 3] = [4294967296usize + BASE + 6215usize, 4294967296usize + BASE + 7215usize, 4294967296usize + BASE + 8215usize];
+    let pr222: Pair = Pair { x: 4294967296usize + BASE + 2222usize, y: -278, ok: true };
+    let ar223: [usize; 3] = [4294967296usize + BASE + 6223usize, 4294967296usize + BASE + 7223usize, 4294967296usize + BASE + 8223usize];
+    let pr230: Pair = Pair { x: 4294967296usize + BASE + 2230usize, y: -270, ok: true };
+    let ar231: [usize; 3] = [4294967296usize + BASE + 6231usize, 4294967296usize + BASE + 7231usize, 4294967296usize + BASE + 8231usize];
+    let pr238: Pair = Pair { x: 4294967296usize + BASE + 2238usize, y: -262, ok: true };
+    let ar239: [usize; 3] = [4294967296usize + BASE + 6239usize, 4294967296usize + BASE + 7239usize, 4294967296usize + BASE + 8239usize];
+    let pr246: Pair = Pair { x: 4294967296usize + BASE + 2246usize, y: -254, ok: true };
+    let ar247: [usize; 3] = [4294967296usize + BASE + 6247usize, 4294967296usize + BASE + 7247usize, 4294967296usize + BASE + 8247usize];
+    let pr254: Pair = Pair { x: 4294967296usize + BASE + 2254usize, y: -246, ok: true };
+    let ar255: [usize; 3] = [4294967296usize + BASE + 6255usize, 4294967296usize + BASE + 7255usize, 4294967296usize + BASE + 8255usize];
+    let pr262: Pair = Pair { x: 4294967296usize + BASE + 2262usize, y: -238, ok: true };
+    let ar263: [usize; 3] = [4294967296usize + BASE + 6263usize, 4294967296usize + BASE + 7263usize, 4294967296usize + BASE + 8263usize];
+    let pr270: Pair = Pair { x: 4294967296usize + BASE + 2270usize, y: -230, ok: true };
+    let ar271: [usize; 3] = [4294967296usize + BASE + 6271usize, 4294967296usize + BASE + 7271usize, 4294967296usize + BASE + 8271usize];
+    let pr278: Pair = Pair { x: 4294967296usize + BASE + 2278usize, y: -222, ok: true };
+    let ar279: [usize; 3] = [4294967296usize + BASE + 6279usize, 4294967296usize + BASE + 7279usize, 4294967296usize + BASE + 8279usize];
+    let pr286: Pair = Pair { x: 4294967296usize + BASE + 2286usize, y: -214, ok: true };
+    let ar287: [usize; 3] = [4294967296usize + BASE + 6287usize, 4294967296usize + BASE + 7287usize, 4294967296usize + BASE + 8287usize];
+    let pr294: Pair = Pair { x: 4294967296usize + BASE + 2294usize, y: -206, ok: true };
+    let ar295: [usize; 3] = [4294967296usize + BASE + 6295usize, 4294967296usize + BASE + 7295usize, 4294967296usize + BASE + 8295usize];
+    let pr302: Pair = Pair { x: 4294967296usize + BASE + 2302usize, y: -198, ok: true };
+    let ar303: [usize; 3] = [4294967296usize + BASE + 6303usize, 4294967296usize + BASE + 7303usize, 4294967296usize + BASE + 8303usize];
+    let pr310: Pair = Pair { x: 4294967296usize + BASE + 2310usize, y: -190, ok: true };
+    let ar311: [usize; 3] = [4294967296usize + BASE + 6311usize, 4294967296usize + BASE + 7311usize, 4294967296usize + BASE + 8311usize];
+    let pr318: Pair = Pair { x: 4294967296usize + BASE + 2318usize, y: -182, ok: true };
+    let ar319: [usize; 3] = [4294967296usize + BASE + 6319usize, 4294967296usize + BASE + 7319usize, 4294967296usize + BASE + 8319usize];
+    let pr326: Pair = Pair { x: 4294967296usize + BASE + 2326usize, y: -174, ok: true };
+    let ar327: [usize; 3] = [4294967296usize + BASE + 6327usize, 4294967296usize + BASE + 7327usize, 4294967296usize + BASE + 8327usize];
+    let pr334: Pair = Pair { x: 4294967296usize + BASE + 2334usize, y: -166, ok: true };
+    let ar335: [usize; 3] = [4294967296usize + BASE + 6335usize, 4294967296usize + BASE + 7335usize, 4294967296usize + BASE + 8335usize];
+    let pr342: Pair = Pair { x: 4294967296usize + BASE + 2342usize, y: -158, ok: true };
+    let ar343: [usize; 3] = [4294967296usize + BASE + 6343usize, 4294967296usize + BASE + 7343usize, 4294967296usize + BASE + 8343usize];
+    let pr350: Pair = Pair { x: 4294967296usize + BASE + 2350usize, y: -150, ok: true };
+    let ar351: [usize; 3] = [4294967296usize + BASE + 6351usize, 4294967296usize + BASE + 7351usize, 4294967296usize + BASE + 8351usize];
+    let pr358: Pair = Pair { x: 4294967296usize + BASE + 2358usize, y: -142, ok: true };
+    let ar359: [usize; 3] = [4294967296usize + BASE + 6359usize, 4294967296usize + BASE + 7359usize, 4294967296usize + BASE + 8359usize];
+    let pr366: Pair = Pair { x: 4294967296usize + BASE + 2366usize, y: -134, ok: true };
+    let ar367: [usize; 3] = [4294967296usize + BASE + 6367usize, 4294967296usize + BASE + 7367usize, 4294967296usize + BASE + 8367usize];
+    let pr374: Pair = Pair { x: 4294967296usize + BASE + 2374usize, y: -126, ok: true };
+    let ar375: [usize; 3] = [4294967296usize + BASE + 6375usize, 4294967296usize + BASE + 7375usize, 4294967296usize + BASE + 8375usize];
+    let pr382: Pair = Pair { x: 4294967296usize + BASE + 2382usize, y: -118, ok: true };
+    let ar383: [usize; 3] = [4294967296usize + BASE + 6383usize, 4294967296usize + BASE + 7383usize, 4294967296usize + BASE + 8383usize];
+    let pr390: Pair = Pair { x: 4294967296usize + BASE + 2390usize, y: -110, ok: true };
+    let ar391: [usize; 3] = [4294967296usize + BASE + 6391usize, 4294967296usize + BASE + 7391usize, 4294967296usize + BASE + 8391usize];
+    let pr398: Pair = Pair { x: 4294967296usize + BASE + 2398usize, y: -102, ok: true };
+    let ar399: [usize; 3] = [4294967296usize + BASE + 6399usize, 4294967296usize + BASE + 7399usize, 4294967296usize + BASE + 8399usize];
+    let pr406: Pair = Pair { x: 4294967296usize + BASE + 2406usize, y: -94, ok: true };
+    let ar407: [usize; 3] = [4294967296usize + BASE + 6407usize, 4294967296usize + BASE + 7407usize, 4294967296usize + BASE + 8407usize];
+    let pr414: Pair = Pair { x: 4294967296usize + BASE + 2414usize, y: -86, ok: true };
+    let ar415: [usize; 3] = [4294967296usize + BASE + 6415usize, 4294967296usize + BASE + 7415usize, 4294967296usize + BASE + 8415usize];
+    let pr422: Pair = Pair { x: 4294967296usize + BASE + 2422usize, y: -78, ok: true };
+    let ar423: [usize; 3] = [4294967296usize + BASE + 6423usize, 4294967296usize + BASE + 7423usize, 4294967296usize + BASE + 8423usize];
+    let pr430: Pair = Pair { x: 4294967296usize + BASE + 2430usize, y: -70, ok: true };
+    let ar431: [usize; 3] = [4294967296usize + BASE + 6431usize, 4294967296usize + BASE + 7431usize, 4294967296usize + BASE + 8431usize];
+    let pr438: Pair = Pair { x: 4294967296usize + BASE + 2438usize, y: -62, ok: true };
+    let ar439: [usize; 3] = [4294967296usize + BASE + 6439usize, 4294967296usize + BASE + 7439usize, 4294967296usize + BASE + 8439usize];
+    let pr446: Pair = Pair { x: 4294967296usize + BASE + 2446usize, y: -54, ok: true };
+    let ar447: [usize; 3] = [4294967296usize + BASE + 6447usize, 4294967296usize + BASE + 7447usize, 4294967296usize + BASE + 8447usize];
+    let pr454: Pair = Pair { x: 4294967296usize + BASE + 2454usize, y: -46, ok: true };
+    let ar455: [usize; 3] = [4294967296usize + BASE + 6455usize, 4294967296usize + BASE + 7455usize, 4294967296usize + BASE + 8455usize];
+    let pr462: Pair = Pair { x: 4294967296usize + BASE + 2462usize, y: -38, ok: true };
+    let ar463: [usize; 3] = [4294967296usize + BASE + 6463usize, 4294967296usize + BASE + 7463usize, 4294967296usize + BASE + 8463usize];
+    let pr470: Pair = Pair { x: 4294967296usize + BASE + 2470usize, y: -30, ok: true };
+    let ar471: [usize; 3] = [4294967296usize + BASE + 6471usize, 4294967296usize + BASE + 7471usize, 4294967296usize + BASE + 8471usize];
+    let pr478: Pair = Pair { x: 4294967296usize + BASE + 2478usize, y: -22, ok: true };
+    let ar479: [usize; 3] = [4294967296usize + BASE + 6479usize, 4294967296usize + BASE + 7479usize, 4294967296usize + BASE + 8479usize];
+    let pr486: Pair = Pair { x: 4294967296usize + BASE + 2486usize, y: -14, ok: true };
+    let ar487: [usize; 3] = [4294967296usize + BASE + 6487usize, 4294967296usize + BASE + 7487usize, 4294967296usize + BASE + 8487usize];
+    let pr494: Pair = Pair { x: 4294967296usize + BASE + 2494usize, y: -6, ok: true };
+    let ar495: [usize; 3] = [4294967296usize + BASE + 6495usize, 4294967296usize + BASE + 7495usize, 4294967296usize + BASE + 8495usize];
+    let pr502: Pair = Pair { x: 4294967296usize + BASE + 2502usize, y: 2, ok: true };
+    let ar503: [usize; 3] = [4294967296usize + BASE + 6503usize, 4294967296usize + BASE + 7503usize, 4294967296usize + BASE + 8503usize];
+    let pr510: Pair = Pair { x: 4294967296usize + BASE + 2510usize, y: 10, ok: true };
+    let ar511: [usize; 3] = [4294967296usize + BASE + 6511usize, 4294967296usize + BASE + 7511usize, 4294967296usize + BASE + 8511usize];
+    let pr518: Pair = Pair { x: 4294967296usize + BASE + 2518usize, y: 18, ok: true };
+    let ar519: [usize; 3] = [4294967296usize + BASE + 6519usize, 4294967296usize + BASE + 7519usize, 4294967296usize + BASE + 8519usize];
+    let pr526: Pair = Pair { x: 4294967296usize + BASE + 2526usize, y: 26, ok: true };
+    let ar527: [usize; 3] = [4294967296usize + BASE + 6527usize, 4294967296usize + BASE + 7527usize, 4294967296usize + BASE + 8527usize];
+    let pr534: Pair = Pair { x: 4294967296usize + BASE + 2534usize, y: 34, ok: true };
+    let ar535: [usize; 3] = [4294967296usize + BASE + 6535usize, 4294967296usize + BASE + 7535usize, 4294967296usize + BASE + 8535usize];
+    let pr542: Pair = Pair { x: 4294967296usize + BASE + 2542usize, y: 42, ok: true };
+    let ar543: [usize; 3] = [4294967296usize + BASE + 6543usize, 4294967296usize + BASE + 7543usize, 4294967296usize + BASE + 8543usize];
+    let pr550: Pair = Pair { x: 4294967296usize + BASE + 2550usize, y: 50, ok: true };
+    let ar551: [usize; 3] = [4294967296usize + BASE + 6551usize, 4294967296usize + BASE + 7551usize, 4294967296usize + BASE + 8551usize];
+    let pr558: Pair = Pair { x: 4294967296usize + BASE + 2558usize, y: 58, ok: true };
+    let ar559: [usize; 3] = [4294967296usize + BASE + 6559usize, 4294967296usize + BASE + 7559usize, 4294967296usize + BASE + 8559usize];
+    let pr566: Pair = Pair { x: 4294967296usize + BASE + 2566usize, y: 66, ok: true };
+    let ar567: [usize; 3] = [4294967296usize + BASE + 6567usize, 4294967296usize + BASE + 7567usize, 4294967296usize + BASE + 8567usize];
+    let pr574: Pair = Pair { x: 4294967296usize + BASE + 2574usize, y: 74, ok: true };
+    let ar575: [usize; 3] = [4294967296usize + BASE + 6575usize, 4294967296usize + BASE + 7575usize, 4294967296usize + BASE + 8575usize];
+    let pr582: Pair = Pair { x: 4294967296usize + BASE + 2582usize, y: 82, ok: true };
+    let ar583: [usize; 3] = [4294967296usize + BASE + 6583usize, 4294967296usize + BASE + 7583usize, 4294967296usize + BASE + 8583usize];
+    let pr590: Pair = Pair { x: 4294967296usize + BASE + 2590usize, y: 90, ok: true };
+    let ar591: [usize; 3] = [4294967296usize + BASE + 6591usize, 4294967296usize + BASE + 7591usize, 4294967296usize + BASE + 8591usize];
+    let pr598: Pair = Pair { x: 4294967296usize + BASE + 2598usize, y: 98, ok: true };
+    let ar599: [usize; 3] = [4294967296usize + BASE + 6599usize, 4294967296usize + BASE + 7599usize, 4294967296usize + BASE + 8599usize];
+    let pr606: Pair = Pair { x: 4294967296usize + BASE + 2606usize, y: 106, ok: true };
+    let ar607: [usize; 3] = [4294967296usize + BASE + 6607usize, 4294967296usize + BASE + 7607usize, 4294967296usize + BASE + 8607usize];
+    let pr614: Pair = Pair { x: 4294967296usize + BASE + 2614usize, y: 114, ok: true };
+    let ar615: [usize; 3] = [4294967296usize + BASE + 6615usize, 4294967296usize + BASE + 7615usize, 4294967296usize + BASE + 8615usize];
+    let pr622: Pair = Pair { x: 4294967296usize + BASE + 2622usize, y: 122, ok: true };
+    let ar623: [usize; 3] = [4294967296usize + BASE + 6623usize, 4294967296usize + BASE + 7623usize, 4294967296usize + BASE + 8623usize];
+    let pr630: Pair = Pair { x: 4294967296usize + BASE + 2630usize, y: 130, ok: true };
+    let ar631: [usize; 3] = [4294967296usize + BASE + 6631usize, 4294967296usize + BASE + 7631usize, 4294967296usize + BASE + 8631usize];
+    let pr638: Pair = Pair { x: 4294967296usize + BASE + 2638usize, y: 138, ok: true };
+    let ar639: [usize; 3] = [4294967296usize + BASE + 6639usize, 4294967296usize + BASE + 7639usize, 4294967296usize + BASE + 8639usize];
+    let pr646: Pair = Pair { x: 4294967296usize + BASE + 2646usize, y: 146, ok: true };
+    let ar647: [usize; 3] = [4294967296usize + BASE + 6647usize, 4294967296usize + BASE + 7647usize, 4294967296usize + BASE + 8647usize];
+    let pr654: Pair = Pair { x: 4294967296usize + BASE + 2654usize, y: 154, ok: true };
+    let ar655: [usize; 3] = [4294967296usize + BASE + 6655usize, 4294967296usize + BASE + 7655usize, 4294967296usize + BASE + 8655usize];
+    let pr662: Pair = Pair { x: 4294967296usize + BASE + 2662usize, y: 162, ok: true };
+    let ar663: [usize; 3] = [4294967296usize + BASE + 6663usize, 4294967296usize + BASE + 7663usize, 4294967296usize + BASE + 8663usize];
+    let pr670: Pair = Pair { x: 4294967296usize + BASE + 2670usize, y: 170, ok: true };
+    let ar671: [usize; 3] = [4294967296usize + BASE + 6671usize, 4294967296usize + BASE + 7671usize, 4294967296usize + BASE + 8671usize];
+    let pr678: Pair = Pair { x: 4294967296usize + BASE + 2678usize, y: 178, ok: true };
+    let ar679: [usize; 3] = [4294967296usize + BASE + 6679usize, 4294967296usize + BASE + 7679usize, 4294967296usize + BASE + 8679usize];
+    let pr686: Pair = Pair { x: 4294967296usize + BASE + 2686usize, y: 186, ok: true };
+    let ar687: [usize; 3] = [4294967296usize + BASE + 6687usize, 4294967296usize + BASE + 7687usize, 4294967296usize + BASE + 8687usize];
+    let pr694: Pair = Pair { x: 4294967296usize + BASE + 2694usize, y: 194, ok: true };
+    let ar695: [usize; 3] = [4294967296usize + BASE + 6695usize, 4294967296usize + BASE + 7695usize, 4294967296usize + BASE + 8695usize];
+    let pr702: Pair = Pair { x: 4294967296usize + BASE + 2702usize, y: 202, ok: true };
+    let ar703: [usize; 3] = [4294967296usize + BASE + 6703usize, 4294967296usize + BASE + 7703usize, 4294967296usize + BASE + 8703usize];
+    let pr710: Pair = Pair { x: 4294967296usize + BASE + 2710usize, y: 210, ok: true };
+    let ar711: [usize; 3] = [4294967296usize + BASE + 6711usize, 4294967296usize + BASE + 7711usize, 4294967296usize + BASE + 8711usize];
+    let pr718: Pair = Pair { x: 4294967296usize + BASE + 2718usize, y: 218, ok: true };
+    let ar719: [usize; 3] = [4294967296usize + BASE + 6719usize, 4294967296usize + BASE + 7719usize, 4294967296usize + BASE + 8719usize];
+    let pr726: Pair = Pair { x: 4294967296usize + BASE + 2726usize, y: 226, ok: true };
+    let ar727: [usize; 3] = [4294967296usize + BASE + 6727usize, 4294967296usize + BASE + 7727usize, 4294967296usize + BASE + 8727usize];
+    let pr734: Pair = Pair { x: 4294967296usize + BASE + 2734usize, y: 234, ok: true };
+    let ar735: [usize; 3] = [4294967296usize + BASE + 6735usize, 4294967296usize + BASE + 7735usize, 4294967296usize + BASE + 8735usize];
+    let pr742: Pair = Pair { x: 4294967296usize + BASE + 2742usize, y: 242, ok: true };
+    let ar743: [usize; 3] = [4294967296usize + BASE + 6743usize, 4294967296usize + BASE + 7743usize, 4294967296usize + BASE + 8743usize];
+    let pr750: Pair = Pair { x: 4294967296usize + BASE + 2750usize, y: 250, ok: true };
+    let ar751: [usize; 3] = [4294967296usize + BASE + 6751usize, 4294967296usize + BASE + 7751usize, 4294967296usize + BASE + 8751usize];
+    let pr758: Pair = Pair { x: 4294967296usize + BASE + 2758usize, y: 258, ok: true };
+    let ar759: [usize; 3] = [4294967296usize + BASE + 6759usize, 4294967296usize + BASE + 7759usize, 4294967296usize + BASE + 8759usize];
+    let pr766: Pair = Pair { x: 4294967296usize + BASE + 2766usize, y: 266, ok: true };
+    let ar767: [usize; 3] = [4294967296usize + BASE + 6767usize, 4294967296usize + BASE + 7767usize, 4294967296usize + BASE + 8767usize];
+    let pr774: Pair = Pair { x: 4294967296usize + BASE + 2774usize, y: 274, ok: true };
+    let ar775: [usize; 3] = [4294967296usize + BASE + 6775usize, 4294967296usize + BASE + 7775usize, 4294967296usize + BASE + 8775usize];
+    let pr782: Pair = Pair { x: 4294967296usize + BASE + 2782usize, y: 282, ok: true };
+    let ar783: [usize; 3] = [4294967296usize + BASE + 6783usize, 4294967296usize + BASE + 7783usize, 4294967296usize + BASE + 8783usize];
+    let pr790: Pair = Pair { x: 4294967296usize + BASE + 2790usize, y: 290, ok: true };
+    let ar791: [usize; 3] = [4294967296usize + BASE + 6791usize, 4294967296usize + BASE + 7791usize, 4294967296usize + BASE + 8791usize];
+    let pr798: Pair = Pair { x: 4294967296usize + BASE + 2798usize, y: 298, ok: true };
+    let ar799: [usize; 3] = [4294967296usize + BASE + 6799usize, 4294967296usize + BASE + 7799usize, 4294967296usize + BASE + 8799usize];
+    let pr806: Pair = Pair { x: 4294967296usize + BASE + 2806usize, y: 306, ok: true };
+    let ar807: [usize; 3] = [4294967296usize + BASE + 6807usize, 4294967296usize + BASE + 7807usize, 4294967296usize + BASE + 8807usize];
+    let pr814: Pair = Pair { x: 4294967296usize + BASE + 2814usize, y: 314, ok: true };
+    let ar815: [usize; 3] = [4294967296usize + BASE + 6815usize, 4294967296usize + BASE + 7815usize, 4294967296usize + BASE + 8815usize];
+    let pr822: Pair = Pair { x: 4294967296usize + BASE + 2822usize, y: 322, ok: true };
+    let ar823: [usize; 3] = [4294967296usize + BASE + 6823usize, 4294967296usize + BASE + 7823usize, 4294967296usize + BASE + 8823usize];
+    let pr830: Pair = Pair { x: 4294967296usize + BASE + 2830usize, y: 330, ok: true };
+    let ar831: [usize; 3] = [4294967296usize + BASE + 6831usize, 4294967296usize + BASE + 7831usize, 4294967296usize + BASE + 8831usize];
+    let pr838: Pair = Pair { x: 4294967296usize + BASE + 2838usize, y: 338, ok: true };
+    let ar839: [usize; 3] = [4294967296usize + BASE + 6839usize, 4294967296usize + BASE + 7839usize, 4294967296usize + BASE + 8839usize];
+    let pr846: Pair = Pair { x: 4294967296usize + BASE + 2846usize, y: 346, ok: true };
+    let ar847: [usize; 3] = [4294967296usize + BASE + 6847usize, 4294967296usize + BASE + 7847usize, 4294967296usize + BASE + 8847usize];
+    let pr854: Pair = Pair { x: 4294967296usize + BASE + 2854usize, y: 354, ok: true };
+    let ar855: [usize; 3] = [4294967296usize + BASE + 6855usize, 4294967296usize + BASE + 7855usize, 4294967296usize + BASE + 8855usize];
+    let pr862: Pair = Pair { x: 4294967296usize + BASE + 2862usize, y: 362, ok: true };
+    let ar863: [usize; 3] = [4294967296usize + BASE + 6863usize, 4294967296usize + BASE + 7863usize, 4294967296usize + BASE + 8863usize];
+    let pr870: Pair = Pair { x: 4294967296usize + BASE + 2870usize, y: 370, ok: true };
+    let ar871: [usize; 3] = [4294967296usize + BASE + 6871usize, 4294967296usize + BASE + 7871usize, 4294967296usize + BASE + 8871usize];
+    let pr878: Pair = Pair { x: 4294967296usize + BASE + 2878usize, y: 378, ok: true };
+    let ar879: [usize; 3] = [4294967296usize + BASE + 6879usize, 4294967296usize + BASE + 7879usize, 4294967296usize + BASE + 8879usize];
+    let pr886: Pair = Pair { x: 4294967296usize + BASE + 2886usize, y: 386, ok: true };
+    let ar887: [usize; 3] = [4294967296usize + BASE + 6887usize, 4294967296usize + BASE + 7887usize, 4294967296usize + BASE + 8887usize];
+    let pr894: Pair = Pair { x: 4294967296usize + BASE + 2894usize, y: 394, ok: true };
+    let ar895: [usize; 3] = [4294967296usize + BASE + 6895usize, 4294967296usize + BASE + 7895usize, 4294967296usize + BASE + 8895usize];
+    let pr902: Pair = Pair { x: 4294967296usize + BASE + 2902usize, y: 402, ok: true };
+    let ar903: [usize; 3] = [4294967296usize + BASE + 6903usize, 4294967296usize + BASE + 7903usize, 4294967296usize + BASE + 8903usize];
+    let pr910: Pair = Pair { x: 4294967296usize + BASE + 2910usize, y: 410, ok: true };
+    let ar911: [usize; 3] = [4294967296usize + BASE + 6911usize, 4294967296usize + BASE + 7911usize, 4294967296usize + BASE + 8911usize];
+    let pr918: Pair = Pair { x: 4294967296usize + BASE + 2918usize, y: 418, ok: true };
+    let ar919: [usize; 3] = [4294967296usize + BASE + 6919usize, 4294967296usize + BASE + 7919usize, 4294967296usize + BASE + 8919usize];
+    let pr926: Pair = Pair { x: 4294967296usize + BASE + 2926usize, y: 426, ok: true };
+    let ar927: [usize; 3] = [4294967296usize + BASE + 6927usize, 4294967296usize + BASE + 7927usize, 4294967296usize + BASE + 8927usize];
+    let pr934: Pair = Pair { x: 4294967296usize + BASE + 2934usize, y: 434, ok: true };
+    let ar935: [usize; 3] = [4294967296usize + BASE + 6935usize, 4294967296usize + BASE + 7935usize, 4294967296usize + BASE + 8935usize];
+    let pr942: Pair = Pair { x: 4294967296usize + BASE + 2942usize, y: 442, ok: true };
+    let ar943: [usize; 3] = [4294967296usize + BASE + 6943usize, 4294967296usize + BASE + 7943usize, 4294967296usize + BASE + 8943usize];
+    let pr950: Pair = Pair { x: 4294967296usize + BASE + 2950usize, y: 450, ok: true };
+    let ar951: [usize; 3] = [4294967296usize + BASE + 6951usize, 4294967296usize + BASE + 7951usize, 4294967296usize + BASE + 8951usize];
+    let pr958: Pair = Pair { x: 4294967296usize + BASE + 2958usize, y: 458, ok: true };
+    let ar959: [usize; 3] = [4294967296usize + BASE + 6959usize, 4294967296usize + BASE + 7959usize, 4294967296usize + BASE + 8959usize];
+    let pr966: Pair = Pair { x: 4294967296usize + BASE + 2966usize, y: 466, ok: true };
+    let ar967: [usize; 3] = [4294967296usize + BASE + 6967usize, 4294967296usize + BASE + 7967usize, 4294967296usize + BASE + 8967usize];
+    let pr974: Pair = Pair { x: 4294967296usize + BASE + 2974usize, y: 474, ok: true };
+    let ar975: [usize; 3] = [4294967296usize + BASE + 6975usize, 4294967296usize + BASE + 7975usize, 4294967296usize + BASE + 8975usize];
+    let pr982: Pair = Pair { x: 4294967296usize + BASE + 2982usize, y: 482, ok: true };
+    let ar983: [usize; 3] = [4294967296usize + BASE + 6983usize, 4294967296usize + BASE + 7983usize, 4294967296usize + BASE + 8983usize];
+    let pr990: Pair = Pair { x: 4294967296usize + BASE + 2990usize, y: 490, ok: true };
+    let ar991: [usize; 3] = [4294967296usize + BASE + 6991usize, 4294967296usize + BASE + 7991usize, 4294967296usize + BASE + 8991usize];
+    let pr998: Pair = Pair { x: 4294967296usize + BASE + 2998usize, y: 498, ok: true };
+    let ar999: [usize; 3] = [4294967296usize + BASE + 6999usize, 4294967296usize + BASE + 7999usize, 4294967296usize + BASE + 8999usize];
+    let pr1006: Pair = Pair { x: 4294967296usize + BASE + 3006usize, y: -494, ok: true };
+    let ar1007: [usize; 3] = [4294967296usize + BASE + 7007usize, 4294967296usize + BASE + 8007usize, 4294967296usize + BASE + 9007usize];
+    let pr1014: Pair = Pair { x: 4294967296usize + BASE + 3014usize, y: -486, ok: true };
+    let ar1015: [usize; 3] = [4294967296usize + BASE + 7015usize, 4294967296usize + BASE + 8015usize, 4294967296usize + BASE + 9015usize];
+    let pr1022: Pair = Pair { x: 4294967296usize + BASE + 3022usize, y: -478, ok: true };
+    let ar1023: [usize; 3] = [4294967296usize + BASE + 7023usize, 4294967296usize + BASE + 8023usize, 4294967296usize + BASE + 9023usize];
+    let ans: usize = check(
+    4294967296usize + BASE + 8000usize, input + -499, (input as usize) + 4294967296usize + BASE + 9002usize, Pair { x: 4294967296usize + BASE + 1003usize, y: -497, ok: false },
+    [4294967296usize + BASE + 3004usize, 4294967296usize + BASE + 4004usize, 4294967296usize + BASE + 5004usize], input % 2 == 1, &pr6, &ar7,
+    4294967296usize + BASE + 8008usize, input + -491, (input as usize) + 4294967296usize + BASE + 9010usize, Pair { x: 4294967296usize + BASE + 1011usize, y: -489, ok: false },
+    [4294967296usize + BASE + 3012usize, 4294967296usize + BASE + 4012usize, 4294967296usize + BASE + 5012usize], input % 2 == 1, &pr14, &ar15,
+    4294967296usize + BASE + 8016usize, input + -483, (input as usize) + 4294967296usize + BASE + 9018usize, Pair { x: 4294967296usize + BASE + 1019usize, y: -481, ok: false },
+    [4294967296usize + BASE + 3020usize, 4294967296usize + BASE + 4020usize, 4294967296usize + BASE + 5020usize], input % 2 == 1, &pr22, &ar23,
+    4294967296usize + BASE + 8024usize, input + -475, (input as usize) + 4294967296usize + BASE + 9026usize, Pair { x: 4294967296usize + BASE + 1027usize, y: -473, ok: false },
+    [4294967296usize + BASE + 3028usize, 4294967296usize + BASE + 4028usize, 4294967296usize + BASE + 5028usize], input % 2 == 1, &pr30, &ar31,
+    4294967296usize + BASE + 8032usize, input + -467, (input as usize) + 4294967296usize + BASE + 9034usize, Pair { x: 4294967296usize + BASE + 1035usize, y: -465, ok: false },
+    [4294967296usize + BASE + 3036usize, 4294967296usize + BASE + 4036usize, 4294967296usize + BASE + 5036usize], input % 2 == 1, &pr38, &ar39,
+    4294967296usize + BASE + 8040usize, input + -459, (input as usize) + 4294967296usize + BASE + 9042usize, Pair { x: 4294967296usize + BASE + 1043usize, y: -457, ok: false },
+    [4294967296usize + BASE + 3044usize, 4294967296usize + BASE + 4044usize, 4294967296usize + BASE + 5044usize], input % 2 == 1, &pr46, &ar47,
+    4294967296usize + BASE + 8048usize, input + -451, (input as usize) + 4294967296usize + BASE + 9050usize, Pair { x: 4294967296usize + BASE + 1051usize, y: -449, ok: false },
+    [4294967296usize + BASE + 3052usize, 4294967296usize + BASE + 4052usize, 4294967296usize + BASE + 5052usize], input % 2 == 1, &pr54, &ar55,
+    4294967296usize + BASE + 8056usize, input + -443, (input as usize) + 4294967296usize + BASE + 9058usize, Pair { x: 4294967296usize + BASE + 1059usize, y: -441, ok: false },
+    [4294967296usize + BASE + 3060usize, 4294967296usize + BASE + 4060usize, 4294967296usize + BASE + 5060usize], input % 2 == 1, &pr62, &ar63,
+    4294967296usize + BASE + 8064usize, input + -435, (input as usize) + 4294967296usize + BASE + 9066usize, Pair { x: 4294967296usize + BASE + 1067usize, y: -433, ok: false },
+    [4294967296usize + BASE + 3068usize, 4294967296usize + BASE + 4068usize, 4294967296usize + BASE + 5068usize], input % 2 == 1, &pr70, &ar71,
+    4294967296usize + BASE + 8072usize, input + -427, (input as usize) + 4294967296usize + BASE + 9074usize, Pair { x: 4294967296usize + BASE + 1075usize, y: -425, ok: false },
+    [4294967296usize + BASE + 3076usize, 4294967296usize + BASE + 4076usize, 4294967296usize + BASE + 5076usize], input % 2 == 1, &pr78, &ar79,
+    4294967296usize + BASE + 8080usize, input + -419, (input as usize) + 4294967296usize + BASE + 9082usize, Pair { x: 4294967296usize + BASE + 1083usize, y: -417, ok: false },
+    [4294967296usize + BASE + 3084usize, 4294967296usize + BASE + 4084usize, 4294967296usize + BASE + 5084usize], input % 2 == 1, &pr86, &ar87,
+    4294967296usize + BASE + 8088usize, input + -411, (input as usize) + 4294967296usize + BASE + 9090usize, Pair { x: 4294967296usize + BASE + 1091usize, y: -409, ok: false },
+    [4294967296usize + BASE + 3092usize, 4294967296usize + BASE + 4092usize, 4294967296usize + BASE + 5092usize], input % 2 == 1, &pr94, &ar95,
+    4294967296usize + BASE + 8096usize, input + -403, (input as usize) + 4294967296usize + BASE + 9098usize, Pair { x: 4294967296usize + BASE + 1099usize, y: -401, ok: false },
+    [4294967296usize + BASE + 3100usize, 4294967296usize + BASE + 4100usize, 4294967296usize + BASE + 5100usize], input % 2 == 1, &pr102, &ar103,
+    4294967296usize + BASE + 8104usize, input + -395, (input as usize) + 4294967296usize + BASE + 9106usize, Pair { x: 4294967296usize + BASE + 1107usize, y: -393, ok: false },
+    [4294967296usize + BASE + 3108usize, 4294967296usize + BASE + 4108usize, 4294967296usize + BASE + 5108usize], input % 2 == 1, &pr110, &ar111,
+    4294967296usize + BASE + 8112usize, input + -387, (input as usize) + 4294967296usize + BASE + 9114usize, Pair { x: 4294967296usize + BASE + 1115usize, y: -385, ok: false },
+    [4294967296usize + BASE + 3116usize, 4294967296usize + BASE + 4116usize, 4294967296usize + BASE + 5116usize], input % 2 == 1, &pr118, &ar119,
+    4294967296usize + BASE + 8120usize, input + -379, (input as usize) + 4294967296usize + BASE + 9122usize, Pair { x: 4294967296usize + BASE + 1123usize, y: -377, ok: false },
+    [4294967296usize + BASE + 3124usize, 4294967296usize + BASE + 4124usize, 4294967296usize + BASE + 5124usize], input % 2 == 1, &pr126, &ar127,
+    4294967296usize + BASE + 8128usize, input + -371, (input as usize) + 4294967296usize + BASE + 9130usize, Pair { x: 4294967296usize + BASE + 1131usize, y: -369, ok: false },
+    [4294967296usize + BASE + 3132usize, 4294967296usize + BASE + 4132usize, 4294967296usize + BASE + 5132usize], input % 2 == 1, &pr134, &ar135,
+    4294967296usize + BASE + 8136usize, input + -363, (input as usize) + 4294967296usize + BASE + 9138usize, Pair { x: 4294967296usize + BASE + 1139usize, y: -361, ok: false },
+    [4294967296usize + BASE + 3140usize, 4294967296usize + BASE + 4140usize, 4294967296usize + BASE + 5140usize], input % 2 == 1, &pr142, &ar143,
+    4294967296usize + BASE + 8144usize, input + -355, (input as usize) + 4294967296usize + BASE + 9146usize, Pair { x: 4294967296usize + BASE + 1147usize, y: -353, ok: false },
+    [4294967296usize + BASE + 3148usize, 4294967296usize + BASE + 4148usize, 4294967296usize + BASE + 5148usize], input % 2 == 1, &pr150, &ar151,
+    4294967296usize + BASE + 8152usize, input + -347, (input as usize) + 4294967296usize + BASE + 9154usize, Pair { x: 4294967296usize + BASE + 1155usize, y: -345, ok: false },
+    [4294967296usize + BASE + 3156usize, 4294967296usize + BASE + 4156usize, 4294967296usize + BASE + 5156usize], input % 2 == 1, &pr158, &ar159,
+    4294967296usize + BASE + 8160usize, input + -339, (input as usize) + 4294967296usize + BASE + 9162usize, Pair { x: 4294967296usize + BASE + 1163usize, y: -337, ok: false },
+    [4294967296usize + BASE + 3164usize, 4294967296usize + BASE + 4164usize, 4294967296usize + BASE + 5164usize], input % 2 == 1, &pr166, &ar167,
+    4294967296usize + BASE + 8168usize, input + -331, (input as usize) + 4294967296usize + BASE + 9170usize, Pair { x: 4294967296usize + BASE + 1171usize, y: -329, ok: false },
+    [4294967296usize + BASE + 3172usize, 4294967296usize + BASE + 4172usize, 4294967296usize + BASE + 5172usize], input % 2 == 1, &pr174, &ar175,
+    4294967296usize + BASE + 8176usize, input + -323, (input as usize) + 4294967296usize + BASE + 9178usize, Pair { x: 4294967296usize + BASE + 1179usize, y: -321, ok: false },
+    [4294967296usize + BASE + 3180usize, 4294967296usize + BASE + 4180usize, 4294967296usize + BASE + 5180usize], input % 2 == 1, &pr182, &ar183,
+    4294967296usize + BASE + 8184usize, input + -315, (input as usize) + 4294967296usize + BASE + 9186usize, Pair { x: 4294967296usize + BASE + 1187usize, y: -313, ok: false },
+    [4294967296usize + BASE + 3188usize, 4294967296usize + BASE + 4188usize, 4294967296usize + BASE + 5188usize], input % 2 == 1, &pr190, &ar191,
+    4294967296usize + BASE + 8192usize, input + -307, (input as usize) + 4294967296usize + BASE + 9194usize, Pair { x: 4294967296usize + BASE + 1195usize, y: -305, ok: false },
+    [4294967296usize + BASE + 3196usize, 4294967296usize + BASE + 4196usize, 4294967296usize + BASE + 5196usize], input % 2 == 1, &pr198, &ar199,
+    4294967296usize + BASE + 8200usize, input + -299, (input as usize) + 4294967296usize + BASE + 9202usize, Pair { x: 4294967296usize + BASE + 1203usize, y: -297, ok: false },
+    [4294967296usize + BASE + 3204usize, 4294967296usize + BASE + 4204usize, 4294967296usize + BASE + 5204usize], input % 2 == 1, &pr206, &ar207,
+    4294967296usize + BASE + 8208usize, input + -291, (input as usize) + 4294967296usize + BASE + 9210usize, Pair { x: 4294967296usize + BASE + 1211usize, y: -289, ok: false },
+    [4294967296usize + BASE + 3212usize, 4294967296usize + BASE + 4212usize, 4294967296usize + BASE + 5212usize], input % 2 == 1, &pr214, &ar215,
+    4294967296usize + BASE + 8216usize, input + -283, (input as usize) + 4294967296usize + BASE + 9218usize, Pair { x: 4294967296usize + BASE + 1219usize, y: -281, ok: false },
+    [4294967296usize + BASE + 3220usize, 4294967296usize + BASE + 4220usize, 4294967296usize + BASE + 5220usize], input % 2 == 1, &pr222, &ar223,
+    4294967296usize + BASE + 8224usize, input + -275, (input as usize) + 4294967296usize + BASE + 9226usize, Pair { x: 4294967296usize + BASE + 1227usize, y: -273, ok: false },
+    [4294967296usize + BASE + 3228usize, 4294967296usize + BASE + 4228usize, 4294967296usize + BASE + 5228usize], input % 2 == 1, &pr230, &ar231,
+    4294967296usize + BASE + 8232usize, input + -267, (input as usize) + 4294967296usize + BASE + 9234usize, Pair { x: 4294967296usize + BASE + 1235usize, y: -265, ok: false },
+    [4294967296usize + BASE + 3236usize, 4294967296usize + BASE + 4236usize, 4294967296usize + BASE + 5236usize], input % 2 == 1, &pr238, &ar239,
+    4294967296usize + BASE + 8240usize, input + -259, (input as usize) + 4294967296usize + BASE + 9242usize, Pair { x: 4294967296usize + BASE + 1243usize, y: -257, ok: false },
+    [4294967296usize + BASE + 3244usize, 4294967296usize + BASE + 4244usize, 4294967296usize + BASE + 5244usize], input % 2 == 1, &pr246, &ar247,
+    4294967296usize + BASE + 8248usize, input + -251, (input as usize) + 4294967296usize + BASE + 9250usize, Pair { x: 4294967296usize + BASE + 1251usize, y: -249, ok: false },
+    [4294967296usize + BASE + 3252usize, 4294967296usize + BASE + 4252usize, 4294967296usize + BASE + 5252usize], input % 2 == 1, &pr254, &ar255,
+    4294967296usize + BASE + 8256usize, input + -243, (input as usize) + 4294967296usize + BASE + 9258usize, Pair { x: 4294967296usize + BASE + 1259usize, y: -241, ok: false },
+    [4294967296usize + BASE + 3260usize, 4294967296usize + BASE + 4260usize, 4294967296usize + BASE + 5260usize], input % 2 == 1, &pr262, &ar263,
+    4294967296usize + BASE + 8264usize, input + -235, (input as usize) + 4294967296usize + BASE + 9266usize, Pair { x: 4294967296usize + BASE + 1267usize, y: -233, ok: false },
+    [4294967296usize + BASE + 3268usize, 4294967296usize + BASE + 4268usize, 4294967296usize + BASE + 5268usize], input % 2 == 1, &pr270, &ar271,
+    4294967296usize + BASE + 8272usize, input + -227, (input as usize) + 4294967296usize + BASE + 9274usize, Pair { x: 4294967296usize + BASE + 1275usize, y: -225, ok: false },
+    [4294967296usize + BASE + 3276usize, 4294967296usize + BASE + 4276usize, 4294967296usize + BASE + 5276usize], input % 2 == 1, &pr278, &ar279,
+    4294967296usize + BASE + 8280usize, input + -219, (input as usize) + 4294967296usize + BASE + 9282usize, Pair { x: 4294967296usize + BASE + 1283usize, y: -217, ok: false },
+    [4294967296usize + BASE + 3284usize, 4294967296usize + BASE + 4284usize, 4294967296usize + BASE + 5284usize], input % 2 == 1, &pr286, &ar287,
+    4294967296usize + BASE + 8288usize, input + -211, (input as usize) + 4294967296usize + BASE + 9290usize, Pair { x: 4294967296usize + BASE + 1291usize, y: -209, ok: false },
+    [4294967296usize + BASE + 3292usize, 4294967296usize + BASE + 4292usize, 4294967296usize + BASE + 5292usize], input % 2 == 1, &pr294, &ar295,
+    4294967296usize + BASE + 8296usize, input + -203, (input as usize) + 4294967296usize + BASE + 9298usize, Pair { x: 4294967296usize + BASE + 1299usize, y: -201, ok: false },
+    [4294967296usize + BASE + 3300usize, 4294967296usize + BASE + 4300usize, 4294967296usize + BASE + 5300usize], input % 2 == 1, &pr302, &ar303,
+    4294967296usize + BASE + 8304usize, input + -195, (input as usize) + 4294967296usize + BASE + 9306usize, Pair { x: 4294967296usize + BASE + 1307usize, y: -193, ok: false },
+    [4294967296usize + BASE + 3308usize, 4294967296usize + BASE + 4308usize, 4294967296usize + BASE + 5308usize], input % 2 == 1, &pr310, &ar311,
+    4294967296usize + BASE + 8312usize, input + -187, (input as usize) + 4294967296usize + BASE + 9314usize, Pair { x: 4294967296usize + BASE + 1315usize, y: -185, ok: false },
+    [4294967296usize + BASE + 3316usize, 4294967296usize + BASE + 4316usize, 4294967296usize + BASE + 5316usize], input % 2 == 1, &pr318, &ar319,
+    4294967296usize + BASE + 8320usize, input + -179, (input as usize) + 4294967296usize + BASE + 9322usize, Pair { x: 4294967296usize + BASE + 1323usize, y: -177, ok: false },
+    [4294967296usize + BASE + 3324usize, 4294967296usize + BASE + 4324usize, 4294967296usize + BASE + 5324usize], input % 2 == 1, &pr326, &ar327,
+    4294967296usize + BASE + 8328usize, input + -171, (input as usize) + 4294967296usize + BASE + 9330usize, Pair { x: 4294967296usize + BASE + 1331usize, y: -169, ok: false },
+    [4294967296usize + BASE + 3332usize, 4294967296usize + BASE + 4332usize, 4294967296usize + BASE + 5332usize], input % 2 == 1, &pr334, &ar335,
+    4294967296usize + BASE + 8336usize, input + -163, (input as usize) + 4294967296usize + BASE + 9338usize, Pair { x: 4294967296usize + BASE + 1339usize, y: -161, ok: false },
+    [4294967296usize + BASE + 3340usize, 4294967296usize + BASE + 4340usize, 4294967296usize + BASE + 5340usize], input % 2 == 1, &pr342, &ar343,
+    4294967296usize + BASE + 8344usize, input + -155, (input as usize) + 4294967296usize + BASE + 9346usize, Pair { x: 4294967296usize + BASE + 1347usize, y: -153, ok: false },
+    [4294967296usize + BASE + 3348usize, 4294967296usize + BASE + 4348usize, 4294967296usize + BASE + 5348usize], input % 2 == 1, &pr350, &ar351,
+    4294967296usize + BASE + 8352usize, input + -147, (input as usize) + 4294967296usize + BASE + 9354usize, Pair { x: 4294967296usize + BASE + 1355usize, y: -145, ok: false },
+    [4294967296usize + BASE + 3356usize, 4294967296usize + BASE + 4356usize, 4294967296usize + BASE + 5356usize], input % 2 == 1, &pr358, &ar359,
+    4294967296usize + BASE + 8360usize, input + -139, (input as usize) + 4294967296usize + BASE + 9362usize, Pair { x: 4294967296usize + BASE + 1363usize, y: -137, ok: false },
+    [4294967296usize + BASE + 3364usize, 4294967296usize + BASE + 4364usize, 4294967296usize + BASE + 5364usize], input % 2 == 1, &pr366, &ar367,
+    4294967296usize + BASE + 8368usize, input + -131, (input as usize) + 4294967296usize + BASE + 9370usize, Pair { x: 4294967296usize + BASE + 1371usize, y: -129, ok: false },
+    [4294967296usize + BASE + 3372usize, 4294967296usize + BASE + 4372usize, 4294967296usize + BASE + 5372usize], input % 2 == 1, &pr374, &ar375,
+    4294967296usize + BASE + 8376usize, input + -123, (input as usize) + 4294967296usize + BASE + 9378usize, Pair { x: 4294967296usize + BASE + 1379usize, y: -121, ok: false },
+    [4294967296usize + BASE + 3380usize, 4294967296usize + BASE + 4380usize, 4294967296usize + BASE + 5380usize], input % 2 == 1, &pr382, &ar383,
+    4294967296usize + BASE + 8384usize, input + -115, (input as usize) + 4294967296usize + BASE + 9386usize, Pair { x: 4294967296usize + BASE + 1387usize, y: -113, ok: false },
+    [4294967296usize + BASE + 3388usize, 4294967296usize + BASE + 4388usize, 4294967296usize + BASE + 5388usize], input % 2 == 1, &pr390, &ar391,
+    4294967296usize + BASE + 8392usize, input + -107, (input as usize) + 4294967296usize + BASE + 9394usize, Pair { x: 4294967296usize + BASE + 1395usize, y: -105, ok: false },
+    [4294967296usize + BASE + 3396usize, 4294967296usize + BASE + 4396usize, 4294967296usize + BASE + 5396usize], input % 2 == 1, &pr398, &ar399,
+    4294967296usize + BASE + 8400usize, input + -99, (input as usize) + 4294967296usize + BASE + 9402usize, Pair { x: 4294967296usize + BASE + 1403usize, y: -97, ok: false },
+    [4294967296usize + BASE + 3404usize, 4294967296usize + BASE + 4404usize, 4294967296usize + BASE + 5404usize], input % 2 == 1, &pr406, &ar407,
+    4294967296usize + BASE + 8408usize, input + -91, (input as usize) + 4294967296usize + BASE + 9410usize, Pair { x: 4294967296usize + BASE + 1411usize, y: -89, ok: false },
+    [4294967296usize + BASE + 3412usize, 4294967296usize + BASE + 4412usize, 4294967296usize + BASE + 5412usize], input % 2 == 1, &pr414, &ar415,
+    4294967296usize + BASE + 8416usize, input + -83, (input as usize) + 4294967296usize + BASE + 9418usize, Pair { x: 4294967296usize + BASE + 1419usize, y: -81, ok: false },
+    [4294967296usize + BASE + 3420usize, 4294967296usize + BASE + 4420usize, 4294967296usize + BASE + 5420usize], input % 2 == 1, &pr422, &ar423,
+    4294967296usize + BASE + 8424usize, input + -75, (input as usize) + 4294967296usize + BASE + 9426usize, Pair { x: 4294967296usize + BASE + 1427usize, y: -73, ok: false },
+    [4294967296usize + BASE + 3428usize, 4294967296usize + BASE + 4428usize, 4294967296usize + BASE + 5428usize], input % 2 == 1, &pr430, &ar431,
+    4294967296usize + BASE + 8432usize, input + -67, (input as usize) + 4294967296usize + BASE + 9434usize, Pair { x: 4294967296usize + BASE + 1435usize, y: -65, ok: false },
+    [4294967296usize + BASE + 3436usize, 4294967296usize + BASE + 4436usize, 4294967296usize + BASE + 5436usize], input % 2 == 1, &pr438, &ar439,
+    4294967296usize + BASE + 8440usize, input + -59, (input as usize) + 4294967296usize + BASE + 9442usize, Pair { x: 4294967296usize + BASE + 1443usize, y: -57, ok: false },
+    [4294967296usize + BASE + 3444usize, 4294967296usize + BASE + 4444usize, 4294967296usize + BASE + 5444usize], input % 2 == 1, &pr446, &ar447,
+    4294967296usize + BASE + 8448usize, input + -51, (input as usize) + 4294967296usize + BASE + 9450usize, Pair { x: 4294967296usize + BASE + 1451usize, y: -49, ok: false },
+    [4294967296usize + BASE + 3452usize, 4294967296usize + BASE + 4452usize, 4294967296usize + BASE + 5452usize], input % 2 == 1, &pr454, &ar455,
+    4294967296usize + BASE + 8456usize, input + -43, (input as usize) + 4294967296usize + BASE + 9458usize, Pair { x: 4294967296usize + BASE + 1459usize, y: -41, ok: false },
+    [4294967296usize + BASE + 3460usize, 4294967296usize + BASE + 4460usize, 4294967296usize + BASE + 5460usize], input % 2 == 1, &pr462, &ar463,
+    4294967296usize + BASE + 8464usize, input + -35, (input as usize) + 4294967296usize + BASE + 9466usize, Pair { x: 4294967296usize + BASE + 1467usize, y: -33, ok: false },
+    [4294967296usize + BASE + 3468usize, 4294967296usize + BASE + 4468usize, 4294967296usize + BASE + 5468usize], input % 2 == 1, &pr470, &ar471,
+    4294967296usize + BASE + 8472usize, input + -27, (input as usize) + 4294967296usize + BASE + 9474usize, Pair { x: 4294967296usize + BASE + 1475usize, y: -25, ok: false },
+    [4294967296usize + BASE + 3476usize, 4294967296usize + BASE + 4476usize, 4294967296usize + BASE + 5476usize], input % 2 == 1, &pr478, &ar479,
+    4294967296usize + BASE + 8480usize, input + -19, (input as usize) + 4294967296usize + BASE + 9482usize, Pair { x: 4294967296usize + BASE + 1483usize, y: -17, ok: false },
+    [4294967296usize + BASE + 3484usize, 4294967296usize + BASE + 4484usize, 4294967296usize + BASE + 5484usize], input % 2 == 1, &pr486, &ar487,
+    4294967296usize + BASE + 8488usize, input + -11, (input as usize) + 4294967296usize + BASE + 9490usize, Pair { x: 4294967296usize + BASE + 1491usize, y: -9, ok: false },
+    [4294967296usize + BASE + 3492usize, 4294967296usize + BASE + 4492usize, 4294967296usize + BASE + 5492usize], input % 2 == 1, &pr494, &ar495,
+    4294967296usize + BASE + 8496usize, input + -3, (input as usize) + 4294967296usize + BASE + 9498usize, Pair { x: 4294967296usize + BASE + 1499usize, y: -1, ok: false },
+    [4294967296usize + BASE + 3500usize, 4294967296usize + BASE + 4500usize, 4294967296usize + BASE + 5500usize], input % 2 == 1, &pr502, &ar503,
+    4294967296usize + BASE + 8504usize, input + 5, (input as usize) + 4294967296usize + BASE + 9506usize, Pair { x: 4294967296usize + BASE + 1507usize, y: 7, ok: false },
+    [4294967296usize + BASE + 3508usize, 4294967296usize + BASE + 4508usize, 4294967296usize + BASE + 5508usize], input % 2 == 1, &pr510, &ar511,
+    4294967296usize + BASE + 8512usize, input + 13, (input as usize) + 4294967296usize + BASE + 9514usize, Pair { x: 4294967296usize + BASE + 1515usize, y: 15, ok: false },
+    [4294967296usize + BASE + 3516usize, 4294967296usize + BASE + 4516usize, 4294967296usize + BASE + 5516usize], input % 2 == 1, &pr518, &ar519,
+    4294967296usize + BASE + 8520usize, input + 21, (input as usize) + 4294967296usize + BASE + 9522usize, Pair { x: 4294967296usize + BASE + 1523usize, y: 23, ok: false },
+    [4294967296usize + BASE + 3524usize, 4294967296usize + BASE + 4524usize, 4294967296usize + BASE + 5524usize], input % 2 == 1, &pr526, &ar527,
+    4294967296usize + BASE + 8528usize, input + 29, (input as usize) + 4294967296usize + BASE + 9530usize, Pair { x: 4294967296usize + BASE + 1531usize, y: 31, ok: false },
+    [4294967296usize + BASE + 3532usize, 4294967296usize + BASE + 4532usize, 4294967296usize + BASE + 5532usize], input % 2 == 1, &pr534, &ar535,
+    4294967296usize + BASE + 8536usize, input + 37, (input as usize) + 4294967296usize + BASE + 9538usize, Pair { x: 4294967296usize + BASE + 1539usize, y: 39, ok: false },
+    [4294967296usize + BASE + 3540usize, 4294967296usize + BASE + 4540usize, 4294967296usize + BASE + 5540usize], input % 2 == 1, &pr542, &ar543,
+    4294967296usize + BASE + 8544usize, input + 45, (input as usize) + 4294967296usize + BASE + 9546usize, Pair { x: 4294967296usize + BASE + 1547usize, y: 47, ok: false },
+    [4294967296usize + BASE + 3548usize, 4294967296usize + BASE + 4548usize, 4294967296usize + BASE + 5548usize], input % 2 == 1, &pr550, &ar551,
+    4294967296usize + BASE + 8552usize, input + 53, (input as usize) + 4294967296usize + BASE + 9554usize, Pair { x: 4294967296usize + BASE + 1555usize, y: 55, ok: false },
+    [4294967296usize + BASE + 3556usize, 4294967296usize + BASE + 4556usize, 4294967296usize + BASE + 5556usize], input % 2 == 1, &pr558, &ar559,
+    4294967296usize + BASE + 8560usize, input + 61, (input as usize) + 4294967296usize + BASE + 9562usize, Pair { x: 4294967296usize + BASE + 1563usize, y: 63, ok: false },
+    [4294967296usize + BASE + 3564usize, 4294967296usize + BASE + 4564usize, 4294967296usize + BASE + 5564usize], input % 2 == 1, &pr566, &ar567,
+    4294967296usize + BASE + 8568usize, input + 69, (input as usize) + 4294967296usize + BASE + 9570usize, Pair { x: 4294967296usize + BASE + 1571usize, y: 71, ok: false },
+    [4294967296usize + BASE + 3572usize, 4294967296usize + BASE + 4572usize, 4294967296usize + BASE + 5572usize], input % 2 == 1, &pr574, &ar575,
+    4294967296usize + BASE + 8576usize, input + 77, (input as usize) + 4294967296usize + BASE + 9578usize, Pair { x: 4294967296usize + BASE + 1579usize, y: 79, ok: false },
+    [4294967296usize + BASE + 3580usize, 4294967296usize + BASE + 4580usize, 4294967296usize + BASE + 5580usize], input % 2 == 1, &pr582, &ar583,
+    4294967296usize + BASE + 8584usize, input + 85, (input as usize) + 4294967296usize + BASE + 9586usize, Pair { x: 4294967296usize + BASE + 1587usize, y: 87, ok: false },
+    [4294967296usize + BASE + 3588usize, 4294967296usize + BASE + 4588usize, 4294967296usize + BASE + 5588usize], input % 2 == 1, &pr590, &ar591,
+    4294967296usize + BASE + 8592usize, input + 93, (input as usize) + 4294967296usize + BASE + 9594usize, Pair { x: 4294967296usize + BASE + 1595usize, y: 95, ok: false },
+    [4294967296usize + BASE + 3596usize, 4294967296usize + BASE + 4596usize, 4294967296usize + BASE + 5596usize], input % 2 == 1, &pr598, &ar599,
+    4294967296usize + BASE + 8600usize, input + 101, (input as usize) + 4294967296usize + BASE + 9602usize, Pair { x: 4294967296usize + BASE + 1603usize, y: 103, ok: false },
+    [4294967296usize + BASE + 3604usize, 4294967296usize + BASE + 4604usize, 4294967296usize + BASE + 5604usize], input % 2 == 1, &pr606, &ar607,
+    4294967296usize + BASE + 8608usize, input + 109, (input as usize) + 4294967296usize + BASE + 9610usize, Pair { x: 4294967296usize + BASE + 1611usize, y: 111, ok: false },
+    [4294967296usize + BASE + 3612usize, 4294967296usize + BASE + 4612usize, 4294967296usize + BASE + 5612usize], input % 2 == 1, &pr614, &ar615,
+    4294967296usize + BASE + 8616usize, input + 117, (input as usize) + 4294967296usize + BASE + 9618usize, Pair { x: 4294967296usize + BASE + 1619usize, y: 119, ok: false },
+    [4294967296usize + BASE + 3620usize, 4294967296usize + BASE + 4620usize, 4294967296usize + BASE + 5620usize], input % 2 == 1, &pr622, &ar623,
+    4294967296usize + BASE + 8624usize, input + 125, (input as usize) + 4294967296usize + BASE + 9626usize, Pair { x: 4294967296usize + BASE + 1627usize, y: 127, ok: false },
+    [4294967296usize + BASE + 3628usize, 4294967296usize + BASE + 4628usize, 4294967296usize + BASE + 5628usize], input % 2 == 1, &pr630, &ar631,
+    4294967296usize + BASE + 8632usize, input + 133, (input as usize) + 4294967296usize + BASE + 9634usize, Pair { x: 4294967296usize + BASE + 1635usize, y: 135, ok: false },
+    [4294967296usize + BASE + 3636usize, 4294967296usize + BASE + 4636usize, 4294967296usize + BASE + 5636usize], input % 2 == 1, &pr638, &ar639,
+    4294967296usize + BASE + 8640usize, input + 141, (input as usize) + 4294967296usize + BASE + 9642usize, Pair { x: 4294967296usize + BASE + 1643usize, y: 143, ok: false },
+    [4294967296usize + BASE + 3644usize, 4294967296usize + BASE + 4644usize, 4294967296usize + BASE + 5644usize], input % 2 == 1, &pr646, &ar647,
+    4294967296usize + BASE + 8648usize, input + 149, (input as usize) + 4294967296usize + BASE + 9650usize, Pair { x: 4294967296usize + BASE + 1651usize, y: 151, ok: false },
+    [4294967296usize + BASE + 3652usize, 4294967296usize + BASE + 4652usize, 4294967296usize + BASE + 5652usize], input % 2 == 1, &pr654, &ar655,
+    4294967296usize + BASE + 8656usize, input + 157, (input as usize) + 4294967296usize + BASE + 9658usize, Pair { x: 4294967296usize + BASE + 1659usize, y: 159, ok: false },
+    [4294967296usize + BASE + 3660usize, 4294967296usize + BASE + 4660usize, 4294967296usize + BASE + 5660usize], input % 2 == 1, &pr662, &ar663,
+    4294967296usize + BASE + 8664usize, input + 165, (input as usize) + 4294967296usize + BASE + 9666usize, Pair { x: 4294967296usize + BASE + 1667usize, y: 167, ok: false },
+    [4294967296usize + BASE + 3668usize, 4294967296usize + BASE + 4668usize, 4294967296usize + BASE + 5668usize], input % 2 == 1, &pr670, &ar671,
+    4294967296usize + BASE + 8672usize, input + 173, (input as usize) + 4294967296usize + BASE + 9674usize, Pair { x: 4294967296usize + BASE + 1675usize, y: 175, ok: false },
+    [4294967296usize + BASE + 3676usize, 4294967296usize + BASE + 4676usize, 4294967296usize + BASE + 5676usize], input % 2 == 1, &pr678, &ar679,
+    4294967296usize + BASE + 8680usize, input + 181, (input as usize) + 4294967296usize + BASE + 9682usize, Pair { x: 4294967296usize + BASE + 1683usize, y: 183, ok: false },
+    [4294967296usize + BASE + 3684usize, 4294967296usize + BASE + 4684usize, 4294967296usize + BASE + 5684usize], input % 2 == 1, &pr686, &ar687,
+    4294967296usize + BASE + 8688usize, input + 189, (input as usize) + 4294967296usize + BASE + 9690usize, Pair { x: 4294967296usize + BASE + 1691usize, y: 191, ok: false },
+    [4294967296usize + BASE + 3692usize, 4294967296usize + BASE + 4692usize, 4294967296usize + BASE + 5692usize], input % 2 == 1, &pr694, &ar695,
+    4294967296usize + BASE + 8696usize, input + 197, (input as usize) + 4294967296usize + BASE + 9698usize, Pair { x: 4294967296usize + BASE + 1699usize, y: 199, ok: false },
+    [4294967296usize + BASE + 3700usize, 4294967296usize + BASE + 4700usize, 4294967296usize + BASE + 5700usize], input % 2 == 1, &pr702, &ar703,
+    4294967296usize + BASE + 8704usize, input + 205, (input as usize) + 4294967296usize + BASE + 9706usize, Pair { x: 4294967296usize + BASE + 1707usize, y: 207, ok: false },
+    [4294967296usize + BASE + 3708usize, 4294967296usize + BASE + 4708usize, 4294967296usize + BASE + 5708usize], input % 2 == 1, &pr710, &ar711,
+    4294967296usize + BASE + 8712usize, input + 213, (input as usize) + 4294967296usize + BASE + 9714usize, Pair { x: 4294967296usize + BASE + 1715usize, y: 215, ok: false },
+    [4294967296usize + BASE + 3716usize, 4294967296usize + BASE + 4716usize, 4294967296usize + BASE + 5716usize], input % 2 == 1, &pr718, &ar719,
+    4294967296usize + BASE + 8720usize, input + 221, (input as usize) + 4294967296usize + BASE + 9722usize, Pair { x: 4294967296usize + BASE + 1723usize, y: 223, ok: false },
+    [4294967296usize + BASE + 3724usize, 4294967296usize + BASE + 4724usize, 4294967296usize + BASE + 5724usize], input % 2 == 1, &pr726, &ar727,
+    4294967296usize + BASE + 8728usize, input + 229, (input as usize) + 4294967296usize + BASE + 9730usize, Pair { x: 4294967296usize + BASE + 1731usize, y: 231, ok: false },
+    [4294967296usize + BASE + 3732usize, 4294967296usize + BASE + 4732usize, 4294967296usize + BASE + 5732usize], input % 2 == 1, &pr734, &ar735,
+    4294967296usize + BASE + 8736usize, input + 237, (input as usize) + 4294967296usize + BASE + 9738usize, Pair { x: 4294967296usize + BASE + 1739usize, y: 239, ok: false },
+    [4294967296usize + BASE + 3740usize, 4294967296usize + BASE + 4740usize, 4294967296usize + BASE + 5740usize], input % 2 == 1, &pr742, &ar743,
+    4294967296usize + BASE + 8744usize, input + 245, (input as usize) + 4294967296usize + BASE + 9746usize, Pair { x: 4294967296usize + BASE + 1747usize, y: 247, ok: false },
+    [4294967296usize + BASE + 3748usize, 4294967296usize + BASE + 4748usize, 4294967296usize + BASE + 5748usize], input % 2 == 1, &pr750, &ar751,
+    4294967296usize + BASE + 8752usize, input + 253, (input as usize) + 4294967296usize + BASE + 9754usize, Pair { x: 4294967296usize + BASE + 1755usize, y: 255, ok: false },
+    [4294967296usize + BASE + 3756usize, 4294967296usize + BASE + 4756usize, 4294967296usize + BASE + 5756usize], input % 2 == 1, &pr758, &ar759,
+    4294967296usize + BASE + 8760usize, input + 261, (input as usize) + 4294967296usize + BASE + 9762usize, Pair { x: 4294967296usize + BASE + 1763usize, y: 263, ok: false },
+    [4294967296usize + BASE + 3764usize, 4294967296usize + BASE + 4764usize, 4294967296usize + BASE + 5764usize], input % 2 == 1, &pr766, &ar767,
+    4294967296usize + BASE + 8768usize, input + 269, (input as usize) + 4294967296usize + BASE + 9770usize, Pair { x: 4294967296usize + BASE + 1771usize, y: 271, ok: false },
+    [4294967296usize + BASE + 3772usize, 4294967296usize + BASE + 4772usize, 4294967296usize + BASE + 5772usize], input % 2 == 1, &pr774, &ar775,
+    4294967296usize + BASE + 8776usize, input + 277, (input as usize) + 4294967296usize + BASE + 9778usize, Pair { x: 4294967296usize + BASE + 1779usize, y: 279, ok: false },
+    [4294967296usize + BASE + 3780usize, 4294967296usize + BASE + 4780usize, 4294967296usize + BASE + 5780usize], input % 2 == 1, &pr782, &ar783,
+    4294967296usize + BASE + 8784usize, input + 285, (input as usize) + 4294967296usize + BASE + 9786usize, Pair { x: 4294967296usize + BASE + 1787usize, y: 287, ok: false },
+    [4294967296usize + BASE + 3788usize, 4294967296usize + BASE + 4788usize, 4294967296usize + BASE + 5788usize], input % 2 == 1, &pr790, &ar791,
+    4294967296usize + BASE + 8792usize, input + 293, (input as usize) + 4294967296usize + BASE + 9794usize, Pair { x: 4294967296usize + BASE + 1795usize, y: 295, ok: false },
+    [4294967296usize + BASE + 3796usize, 4294967296usize + BASE + 4796usize, 4294967296usize + BASE + 5796usize], input % 2 == 1, &pr798, &ar799,
+    4294967296usize + BASE + 8800usize, input + 301, (input as usize) + 4294967296usize + BASE + 9802usize, Pair { x: 4294967296usize + BASE + 1803usize, y: 303, ok: false },
+    [4294967296usize + BASE + 3804usize, 4294967296usize + BASE + 4804usize, 4294967296usize + BASE + 5804usize], input % 2 == 1, &pr806, &ar807,
+    4294967296usize + BASE + 8808usize, input + 309, (input as usize) + 4294967296usize + BASE + 9810usize, Pair { x: 4294967296usize + BASE + 1811usize, y: 311, ok: false },
+    [4294967296usize + BASE + 3812usize, 4294967296usize + BASE + 4812usize, 4294967296usize + BASE + 5812usize], input % 2 == 1, &pr814, &ar815,
+    4294967296usize + BASE + 8816usize, input + 317, (input as usize) + 4294967296usize + BASE + 9818usize, Pair { x: 4294967296usize + BASE + 1819usize, y: 319, ok: false },
+    [4294967296usize + BASE + 3820usize, 4294967296usize + BASE + 4820usize, 4294967296usize + BASE + 5820usize], input % 2 == 1, &pr822, &ar823,
+    4294967296usize + BASE + 8824usize, input + 325, (input as usize) + 4294967296usize + BASE + 9826usize, Pair { x: 4294967296usize + BASE + 1827usize, y: 327, ok: false },
+    [4294967296usize + BASE + 3828usize, 4294967296usize + BASE + 4828usize, 4294967296usize + BASE + 5828usize], input % 2 == 1, &pr830, &ar831,
+    4294967296usize + BASE + 8832usize, input + 333, (input as usize) + 4294967296usize + BASE + 9834usize, Pair { x: 4294967296usize + BASE + 1835usize, y: 335, ok: false },
+    [4294967296usize + BASE + 3836usize, 4294967296usize + BASE + 4836usize, 4294967296usize + BASE + 5836usize], input % 2 == 1, &pr838, &ar839,
+    4294967296usize + BASE + 8840usize, input + 341, (input as usize) + 4294967296usize + BASE + 9842usize, Pair { x: 4294967296usize + BASE + 1843usize, y: 343, ok: false },
+    [4294967296usize + BASE + 3844usize, 4294967296usize + BASE + 4844usize, 4294967296usize + BASE + 5844usize], input % 2 == 1, &pr846, &ar847,
+    4294967296usize + BASE + 8848usize, input + 349, (input as usize) + 4294967296usize + BASE + 9850usize, Pair { x: 4294967296usize + BASE + 1851usize, y: 351, ok: false },
+    [4294967296usize + BASE + 3852usize, 4294967296usize + BASE + 4852usize, 4294967296usize + BASE + 5852usize], input % 2 == 1, &pr854, &ar855,
+    4294967296usize + BASE + 8856usize, input + 357, (input as usize) + 4294967296usize + BASE + 9858usize, Pair { x: 4294967296usize + BASE + 1859usize, y: 359, ok: false },
+    [4294967296usize + BASE + 3860usize, 4294967296usize + BASE + 4860usize, 4294967296usize + BASE + 5860usize], input % 2 == 1, &pr862, &ar863,
+    4294967296usize + BASE + 8864usize, input + 365, (input as usize) + 4294967296usize + BASE + 9866usize, Pair { x: 4294967296usize + BASE + 1867usize, y: 367, ok: false },
+    [4294967296usize + BASE + 3868usize, 4294967296usize + BASE + 4868usize, 4294967296usize + BASE + 5868usize], input % 2 == 1, &pr870, &ar871,
+    4294967296usize + BASE + 8872usize, input + 373, (input as usize) + 4294967296usize + BASE + 9874usize, Pair { x: 4294967296usize + BASE + 1875usize, y: 375, ok: false },
+    [4294967296usize + BASE + 3876usize, 4294967296usize + BASE + 4876usize, 4294967296usize + BASE + 5876usize], input % 2 == 1, &pr878, &ar879,
+    4294967296usize + BASE + 8880usize, input + 381, (input as usize) + 4294967296usize + BASE + 9882usize, Pair { x: 4294967296usize + BASE + 1883usize, y: 383, ok: false },
+    [4294967296usize + BASE + 3884usize, 4294967296usize + BASE + 4884usize, 4294967296usize + BASE + 5884usize], input % 2 == 1, &pr886, &ar887,
+    4294967296usize + BASE + 8888usize, input + 389, (input as usize) + 4294967296usize + BASE + 9890usize, Pair { x: 4294967296usize + BASE + 1891usize, y: 391, ok: false },
+    [4294967296usize + BASE + 3892usize, 4294967296usize + BASE + 4892usize, 4294967296usize + BASE + 5892usize], input % 2 == 1, &pr894, &ar895,
+    4294967296usize + BASE + 8896usize, input + 397, (input as usize) + 4294967296usize + BASE + 9898usize, Pair { x: 4294967296usize + BASE + 1899usize, y: 399, ok: false },
+    [4294967296usize + BASE + 3900usize, 4294967296usize + BASE + 4900usize, 4294967296usize + BASE + 5900usize], input % 2 == 1, &pr902, &ar903,
+    4294967296usize + BASE + 8904usize, input + 405, (input as usize) + 4294967296usize + BASE + 9906usize, Pair { x: 4294967296usize + BASE + 1907usize, y: 407, ok: false },
+    [4294967296usize + BASE + 3908usize, 4294967296usize + BASE + 4908usize, 4294967296usize + BASE + 5908usize], input % 2 == 1, &pr910, &ar911,
+    4294967296usize + BASE + 8912usize, input + 413, (input as usize) + 4294967296usize + BASE + 9914usize, Pair { x: 4294967296usize + BASE + 1915usize, y: 415, ok: false },
+    [4294967296usize + BASE + 3916usize, 4294967296usize + BASE + 4916usize, 4294967296usize + BASE + 5916usize], input % 2 == 1, &pr918, &ar919,
+    4294967296usize + BASE + 8920usize, input + 421, (input as usize) + 4294967296usize + BASE + 9922usize, Pair { x: 4294967296usize + BASE + 1923usize, y: 423, ok: false },
+    [4294967296usize + BASE + 3924usize, 4294967296usize + BASE + 4924usize, 4294967296usize + BASE + 5924usize], input % 2 == 1, &pr926, &ar927,
+    4294967296usize + BASE + 8928usize, input + 429, (input as usize) + 4294967296usize + BASE + 9930usize, Pair { x: 4294967296usize + BASE + 1931usize, y: 431, ok: false },
+    [4294967296usize + BASE + 3932usize, 4294967296usize + BASE + 4932usize, 4294967296usize + BASE + 5932usize], input % 2 == 1, &pr934, &ar935,
+    4294967296usize + BASE + 8936usize, input + 437, (input as usize) + 4294967296usize + BASE + 9938usize, Pair { x: 4294967296usize + BASE + 1939usize, y: 439, ok: false },
+    [4294967296usize + BASE + 3940usize, 4294967296usize + BASE + 4940usize, 4294967296usize + BASE + 5940usize], input % 2 == 1, &pr942, &ar943,
+    4294967296usize + BASE + 8944usize, input + 445, (input as usize) + 4294967296usize + BASE + 9946usize, Pair { x: 4294967296usize + BASE + 1947usize, y: 447, ok: false },
+    [4294967296usize + BASE + 3948usize, 4294967296usize + BASE + 4948usize, 4294967296usize + BASE + 5948usize], input % 2 == 1, &pr950, &ar951,
+    4294967296usize + BASE + 8952usize, input + 453, (input as usize) + 4294967296usize + BASE + 9954usize, Pair { x: 4294967296usize + BASE + 1955usize, y: 455, ok: false },
+    [4294967296usize + BASE + 3956usize, 4294967296usize + BASE + 4956usize, 4294967296usize + BASE + 5956usize], input % 2 == 1, &pr958, &ar959,
+    4294967296usize + BASE + 8960usize, input + 461, (input as usize) + 4294967296usize + BASE + 9962usize, Pair { x: 4294967296usize + BASE + 1963usize, y: 463, ok: false },
+    [4294967296usize + BASE + 3964usize, 4294967296usize + BASE + 4964usize, 4294967296usize + BASE + 5964usize], input % 2 == 1, &pr966, &ar967,
+    4294967296usize + BASE + 8968usize, input + 469, (input as usize) + 4294967296usize + BASE + 9970usize, Pair { x: 4294967296usize + BASE + 1971usize, y: 471, ok: false },
+    [4294967296usize + BASE + 3972usize, 4294967296usize + BASE + 4972usize, 4294967296usize + BASE + 5972usize], input % 2 == 1, &pr974, &ar975,
+    4294967296usize + BASE + 8976usize, input + 477, (input as usize) + 4294967296usize + BASE + 9978usize, Pair { x: 4294967296usize + BASE + 1979usize, y: 479, ok: false },
+    [4294967296usize + BASE + 3980usize, 4294967296usize + BASE + 4980usize, 4294967296usize + BASE + 5980usize], input % 2 == 1, &pr982, &ar983,
+    4294967296usize + BASE + 8984usize, input + 485, (input as usize) + 4294967296usize + BASE + 9986usize, Pair { x: 4294967296usize + BASE + 1987usize, y: 487, ok: false },
+    [4294967296usize + BASE + 3988usize, 4294967296usize + BASE + 4988usize, 4294967296usize + BASE + 5988usize], input % 2 == 1, &pr990, &ar991,
+    4294967296usize + BASE + 8992usize, input + 493, (input as usize) + 4294967296usize + BASE + 9994usize, Pair { x: 4294967296usize + BASE + 1995usize, y: 495, ok: false },
+    [4294967296usize + BASE + 3996usize, 4294967296usize + BASE + 4996usize, 4294967296usize + BASE + 5996usize], input % 2 == 1, &pr998, &ar999,
+    4294967296usize + BASE + 9000usize, input + -499, (input as usize) + 4294967296usize + BASE + 10002usize, Pair { x: 4294967296usize + BASE + 2003usize, y: -497, ok: false },
+    [4294967296usize + BASE + 4004usize, 4294967296usize + BASE + 5004usize, 4294967296usize + BASE + 6004usize], input % 2 == 1, &pr1006, &ar1007,
+    4294967296usize + BASE + 9008usize, input + -491, (input as usize) + 4294967296usize + BASE + 10010usize, Pair { x: 4294967296usize + BASE + 2011usize, y: -489, ok: false },
+    [4294967296usize + BASE + 4012usize, 4294967296usize + BASE + 5012usize, 4294967296usize + BASE + 6012usize], input % 2 == 1, &pr1014, &ar1015,
+    4294967296usize + BASE + 9016usize, input + -483, (input as usize) + 4294967296usize + BASE + 10018usize, Pair { x: 4294967296usize + BASE + 2019usize, y: -481, ok: false },
+    [4294967296usize + BASE + 4020usize, 4294967296usize + BASE + 5020usize, 4294967296usize + BASE + 6020usize], input % 2 == 1, &pr1022, &ar1023
+    );
+    if (ans == 1536usize) {
+        printlnInt(1);
+    } else {
+        printlnInt(ans as i32);
+    }
+    exit(0);
+}

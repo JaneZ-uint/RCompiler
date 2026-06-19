@@ -1049,3 +1049,43 @@ Next better directions:
 
 - Inspect aggregate-by-value argument lowering in IRBuilder for aliasing or lifetime issues.
 - Look for differences between OJ long-param hidden style and generated tests, especially input-reading or global/static data mixed with long params.
+
+## Const And Input Mixed Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long parameter calls where arguments are not only literals/local constants.
+- Mix const paths and values derived from `getInt()`.
+- Keep the parameter list normal and mixed.
+
+Generated long test:
+
+- `local_tests/long_param_const_input_mix_1024.rx`
+  - 1024 explicit parameters.
+  - 3097 lines.
+  - Input used during test: `7`.
+  - Expected score: `1536`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `usize` from const expression.
+- `i32` derived from `getInt()`.
+- `usize` derived from `getInt()` plus a 64-bit constant.
+- `Pair`.
+- `[usize; 3]`.
+- `bool` derived from `getInt()`.
+- `&Pair`.
+- `&[usize; 3]`.
+
+Result:
+
+- Const/input-derived arguments work in long parameter calls.
+- This lowers the priority of simple input/global-const interaction as the remaining long-param WA cause.
+
+Next better directions:
+
+- Inspect aggregate-by-value argument lowering in IRBuilder for aliasing or lifetime issues.
+- Try long calls with repeated uses of the same aggregate object by value and by reference in the same argument list.
