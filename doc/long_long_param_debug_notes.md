@@ -1005,3 +1005,47 @@ Next better directions:
 
 - Sparse very-large list where only nested-call tail arguments are checked.
 - Revisit actual codegen for stack argument store offsets and alignment; the remaining hidden WA may be a narrower offset/alignment case not triggered by generated tests yet.
+
+## Sparse Nested-Call Tail Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Approximate hidden tests where the parameter list is extremely long but only tail stack-passed arguments are semantically important.
+- Put nested function-call arguments specifically in the tail region.
+- Check early, mid, and dense tail ranges.
+
+Generated long test:
+
+- `local_tests/long_param_sparse_nested_tail_8192.rx`
+  - 8192 explicit parameters.
+  - 13296 lines.
+  - Checked 224 selected parameters.
+  - Expected score: `336`.
+  - RV64/qemu output: `1`.
+
+Tail argument forms:
+
+- `make_usize(id(seed))`
+- `make_pair(id(seed), make_i32(id(seed)), make_bool(id(seed)))`
+- `make_arr(id(seed))`
+- `make_bool(id(seed))`
+- `make_i32(id(seed))`
+- references and mutable references to prebuilt values
+
+Result:
+
+- Sparse tail nested-call long parameter passing works.
+- This lowers the priority of nested tail argument evaluation as the remaining hidden WA cause.
+
+Codegen note:
+
+- Current build uses `src/linearScan/regalloc.h`, not the older `graphColoring` backend.
+- `src/linearScan/InstrSelect.h` already uses `long long int` for call parameter count/stack byte calculations and keeps `sp` stable while materializing stack arguments.
+- The older `src/graphColoring/InstrSelect.h` still has `int` offsets and an older call-lowering shape, but it is not included by `main.cpp`.
+
+Next better directions:
+
+- Inspect aggregate-by-value argument lowering in IRBuilder for aliasing or lifetime issues.
+- Look for differences between OJ long-param hidden style and generated tests, especially input-reading or global/static data mixed with long params.
