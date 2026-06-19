@@ -776,3 +776,47 @@ Next better directions:
 - Typed/self by-value method variants if they parse and codegen cleanly.
 - Long parameter tests where all arguments are function call expressions or returned aggregate values, to stress call argument evaluation order and temporary slots.
 - Inspect codegen for function-call argument setup around stack-passed aggregates; hidden WA may depend on temporaries rather than declared parameter types alone.
+
+## Call Argument Temporary Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Test long calls where many arguments are not simple variables/literals but function-call results.
+- Stress argument evaluation, temporary aggregate slots, and stack-passed arguments in the caller.
+- Keep the callee parameter list normal and mixed.
+
+Generated long tests:
+
+- `local_tests/long_param_call_temporary_mix_1024.rx`
+  - 1024 explicit parameters.
+  - 3356 lines.
+  - Expected score: `1536`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_call_temporary_mix_2048.rx`
+  - 2048 explicit parameters.
+  - 6684 lines.
+  - Expected score: `3072`.
+  - RV64/qemu output: `1`.
+
+Argument forms:
+
+- `make_usize(seed) -> usize`
+- `make_i32(seed) -> i32`
+- `make_bool(seed) -> bool`
+- `make_pair(seed, y, ok) -> Pair`
+- `make_arr(seed) -> [usize; 3]`
+- references to prebuilt `Pair` / `[usize; 3]`
+- `&mut usize`
+
+Result:
+
+- Both call-temporary long-parameter cases pass.
+- This lowers the priority of ordinary argument temporary preservation and stack-passed aggregate temporaries as the remaining WA cause.
+
+Next better directions:
+
+- Typed/self by-value method variants if they parse and codegen cleanly.
+- Nested call expressions as arguments, where stack-passed arguments themselves contain calls that may clobber caller argument setup.
+- Inspect actual call lowering for nested calls around stack-passed argument positions if a runtime WA appears.
