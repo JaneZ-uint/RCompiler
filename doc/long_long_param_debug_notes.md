@@ -556,3 +556,57 @@ Next better directions:
 - Method long-parameter variants where `self` or `&mut self` shifts the ABI argument boundary together with aggregate parameters.
 - Sret plus long aggregate parameters, where the hidden return pointer shifts all user arguments.
 - Parameter destructuring patterns mixed with aggregate-heavy values rather than only scalar/reference values.
+
+## Method Self Plus Sret Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover method calls where implicit `self` shifts the ABI argument boundary.
+- Combine that with a non-scalar return value so the hidden sret return pointer also shifts user arguments.
+- Keep the parameter list long and mixed, but still normal and spec-aligned.
+
+Generated long tests:
+
+- `local_tests/long_param_method_sret_mix_768.rx`
+  - Method receiver: `&mut self`.
+  - Return type: `Ret { score: usize, tail: [usize; 3], ok: bool }`.
+  - 768 explicit user parameters, not counting implicit `self` or hidden sret pointer.
+  - Expected score: `1253`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_method_sret_mix_1536.rx`
+  - Same shape as the 768 case.
+  - 1536 explicit user parameters.
+  - Expected score: `2405`.
+  - RV64/qemu output: `1`.
+
+Repeating user parameter cycle:
+
+- `i32`
+- `usize`
+- `bool`
+- `Pair`
+- `&Pair`
+- `[usize; 3]`
+- `&[usize; 3]`
+- `&mut usize`
+
+Test shape:
+
+- `main` constructs a mutable `Host`.
+- `host.run(...)` mutates `self.calls`.
+- The method reads every parameter.
+- `&mut usize` parameters are mutated and checked.
+- The method returns a `Ret` aggregate containing the final score and fields derived from `self`.
+
+Result:
+
+- Both method+sret long-parameter cases pass.
+- This lowers the priority of the basic `&mut self` + hidden return pointer boundary-shift scenario.
+
+Next better directions:
+
+- Parameter destructuring patterns mixed with aggregate-heavy values in a long parameter list.
+- Associated function sret with long parameters, without a method receiver, to isolate hidden return pointer behavior.
+- Larger `self` by-value or typed self variants if the implementation supports them cleanly.
