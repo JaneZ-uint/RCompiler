@@ -610,3 +610,63 @@ Next better directions:
 - Parameter destructuring patterns mixed with aggregate-heavy values in a long parameter list.
 - Associated function sret with long parameters, without a method receiver, to isolate hidden return pointer behavior.
 - Larger `self` by-value or typed self variants if the implementation supports them cleanly.
+
+## Parameter Pattern Plus Aggregate Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long parameter declarations where the parameter is not always a simple binding.
+- Mix pattern forms with aggregate values and aggregate references.
+- Stay within supported Rx syntax and avoid exotic invalid Rust-only patterns.
+
+Small probe:
+
+- `/tmp/pattern_aggregate_probe.rx`
+  - Covered:
+    - `ref p: Pair`
+    - `ref arr: [usize; 3]`
+    - `&rp: &Pair`
+    - `&&rrp: & &Pair`
+    - `&ra: &[usize; 3]`
+    - `&&rra: & &[usize; 3]`
+    - `ref mut v: usize`
+    - `&mut mv: &mut usize`
+    - wildcard `_: bool`
+  - RV64/qemu output: `1`.
+
+Generated long tests:
+
+- `local_tests/long_param_pattern_aggregate_1024.rx`
+  - 1024 explicit parameters.
+  - 3682 lines.
+  - Expected score: `1664`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_pattern_aggregate_2048.rx`
+  - 2048 explicit parameters.
+  - 7343 lines.
+  - Expected score: `3328`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter pattern cycle:
+
+- `ref pN: Pair`
+- `ref aN: [usize; 3]`
+- `&pN: &Pair`
+- `&&pN: & &Pair`
+- `&aN: &[usize; 3]`
+- `&&aN: & &[usize; 3]`
+- `_: bool`
+- `uN: usize`
+
+Result:
+
+- Both pattern+aggregate long-parameter cases pass.
+- This lowers the priority of normal supported destructuring/reference patterns as the hidden `long long param` WA cause.
+
+Next better directions:
+
+- Associated function sret with long parameters, without a method receiver, to isolate hidden return pointer behavior.
+- Typed/self by-value method variants if they parse and codegen cleanly.
+- Very large but sparse-use parameter lists, closer to OJ hidden tests that may not read every argument.
