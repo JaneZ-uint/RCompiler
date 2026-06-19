@@ -1212,6 +1212,44 @@ Next better directions:
 - Long parameter lists with mixed casts in the call arguments and callee checks.
 - Inspect remaining failures under `long expr` separately, because long-param coverage is no longer exposing a runtime mismatch.
 
+## Cast-Heavy Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long stack-passed arguments produced by explicit casts.
+- Stress sign/zero extension and 64-bit preservation through parameter passing.
+
+Generated long test:
+
+- `local_tests/long_param_cast_heavy_2048.rx`
+  - 2048 explicit parameters.
+  - 5142 lines.
+  - Expected score: `2560`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `i32` from `usize as i32`.
+- `usize` from `i32 as usize`.
+- `u32` from `usize as u32`.
+- `isize` from `usize as isize`.
+- large `usize`.
+- `bool` expression using casted values.
+- `Pair` with cast-derived fields.
+- `[usize; 3]` with cast-derived elements.
+
+Result:
+
+- Cast-heavy long stack-passed arguments pass.
+- This lowers the priority of simple cast/sign/zero-extension through long parameter passing as the remaining WA cause.
+
+Next better directions:
+
+- Shift focus toward `long expr` / `long long expr`, since broad long-param coverage has not produced a runtime mismatch.
+- Keep any further long-param work tied to concrete OJ-style clues rather than adding arbitrary broad combinations.
+
 ## Codegen And Inline Inspection Notes
 
 Date: 2026-06-20
