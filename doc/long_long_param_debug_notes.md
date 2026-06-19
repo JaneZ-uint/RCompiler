@@ -480,3 +480,79 @@ Next better direction:
   - arrays of structs by value
   - structs containing arrays of references
   - nested arrays such as `[[usize; 2]; 3]` and arrays of small structs
+
+## Aggregate-Heavy Long Parameter Step
+
+Date: 2026-06-20
+
+Goal:
+
+- Cover long parameter lists dominated by by-value aggregates instead of scalar/reference arguments.
+- Put large aggregate arguments far past the ABI register boundary so they must use stack argument passing.
+- Exercise nested aggregate shapes that previously looked under-covered.
+
+Small probe:
+
+- `/tmp/aggregate_heavy_probe.rx`
+  - Covered:
+    - `Pair` by value.
+    - `[Pair; 2]` by value.
+    - `Agg` by value.
+    - `&Agg`.
+    - `RefPack` inside `Agg`, with `&usize`, `&mut usize`, and `[bool; 3]` fields.
+    - nested matrix `[[usize; 2]; 2]`.
+  - RV64/qemu output: `1`.
+
+Generated long tests:
+
+- `local_tests/long_param_aggregate_heavy_1024.rx`
+  - 1024 explicit parameters.
+  - 6887 lines.
+  - Expected score: `3200`.
+  - RV64/qemu output: `1`.
+- `local_tests/long_param_aggregate_heavy_1536.rx`
+  - 1536 explicit parameters.
+  - 10308 lines.
+  - Expected score: `4800`.
+  - RV64/qemu output: `1`.
+
+Repeating parameter cycle:
+
+- `Pair`
+- `[Pair; 2]`
+- `Agg`
+- `&Agg`
+- `[[usize; 2]; 2]`
+- `RefPack`
+- `[usize; 4]`
+- `usize`
+
+Important aggregate definitions:
+
+- `Pair` contains `usize`, `i32`, and `bool`.
+- `RefPack` contains `&usize`, `&mut usize`, and `[bool; 3]`.
+- `Agg` contains:
+  - `Pair`
+  - `[usize; 3]`
+  - `[Pair; 2]`
+  - `RefPack`
+  - `[[usize; 2]; 2]`
+
+Test shape:
+
+- `main` constructs all arguments.
+- `middle` receives all arguments and forwards every parameter to `leaf`.
+- `leaf` reads every parameter.
+- Mutable references inside aggregate fields are mutated and checked.
+
+Result:
+
+- Both aggregate-heavy cases pass.
+- This lowers the priority of ordinary by-value aggregate stack passing, arrays of structs, structs with reference fields, and nested arrays as the remaining `long long param` WA cause.
+- No code fix was made in this step.
+
+Next better directions:
+
+- Method long-parameter variants where `self` or `&mut self` shifts the ABI argument boundary together with aggregate parameters.
+- Sret plus long aggregate parameters, where the hidden return pointer shifts all user arguments.
+- Parameter destructuring patterns mixed with aggregate-heavy values rather than only scalar/reference values.
