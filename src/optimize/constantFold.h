@@ -434,9 +434,24 @@ private:
             aliasMap.erase(result.get());
             return;
         }
-        constMap[result.get()] = lit;
+        constMap[result.get()] = normalizeCastLiteral(lit, result ? result->type : nullptr);
         aliasMap.erase(result.get());
         changed = true;
+    }
+
+    LitPtr normalizeCastLiteral(const LitPtr &lit, const std::shared_ptr<IRType> &targetType) {
+        if (!lit) return lit;
+        auto intType = std::dynamic_pointer_cast<IRIntType>(targetType);
+        if (!intType || intType->bitWidth != 32) return lit;
+
+        long long low = static_cast<long long>(static_cast<unsigned long long>(literalValue(lit)) & 0xffffffffULL);
+        if (!intType->isUnsigned && (low & 0x80000000LL)) {
+            low -= 0x100000000LL;
+        }
+        if (lit->literalType == BOOL_LITERAL) {
+            return makeBool(low != 0);
+        }
+        return makeInt(low);
     }
 
     void clearDefinedVar(const std::shared_ptr<IRNode> &instr,
