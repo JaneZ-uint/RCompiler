@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <map>
 #include <vector>
 #include "../ir/IRAlloca.h"
 #include "../ir/IRBinaryop.h"
@@ -134,6 +135,77 @@ inline bool hasSideEffect(const std::shared_ptr<IRNode> &instr) {
 
 inline bool isPureRemovable(const std::shared_ptr<IRNode> &instr) {
     return !hasSideEffect(instr) && !defs(instr).empty();
+}
+
+inline void replaceValue(std::shared_ptr<IRValue> &value,
+                         const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+    auto var = std::dynamic_pointer_cast<IRVar>(value);
+    if (!var) return;
+    auto it = replaceMap.find(var.get());
+    if (it != replaceMap.end()) value = it->second;
+}
+
+inline void replaceVar(std::shared_ptr<IRVar> &var,
+                       const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+    if (!var) return;
+    auto it = replaceMap.find(var.get());
+    if (it == replaceMap.end()) return;
+    if (auto replacement = std::dynamic_pointer_cast<IRVar>(it->second)) var = replacement;
+}
+
+inline void replaceNodeValue(std::shared_ptr<IRNode> &node,
+                             const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+    auto value = std::dynamic_pointer_cast<IRValue>(node);
+    if (!value) return;
+    replaceValue(value, replaceMap);
+    node = std::dynamic_pointer_cast<IRNode>(value);
+}
+
+inline void replaceUses(const std::shared_ptr<IRNode> &instr,
+                        const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+    if (replaceMap.empty() || !instr) return;
+
+    if (auto p = std::dynamic_pointer_cast<IRStore>(instr)) {
+        replaceVar(p->storeValue, replaceMap);
+        replaceVar(p->address, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRLoad>(instr)) {
+        replaceVar(p->addressVar, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRGetptr>(instr)) {
+        replaceVar(p->base, replaceMap);
+        replaceVar(p->index, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
+        replaceValue(p->leftValue, replaceMap);
+        replaceValue(p->rightValue, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRBr>(instr)) {
+        replaceVar(p->condition, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRReturn>(instr)) {
+        replaceVar(p->returnValue, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRCall>(instr)) {
+        if (p->pList) {
+            for (auto &param : p->pList->paramList) replaceNodeValue(param, replaceMap);
+        }
+    } else if (auto p = std::dynamic_pointer_cast<IRPrint>(instr)) {
+        replaceValue(p->printVar, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRSext>(instr)) {
+        replaceVar(p->value, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRZext>(instr)) {
+        replaceVar(p->value, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRTrunc>(instr)) {
+        replaceVar(p->value, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRPhi>(instr)) {
+        replaceVar(p->secondState, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRPHI>(instr)) {
+        replaceValue(p->firstState, replaceMap);
+        replaceValue(p->secondState, replaceMap);
+        for (auto &entry : p->entries) replaceValue(entry.first, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRMemcpy>(instr)) {
+        replaceVar(p->dest, replaceMap);
+        replaceVar(p->value, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRMemset>(instr)) {
+        replaceVar(p->dest, replaceMap);
+    } else if (auto p = std::dynamic_pointer_cast<IRExit>(instr)) {
+        replaceValue(p->exitCode, replaceMap);
+    }
 }
 
 } // namespace JaneZ::IRUtil
