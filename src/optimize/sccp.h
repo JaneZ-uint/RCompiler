@@ -66,11 +66,19 @@ private:
     using ValuePtr = std::shared_ptr<IRValue>;
     using LitPtr = std::shared_ptr<IRLiteral>;
     using Edge = std::pair<IRBlock*, IRBlock*>;
+    using FactMap = std::map<IRVar*, LatticeValue>;
+
+    struct BranchFacts {
+        FactMap trueFacts;
+        FactMap falseFacts;
+    };
 
     std::vector<std::shared_ptr<IRBlock>> blocks;
     std::map<IRBlock*, std::vector<IRBlock*>> succs;
     std::set<IRBlock*> executableBlocks;
     std::set<Edge> executableEdges;
+    std::map<Edge, FactMap> edgeFacts;
+    std::map<IRVar*, BranchFacts> branchFacts;
     std::map<IRVar*, LatticeValue> values;
 
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
@@ -86,6 +94,8 @@ private:
         succs.clear();
         executableBlocks.clear();
         executableEdges.clear();
+        edgeFacts.clear();
+        branchFacts.clear();
         values.clear();
 
         blocks.push_back(func->body);
@@ -155,13 +165,13 @@ private:
             } else if (auto phi = std::dynamic_pointer_cast<IRPhi>(instr)) {
                 changed |= visitLegacyPhi(phi, blk.get());
             } else if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
-                changed |= setResult(op->result, evalBinary(op));
+                changed |= setResult(op->result, evalBinary(op, blk.get()));
             } else if (auto cast = std::dynamic_pointer_cast<IRSext>(instr)) {
-                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, true));
+                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, true, blk.get()));
             } else if (auto cast = std::dynamic_pointer_cast<IRZext>(instr)) {
-                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, false));
+                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, false, blk.get()));
             } else if (auto cast = std::dynamic_pointer_cast<IRTrunc>(instr)) {
-                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, false));
+                changed |= setResult(cast->result, evalCast(cast->value, cast->originalType, cast->targetType, false, blk.get()));
             } else if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
                 changed |= setResult(alloca->var, overdefined());
             } else if (auto load = std::dynamic_pointer_cast<IRLoad>(instr)) {
@@ -198,7 +208,7 @@ private:
         auto consider = [&](const ValuePtr &value, IRBlock *pred) {
             if (!pred || !executableEdges.count({pred, block})) return;
             hasExecutableInput = true;
-            merged = merge(merged, valueState(value));
+            merged = merge(merged, valueStateOnEdge(value, pred, block));
         };
 
         if (!phi->entries.empty()) {
@@ -232,7 +242,7 @@ private:
                                                           phi->firstState)));
         }
         if (phi->secondBlock && executableEdges.count({phi->secondBlock.get(), block})) {
-            consider(valueState(phi->secondState));
+            consider(valueStateOnEdge(phi->secondState, phi->secondBlock.get(), block));
         }
 
         if (!hasExecutableInput) return false;
@@ -247,20 +257,46 @@ private:
             return changed;
         }
 
-        auto cond = valueState(br->condition);
+        auto trueFacts = factsForBranch(br->condition, true);
+        auto falseFacts = factsForBranch(br->condition, false);
+        auto cond = valueStateInBlock(br->condition, from);
         if (cond.kind == LatticeKind::Constant && cond.literal) {
-            changed |= markEdge(from, literalIsTrue(cond.literal) ? br->trueLabel.get() : br->falseLabel.get());
+            auto *target = literalIsTrue(cond.literal) ? br->trueLabel.get() : br->falseLabel.get();
+            changed |= markEdge(from, target, literalIsTrue(cond.literal) ? trueFacts : falseFacts);
         } else {
-            changed |= markEdge(from, br->trueLabel.get());
-            changed |= markEdge(from, br->falseLabel.get());
+            changed |= markEdge(from, br->trueLabel.get(), trueFacts);
+            changed |= markEdge(from, br->falseLabel.get(), falseFacts);
         }
         return changed;
     }
 
-    bool markEdge(IRBlock *from, IRBlock *to) {
+    bool markEdge(IRBlock *from, IRBlock *to, const std::shared_ptr<IRVar> &factVar = nullptr, const LitPtr &fact = nullptr) {
+        FactMap facts;
+        if (factVar && fact) addLiteralFact(facts, factVar.get(), fact);
+        return markEdge(from, to, facts);
+    }
+
+    bool markEdge(IRBlock *from, IRBlock *to, const FactMap &newFacts) {
         if (!from || !to) return false;
         bool changed = false;
-        if (executableEdges.insert({from, to}).second) changed = true;
+        Edge edge{from, to};
+        if (executableEdges.insert(edge).second) changed = true;
+        if (!newFacts.empty()) {
+            auto &facts = edgeFacts[edge];
+            for (auto &entry : newFacts) {
+                auto it = facts.find(entry.first);
+                if (it == facts.end()) {
+                    facts[entry.first] = entry.second;
+                    changed = true;
+                } else {
+                    auto merged = merge(it->second, entry.second);
+                    if (!sameState(it->second, merged)) {
+                        it->second = merged;
+                        changed = true;
+                    }
+                }
+            }
+        }
         if (executableBlocks.insert(to).second) changed = true;
         return changed;
     }
@@ -294,6 +330,55 @@ private:
         return overdefined();
     }
 
+    LatticeValue valueStateInBlock(const ValuePtr &value, IRBlock *block) const {
+        if (!value) return overdefined();
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) return constant(lit);
+        auto var = std::dynamic_pointer_cast<IRVar>(value);
+        if (!var) return overdefined();
+
+        if (auto fact = singlePredFact(var.get(), block)) return *fact;
+        return valueState(value);
+    }
+
+    LatticeValue valueStateOnEdge(const ValuePtr &value, IRBlock *from, IRBlock *to) const {
+        if (!value) return overdefined();
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) return constant(lit);
+        auto var = std::dynamic_pointer_cast<IRVar>(value);
+        if (!var) return overdefined();
+
+        auto edgeIt = edgeFacts.find({from, to});
+        if (edgeIt != edgeFacts.end()) {
+            auto factIt = edgeIt->second.find(var.get());
+            if (factIt != edgeIt->second.end()) return factIt->second;
+        }
+        return valueState(value);
+    }
+
+    std::optional<LatticeValue> singlePredFact(IRVar *var, IRBlock *block) const {
+        if (!var || !block) return std::nullopt;
+        auto *onlyPred = singleExecutablePred(block);
+        if (!onlyPred) return std::nullopt;
+
+        auto edgeIt = edgeFacts.find({onlyPred, block});
+        if (edgeIt == edgeFacts.end()) return std::nullopt;
+        auto factIt = edgeIt->second.find(var);
+        if (factIt == edgeIt->second.end()) return std::nullopt;
+        return factIt->second;
+    }
+
+    IRBlock *singleExecutablePred(IRBlock *block) const {
+        if (!block) return nullptr;
+        IRBlock *onlyPred = nullptr;
+        int count = 0;
+        for (auto &edge : executableEdges) {
+            if (edge.second != block) continue;
+            onlyPred = edge.first;
+            count++;
+            if (count > 1) return nullptr;
+        }
+        return count == 1 ? onlyPred : nullptr;
+    }
+
     LatticeValue merge(const LatticeValue &lhs, const LatticeValue &rhs) const {
         if (lhs.kind == LatticeKind::Unknown) return rhs;
         if (rhs.kind == LatticeKind::Unknown) return lhs;
@@ -319,10 +404,14 @@ private:
         return sameLiteral(a.literal, b.literal);
     }
 
-    LatticeValue evalBinary(const std::shared_ptr<IRBinaryop> &op) {
+    LatticeValue evalBinary(const std::shared_ptr<IRBinaryop> &op, IRBlock *block) {
         if (!op || !op->result) return overdefined();
-        auto lhs = valueState(op->leftValue);
-        auto rhs = valueState(op->rightValue);
+        auto lhs = valueStateInBlock(op->leftValue, block);
+        auto rhs = valueStateInBlock(op->rightValue, block);
+        recordComparisonFacts(op);
+        if (auto simplified = simplifyPartialBinary(op, lhs, rhs)) {
+            return constant(*simplified);
+        }
         if (lhs.kind == LatticeKind::Overdefined || rhs.kind == LatticeKind::Overdefined) {
             return overdefined();
         }
@@ -333,11 +422,92 @@ private:
         return folded ? constant(*folded) : overdefined();
     }
 
+    void recordComparisonFacts(const std::shared_ptr<IRBinaryop> &op) {
+        if (!op || !op->result || (op->op != EQ && op->op != NEQ)) return;
+
+        BranchFacts facts;
+        recordComparisonFact(op->op, op->leftValue, op->rightValue, facts);
+        recordComparisonFact(op->op, op->rightValue, op->leftValue, facts);
+        if (!facts.trueFacts.empty() || !facts.falseFacts.empty()) {
+            branchFacts[op->result.get()] = facts;
+        }
+    }
+
+    void recordComparisonFact(IROp op,
+                              const ValuePtr &maybeVar,
+                              const ValuePtr &maybeLiteral,
+                              BranchFacts &facts) {
+        auto var = std::dynamic_pointer_cast<IRVar>(maybeVar);
+        auto lit = std::dynamic_pointer_cast<IRLiteral>(maybeLiteral);
+        if (!isIntegerVar(var) || !isIntegerLiteral(lit)) return;
+
+        auto normalized = normalizeFactLiteral(var, lit);
+        if (op == EQ) {
+            addLiteralFact(facts.trueFacts, var.get(), normalized);
+            if (auto opposite = boolOppositeFact(var, normalized)) {
+                addLiteralFact(facts.falseFacts, var.get(), *opposite);
+            }
+        } else if (op == NEQ) {
+            addLiteralFact(facts.falseFacts, var.get(), normalized);
+            if (auto opposite = boolOppositeFact(var, normalized)) {
+                addLiteralFact(facts.trueFacts, var.get(), *opposite);
+            }
+        }
+    }
+
+    FactMap factsForBranch(const std::shared_ptr<IRVar> &condition, bool trueEdge) {
+        FactMap facts;
+        if (condition) addLiteralFact(facts, condition.get(), makeBool(trueEdge));
+        auto it = condition ? branchFacts.find(condition.get()) : branchFacts.end();
+        if (it != branchFacts.end()) {
+            mergeFactMap(facts, trueEdge ? it->second.trueFacts : it->second.falseFacts);
+        }
+        return facts;
+    }
+
+    std::optional<LitPtr> simplifyPartialBinary(const std::shared_ptr<IRBinaryop> &op,
+                                                const LatticeValue &lhs,
+                                                const LatticeValue &rhs) {
+        if (!op) return std::nullopt;
+        auto lhsLit = lhs.kind == LatticeKind::Constant ? lhs.literal : nullptr;
+        auto rhsLit = rhs.kind == LatticeKind::Constant ? rhs.literal : nullptr;
+        auto zero = makeSizedInt(0, op->w64tag);
+        auto one = makeSizedInt(1, op->w64tag);
+
+        switch (op->op) {
+            case MUL:
+                if (isZero(lhsLit) || isZero(rhsLit)) return zero;
+                break;
+            case MOD:
+                if (isOne(rhsLit)) return zero;
+                break;
+            case ANDOP:
+            case LOGICALAND:
+                if (isZero(lhsLit) || isZero(rhsLit)) return zero;
+                break;
+            case OROP:
+                if (isAllOnes(lhsLit, op->w64tag) || isAllOnes(rhsLit, op->w64tag)) {
+                    return makeSizedInt(-1, op->w64tag);
+                }
+                break;
+            case LOGICALOR:
+                if ((lhsLit && literalValue(lhsLit) != 0) ||
+                    (rhsLit && literalValue(rhsLit) != 0)) {
+                    return one;
+                }
+                break;
+            default:
+                break;
+        }
+        return std::nullopt;
+    }
+
     LatticeValue evalCast(const std::shared_ptr<IRVar> &value,
                           const std::shared_ptr<IRType> &originalType,
                           const std::shared_ptr<IRType> &targetType,
-                          bool signExtend) {
-        auto state = valueState(value);
+                          bool signExtend,
+                          IRBlock *block) {
+        auto state = valueStateInBlock(value, block);
         if (state.kind != LatticeKind::Constant) return state;
         return constant(normalizeCastLiteral(state.literal, originalType, targetType, signExtend));
     }
@@ -482,21 +652,43 @@ private:
                 replaceMap[entry.first] = entry.second.literal;
             }
         }
-        if (replaceMap.empty()) return;
-
         for (auto &blk : blocks) {
             if (!blk || !executableBlocks.count(blk.get())) continue;
+            auto scopedMap = replacementMapForBlock(blk.get(), replaceMap);
+            if (scopedMap.empty() && replaceMap.empty()) continue;
             for (auto &instr : blk->instrList) {
-                rewriteInstruction(instr, replaceMap);
+                rewriteInstruction(instr, blk.get(), isPhiInstruction(instr) ? replaceMap : scopedMap);
             }
         }
     }
 
+    std::map<IRVar*, ValuePtr> replacementMapForBlock(IRBlock *block,
+                                                       const std::map<IRVar*, ValuePtr> &baseMap) {
+        auto scopedMap = baseMap;
+        auto *onlyPred = singleExecutablePred(block);
+        if (!onlyPred) return scopedMap;
+
+        auto edgeIt = edgeFacts.find({onlyPred, block});
+        if (edgeIt == edgeFacts.end()) return scopedMap;
+        for (auto &entry : edgeIt->second) {
+            if (entry.second.kind == LatticeKind::Constant && entry.second.literal) {
+                scopedMap[entry.first] = entry.second.literal;
+            }
+        }
+        return scopedMap;
+    }
+
+    bool isPhiInstruction(const std::shared_ptr<IRNode> &instr) const {
+        return std::dynamic_pointer_cast<IRPHI>(instr) ||
+               std::dynamic_pointer_cast<IRPhi>(instr);
+    }
+
     void rewriteInstruction(const std::shared_ptr<IRNode> &instr,
+                            IRBlock *block,
                             const std::map<IRVar*, ValuePtr> &replaceMap) {
         if (!instr) return;
         if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
-            rewriteBranch(br, replaceMap);
+            rewriteBranch(br, block, replaceMap);
             return;
         }
         if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
@@ -511,12 +703,17 @@ private:
     }
 
     void rewriteBranch(const std::shared_ptr<IRBr> &br,
+                       IRBlock *block,
                        const std::map<IRVar*, ValuePtr> &replaceMap) {
         if (!br || !br->condition || !br->trueLabel || !br->falseLabel) return;
-        auto it = replaceMap.find(br->condition.get());
-        if (it == replaceMap.end()) return;
-        auto lit = std::dynamic_pointer_cast<IRLiteral>(it->second);
-        if (!lit) return;
+        auto state = valueStateInBlock(br->condition, block);
+        auto lit = state.kind == LatticeKind::Constant ? state.literal : nullptr;
+        if (!lit) {
+            auto it = replaceMap.find(br->condition.get());
+            if (it == replaceMap.end()) return;
+            lit = std::dynamic_pointer_cast<IRLiteral>(it->second);
+            if (!lit) return;
+        }
         br->trueLabel = literalIsTrue(lit) ? br->trueLabel : br->falseLabel;
         br->condition = nullptr;
         br->falseLabel = nullptr;
@@ -565,6 +762,66 @@ private:
         return a->literalType == b->literalType && literalValue(a) == literalValue(b);
     }
 
+    bool isZero(const LitPtr &lit) const {
+        return lit && literalValue(lit) == 0;
+    }
+
+    bool isOne(const LitPtr &lit) const {
+        return lit && literalValue(lit) == 1;
+    }
+
+    bool isAllOnes(const LitPtr &lit, bool wide64) const {
+        if (!lit) return false;
+        if (wide64) return static_cast<uint64_t>(literalValue(lit)) == UINT64_MAX;
+        return toU32(literalValue(lit)) == 0xffffffffULL;
+    }
+
+    bool isIntegerLiteral(const LitPtr &lit) const {
+        return lit && lit->literalType != NULL_LITERAL;
+    }
+
+    bool isIntegerVar(const std::shared_ptr<IRVar> &var) const {
+        return var && std::dynamic_pointer_cast<IRIntType>(var->type);
+    }
+
+    bool isBoolVar(const std::shared_ptr<IRVar> &var) const {
+        auto type = var ? std::dynamic_pointer_cast<IRIntType>(var->type) : nullptr;
+        return type && (type->bitWidth == 1 || type->bitWidth == 8);
+    }
+
+    void addLiteralFact(FactMap &facts, IRVar *var, const LitPtr &lit) {
+        addFact(facts, var, constant(lit));
+    }
+
+    void addFact(FactMap &facts, IRVar *var, const LatticeValue &fact) {
+        if (!var) return;
+        auto it = facts.find(var);
+        if (it == facts.end()) {
+            facts[var] = fact;
+            return;
+        }
+        it->second = merge(it->second, fact);
+    }
+
+    void mergeFactMap(FactMap &dest, const FactMap &src) {
+        for (auto &entry : src) addFact(dest, entry.first, entry.second);
+    }
+
+    LitPtr normalizeFactLiteral(const std::shared_ptr<IRVar> &var, const LitPtr &lit) {
+        auto type = var ? std::dynamic_pointer_cast<IRIntType>(var->type) : nullptr;
+        if (!type || !lit) return lit;
+        if (type->bitWidth == 64) return makeI64(static_cast<uint64_t>(literalValue(lit)));
+        if (type->bitWidth == 1 || type->bitWidth == 8 || lit->literalType == BOOL_LITERAL) {
+            return makeBool(literalValue(lit) != 0);
+        }
+        return makeI32(literalValue(lit));
+    }
+
+    std::optional<LitPtr> boolOppositeFact(const std::shared_ptr<IRVar> &var, const LitPtr &lit) {
+        if (!isBoolVar(var) || !lit) return std::nullopt;
+        return makeBool(literalValue(lit) == 0);
+    }
+
     LitPtr makeInt(long long value) const {
         return std::make_shared<IRLiteral>(INT_LITERAL, value, value != 0);
     }
@@ -579,6 +836,11 @@ private:
 
     LitPtr makeI64(uint64_t value) const {
         return makeInt(static_cast<long long>(value));
+    }
+
+    LitPtr makeSizedInt(long long value, bool wide64) const {
+        if (wide64) return makeI64(static_cast<uint64_t>(value));
+        return makeI32(value);
     }
 
     long long toI32(long long value) const {
