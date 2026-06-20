@@ -153,7 +153,7 @@ private:
             if (auto phi = std::dynamic_pointer_cast<IRPHI>(instr)) {
                 changed |= visitPHI(phi, blk.get());
             } else if (auto phi = std::dynamic_pointer_cast<IRPhi>(instr)) {
-                changed |= setResult(phi->result, overdefined());
+                changed |= visitLegacyPhi(phi, blk.get());
             } else if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
                 changed |= setResult(op->result, evalBinary(op));
             } else if (auto cast = std::dynamic_pointer_cast<IRSext>(instr)) {
@@ -209,6 +209,33 @@ private:
         }
 
         if (!hasExecutableInput && executableBlocks.count(block)) return false;
+        return setResult(phi->result, merged);
+    }
+
+    bool visitLegacyPhi(const std::shared_ptr<IRPhi> &phi, IRBlock *block) {
+        if (!phi || !phi->result) return false;
+        LatticeValue merged;
+        bool hasExecutableInput = false;
+
+        auto consider = [&](LatticeValue state) {
+            // Legacy IRPhi is only used for short-circuit bool lowering. Treat
+            // not-yet-known executable inputs conservatively to avoid folding
+            // through pending phi copies.
+            if (state.kind == LatticeKind::Unknown) state = overdefined();
+            merged = hasExecutableInput ? merge(merged, state) : state;
+            hasExecutableInput = true;
+        };
+
+        if (phi->firstBlock && executableEdges.count({phi->firstBlock.get(), block})) {
+            consider(constant(std::make_shared<IRLiteral>(BOOL_LITERAL,
+                                                          phi->firstState ? 1 : 0,
+                                                          phi->firstState)));
+        }
+        if (phi->secondBlock && executableEdges.count({phi->secondBlock.get(), block})) {
+            consider(valueState(phi->secondState));
+        }
+
+        if (!hasExecutableInput) return false;
         return setResult(phi->result, merged);
     }
 
