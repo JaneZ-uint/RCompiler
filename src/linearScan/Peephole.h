@@ -26,11 +26,19 @@ public:
                     if (consumed == 0) {
                         consumed = tryFoldAddressAccess(instrs, j, useCounts, folded, true);
                     }
+                    if (consumed == 0) {
+                        consumed = tryFoldMoveIntoNext(instrs, j, useCounts, folded, true);
+                    }
                 } else {
                     consumed = tryFoldAddressAccess(instrs, j, useCounts, folded, false);
+                    if (consumed == 0) {
+                        consumed = tryFoldMoveIntoNext(instrs, j, useCounts, folded, false);
+                    }
                 }
                 if (consumed > 0) {
-                    out.push_back(folded);
+                    if (!isSelfMove(folded) && !isNoopAddi(folded)) {
+                        out.push_back(folded);
+                    }
                     j += consumed;
                     changed = true;
                     continue;
@@ -256,7 +264,7 @@ private:
             case ASMOp::CALL:
                 return reg == 1 ||
                        reg == 5 || reg == 6 || reg == 7 ||
-                       reg == 28 || reg == 29 ||
+                       reg == 28 || reg == 29 || reg == 30 || reg == 31 ||
                        (reg >= 10 && reg <= 17);
             default:
                 return false;
@@ -272,6 +280,82 @@ private:
             default:
                 return false;
         }
+    }
+
+    bool rewriteRegOperand(Operand &op, int fromReg, const Operand &toReg) const {
+        if (op.type == OperandType::REG && op.value == fromReg) {
+            op = toReg;
+            return true;
+        }
+        return false;
+    }
+
+    bool rewriteExplicitUses(ASMInstr &instr, int fromReg, const Operand &toReg) const {
+        bool changed = false;
+        switch (instr.op) {
+            case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
+            case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::ADDW: case ASMOp::SUBW: case ASMOp::MULW: case ASMOp::DIVW:
+            case ASMOp::DIVUW: case ASMOp::REMW: case ASMOp::REMUW:
+            case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
+            case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLLW: case ASMOp::SRLW: case ASMOp::SRAW:
+            case ASMOp::SLT: case ASMOp::SLTU:
+                changed |= rewriteRegOperand(instr.rs1, fromReg, toReg);
+                changed |= rewriteRegOperand(instr.rs2, fromReg, toReg);
+                break;
+            case ASMOp::ADDI: case ASMOp::ANDI: case ASMOp::ORI: case ASMOp::XORI:
+            case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
+            case ASMOp::SLTI: case ASMOp::SLTIU:
+            case ASMOp::LW: case ASMOp::LWU: case ASMOp::LD:
+            case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::MV: case ASMOp::SEQZ: case ASMOp::SNEZ:
+            case ASMOp::BNEZ: case ASMOp::JR:
+                changed |= rewriteRegOperand(instr.rs1, fromReg, toReg);
+                break;
+            case ASMOp::SW: case ASMOp::SD: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
+            case ASMOp::BLTU: case ASMOp::BGEU:
+                changed |= rewriteRegOperand(instr.rs1, fromReg, toReg);
+                changed |= rewriteRegOperand(instr.rs2, fromReg, toReg);
+                break;
+            default:
+                break;
+        }
+        return changed;
+    }
+
+    int tryFoldMoveIntoNext(const std::vector<ASMInstr> &instrs,
+                            size_t index,
+                            const std::unordered_map<int, int> &useCounts,
+                            ASMInstr &folded,
+                            bool requireSingleUse) const {
+        if (index + 1 >= instrs.size()) return 0;
+
+        const auto &copy = instrs[index];
+        const auto &next = instrs[index + 1];
+        if (copy.op != ASMOp::MV ||
+            copy.rd.type != OperandType::REG ||
+            copy.rs1.type != OperandType::REG ||
+            sameReg(copy.rd, copy.rs1) ||
+            !copy.funcName.empty() ||
+            !next.funcName.empty() ||
+            next.op == ASMOp::CALL ||
+            !isAddressTempReg(copy.rd, !requireSingleUse) ||
+            !instrUsesReg(next, copy.rd.value)) {
+            return 0;
+        }
+
+        if (requireSingleUse) {
+            if (regUseCount(useCounts, copy.rd.value) != 1) return 0;
+        } else if (!instrDefsReg(next, copy.rd.value) &&
+                   !isRegDeadAfter(instrs, index + 2, copy.rd.value)) {
+            return 0;
+        }
+
+        folded = next;
+        if (!rewriteExplicitUses(folded, copy.rd.value, copy.rs1)) return 0;
+        return 2;
     }
 
     bool isRegDeadAfter(const std::vector<ASMInstr> &instrs, size_t start, int reg) const {
