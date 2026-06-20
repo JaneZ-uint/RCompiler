@@ -31,6 +31,7 @@ public:
     void optimize(std::shared_ptr<IRRoot> root) {
         if (!root) return;
         collectFunctions(root);
+        collectCallCounts();
         collectInlineable();
 
         for (auto &child : root->children) {
@@ -49,7 +50,9 @@ private:
 
     std::vector<std::shared_ptr<IRFunction>> functions;
     std::set<IRFunction*> inlineable;
+    std::map<IRFunction*, int> callCounts;
     static constexpr int kMaxInlineInstr = 24;
+    static constexpr int kSingleUseInlineInstr = 48;
     static constexpr int kMaxInlineRounds = 3;
 
     void collectFunctions(std::shared_ptr<IRRoot> root) {
@@ -76,6 +79,27 @@ private:
         }
     }
 
+    void collectCallCounts() {
+        callCounts.clear();
+        for (auto &func : functions) {
+            countCallsInFunction(func);
+        }
+    }
+
+    void countCallsInFunction(const std::shared_ptr<IRFunction> &func) {
+        if (!func || !func->body) return;
+        countCallsInBlock(func->body);
+        for (auto &blk : func->body->blockList) countCallsInBlock(blk);
+    }
+
+    void countCallsInBlock(const std::shared_ptr<IRBlock> &block) {
+        if (!block) return;
+        for (auto &instr : block->instrList) {
+            auto call = std::dynamic_pointer_cast<IRCall>(instr);
+            if (call && call->function) callCounts[call->function.get()]++;
+        }
+    }
+
     bool canInline(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return false;
         if (func->name == "main") return false;
@@ -86,7 +110,10 @@ private:
         }
 
         auto &instrs = func->body->instrList;
-        if (instrs.empty() || instrs.size() > kMaxInlineInstr) return false;
+        size_t paramCount = func->paramList ? func->paramList->paramList.size() : 0;
+        int callCount = callCounts.count(func.get()) ? callCounts[func.get()] : 0;
+        int instrLimit = (callCount == 1 && paramCount <= 8) ? kSingleUseInlineInstr : kMaxInlineInstr;
+        if (instrs.empty() || instrs.size() > static_cast<size_t>(instrLimit)) return false;
 
         int returnCnt = 0;
         for (size_t i = 0; i < instrs.size(); i++) {
