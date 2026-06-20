@@ -65,6 +65,20 @@ private:
         }
     };
 
+    struct CastKey {
+        int kind;
+        std::string value;
+        std::string originalType;
+        std::string targetType;
+
+        bool operator<(const CastKey &other) const {
+            if (kind != other.kind) return kind < other.kind;
+            if (value != other.value) return value < other.value;
+            if (originalType != other.originalType) return originalType < other.originalType;
+            return targetType < other.targetType;
+        }
+    };
+
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return;
         optimizeBlock(func->body);
@@ -75,6 +89,7 @@ private:
         if (!blk) return;
         std::map<BinaryKey, std::shared_ptr<IRVar>> binaryTable;
         std::map<GetptrKey, std::shared_ptr<IRVar>> getptrTable;
+        std::map<CastKey, std::shared_ptr<IRVar>> castTable;
         std::map<IRVar*, std::shared_ptr<IRValue>> replaceMap;
 
         for (auto &instr : blk->instrList) {
@@ -92,11 +107,33 @@ private:
                 continue;
             }
 
+            auto sext = std::dynamic_pointer_cast<IRSext>(instr);
+            if (sext && sext->result) {
+                processCast(0, sext->value, sext->originalType, sext->targetType,
+                            sext->result, castTable, replaceMap);
+                continue;
+            }
+
+            auto zext = std::dynamic_pointer_cast<IRZext>(instr);
+            if (zext && zext->result) {
+                processCast(1, zext->value, zext->originalType, zext->targetType,
+                            zext->result, castTable, replaceMap);
+                continue;
+            }
+
+            auto trunc = std::dynamic_pointer_cast<IRTrunc>(instr);
+            if (trunc && trunc->result) {
+                processCast(2, trunc->value, trunc->originalType, trunc->targetType,
+                            trunc->result, castTable, replaceMap);
+                continue;
+            }
+
             if (IRUtil::hasSideEffect(instr)) {
                 binaryTable.clear();
                 getptrTable.clear();
+                castTable.clear();
             }
-            killDefs(instr, binaryTable, getptrTable, replaceMap);
+            killDefs(instr, binaryTable, getptrTable, castTable, replaceMap);
         }
     }
 
@@ -136,9 +173,32 @@ private:
         }
     }
 
+    void processCast(int kind,
+                     const std::shared_ptr<IRVar> &value,
+                     const std::shared_ptr<IRType> &originalType,
+                     const std::shared_ptr<IRType> &targetType,
+                     const std::shared_ptr<IRVar> &result,
+                     std::map<CastKey, std::shared_ptr<IRVar>> &castTable,
+                     std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        auto key = makeCastKey(kind, value, originalType, targetType);
+        if (!key) {
+            replaceMap.erase(result.get());
+            return;
+        }
+
+        auto it = castTable.find(*key);
+        if (it != castTable.end()) {
+            replaceMap[result.get()] = it->second;
+        } else {
+            castTable[*key] = result;
+            replaceMap.erase(result.get());
+        }
+    }
+
     void killDefs(const std::shared_ptr<IRNode> &instr,
                   std::map<BinaryKey, std::shared_ptr<IRVar>> &binaryTable,
                   std::map<GetptrKey, std::shared_ptr<IRVar>> &getptrTable,
+                  std::map<CastKey, std::shared_ptr<IRVar>> &castTable,
                   std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
         for (auto &def : IRUtil::defs(instr)) {
             if (!def) continue;
@@ -149,6 +209,10 @@ private:
             }
             for (auto it = getptrTable.begin(); it != getptrTable.end();) {
                 if (it->second.get() == def.get()) it = getptrTable.erase(it);
+                else ++it;
+            }
+            for (auto it = castTable.begin(); it != castTable.end();) {
+                if (it->second.get() == def.get()) it = castTable.erase(it);
                 else ++it;
             }
         }
@@ -174,6 +238,17 @@ private:
                       getptr->index ? valueKey(getptr->index) : "", getptr->index != nullptr};
         if (key.type.empty() || key.base.empty()) return std::nullopt;
         if (key.hasIndex && key.index.empty()) return std::nullopt;
+        return key;
+    }
+
+    std::optional<CastKey> makeCastKey(int kind,
+                                       const std::shared_ptr<IRVar> &value,
+                                       const std::shared_ptr<IRType> &originalType,
+                                       const std::shared_ptr<IRType> &targetType) const {
+        CastKey key{kind, valueKey(value), typeKey(originalType), typeKey(targetType)};
+        if (key.value.empty() || key.originalType.empty() || key.targetType.empty()) {
+            return std::nullopt;
+        }
         return key;
     }
 
