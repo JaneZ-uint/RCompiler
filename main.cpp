@@ -14,6 +14,7 @@
 #include "src/optimize/dominantTree.h"
 #include "src/optimize/functionInline.h"
 #include "src/optimize/constantFold.h"
+#include "src/optimize/deadCodeEliminate.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -65,6 +66,9 @@ int main(){
 
     JaneZ::ConstantFold constantFold;
     constantFold.optimize(code_generator.irRoot);
+
+    JaneZ::DeadCodeEliminate deadCodeEliminate;
+    deadCodeEliminate.optimize(code_generator.irRoot);
 
     //codegen
     JaneZ::regalloc cg;
