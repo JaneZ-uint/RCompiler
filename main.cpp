@@ -73,6 +73,7 @@ int main(){
     cfgClean.optimize(code_generator.irRoot);
 
     constantFold.optimize(code_generator.irRoot);
+    cfgClean.optimize(code_generator.irRoot);
 
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
