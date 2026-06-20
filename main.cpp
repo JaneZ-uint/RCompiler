@@ -17,6 +17,7 @@
 #include "src/optimize/cfgClean.h"
 #include "src/optimize/deadCodeEliminate.h"
 #include "src/optimize/localCSE.h"
+#include "src/optimize/memoryForward.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -74,6 +75,9 @@ int main(){
 
     constantFold.optimize(code_generator.irRoot);
     cfgClean.optimize(code_generator.irRoot);
+
+    JaneZ::MemoryForward memoryForward;
+    memoryForward.optimize(code_generator.irRoot);
 
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
