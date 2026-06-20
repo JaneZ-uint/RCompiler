@@ -76,6 +76,9 @@ int main(){
     constantFold.optimize(code_generator.irRoot);
     cfgClean.optimize(code_generator.irRoot);
 
+    JaneZ::DeadCodeEliminate deadCodeEliminate;
+    deadCodeEliminate.optimize(code_generator.irRoot);
+
     JaneZ::MemoryForward memoryForward;
     memoryForward.optimize(code_generator.irRoot);
 
@@ -85,7 +88,6 @@ int main(){
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
 
-    JaneZ::DeadCodeEliminate deadCodeEliminate;
     deadCodeEliminate.optimize(code_generator.irRoot);
 
     //codegen
