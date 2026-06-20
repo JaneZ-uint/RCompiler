@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <set>
 #include <vector>
@@ -128,6 +129,9 @@ private:
                 simplifyBranch(br, constMap, aliasMap, changed);
             } else if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
                 rewriteCall(call, constMap, aliasMap, changed);
+                clearDefinedVar(instr, constMap, aliasMap);
+            } else if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(instr)) {
+                rewriteGetptr(getptr, constMap, aliasMap, changed);
                 clearDefinedVar(instr, constMap, aliasMap);
             } else {
                 clearDefinedVar(instr, constMap, aliasMap);
@@ -529,6 +533,41 @@ private:
             replaceValue(val, constMap, aliasMap, changed);
             param = std::dynamic_pointer_cast<IRNode>(val);
         }
+    }
+
+    void rewriteGetptr(const std::shared_ptr<IRGetptr> &getptr,
+                       const ConstMap &constMap,
+                       const AliasMap &aliasMap,
+                       bool &changed) {
+        if (!getptr || !getptr->index) return;
+        replaceVar(getptr->index, aliasMap, changed);
+        auto lit = getLiteral(getptr->index, constMap, aliasMap);
+        if (!lit) return;
+        long long index = literalValue(lit);
+        if (index < 0 || !staticOffsetFits(getptr, index)) return;
+        getptr->offset = index;
+        getptr->index = nullptr;
+        changed = true;
+    }
+
+    bool staticOffsetFits(const std::shared_ptr<IRGetptr> &getptr, long long index) {
+        if (!getptr || !getptr->base) return false;
+        auto pointedType = getptr->base->type;
+        if (auto ptr = std::dynamic_pointer_cast<IRPtrType>(pointedType)) {
+            pointedType = ptr->baseType;
+        }
+        if (!pointedType) return false;
+
+        long long elemSize = pointedType->size;
+        if (auto arr = std::dynamic_pointer_cast<IRArrayType>(pointedType)) {
+            if (!arr->elementType) return false;
+            elemSize = arr->elementType->size;
+        } else if (std::dynamic_pointer_cast<IRStructType>(pointedType)) {
+            return false;
+        }
+        if (elemSize < 0) return false;
+        if (elemSize == 0) return true;
+        return index <= static_cast<long long>(std::numeric_limits<int>::max()) / elemSize;
     }
 
     void simplifyBranch(const std::shared_ptr<IRBr> &br,
