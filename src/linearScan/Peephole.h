@@ -3,6 +3,7 @@
 #include "ASM.h"
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace JaneZ {
@@ -11,17 +12,33 @@ class Peephole {
 public:
     bool optimize(std::vector<std::shared_ptr<ASMBlock>> &blocks, bool removeFallthroughJumps = false) {
         bool changed = false;
+        auto useCounts = countUses(blocks);
         for (size_t i = 0; i < blocks.size(); i++) {
             if (!blocks[i]) continue;
             std::vector<ASMInstr> out;
             out.reserve(blocks[i]->instrs.size());
-            for (const auto &instr : blocks[i]->instrs) {
-                if (isSelfMove(instr) || isNoopAddi(instr) ||
-                    (removeFallthroughJumps && isJumpToNextBlock(instr, blocks, i))) {
+            auto &instrs = blocks[i]->instrs;
+            for (size_t j = 0; j < instrs.size();) {
+                ASMInstr folded;
+                int consumed = removeFallthroughJumps
+                    ? 0
+                    : tryFoldCompareBranch(instrs, j, useCounts, folded);
+                if (consumed > 0) {
+                    out.push_back(folded);
+                    j += consumed;
                     changed = true;
                     continue;
                 }
+
+                const auto &instr = instrs[j];
+                if (isSelfMove(instr) || isNoopAddi(instr) ||
+                    (removeFallthroughJumps && isJumpToNextBlock(instr, blocks, i))) {
+                    changed = true;
+                    j++;
+                    continue;
+                }
                 out.push_back(instr);
+                j++;
             }
             blocks[i]->instrs = std::move(out);
         }
@@ -44,6 +61,127 @@ private:
                instr.rd.value == instr.rs1.value &&
                instr.imm.type == OperandType::IMM &&
                instr.imm.value == 0;
+    }
+
+    bool isTempReg(const Operand &op) const {
+        return op.type == OperandType::REG && op.value >= 32;
+    }
+
+    bool sameReg(const Operand &a, const Operand &b) const {
+        return a.type == OperandType::REG &&
+               b.type == OperandType::REG &&
+               a.value == b.value;
+    }
+
+    int regUseCount(const std::unordered_map<int, int> &useCounts, int reg) const {
+        auto it = useCounts.find(reg);
+        return it == useCounts.end() ? 0 : it->second;
+    }
+
+    int tryFoldCompareBranch(const std::vector<ASMInstr> &instrs,
+                             size_t index,
+                             const std::unordered_map<int, int> &useCounts,
+                             ASMInstr &folded) const {
+        if (index + 1 >= instrs.size()) return 0;
+
+        const auto &cmp = instrs[index];
+        const auto &br = instrs[index + 1];
+        if ((cmp.op == ASMOp::SLT || cmp.op == ASMOp::SLTU) &&
+            isTempReg(cmp.rd) &&
+            br.op == ASMOp::BNEZ &&
+            sameReg(cmp.rd, br.rs1) &&
+            regUseCount(useCounts, cmp.rd.value) == 1) {
+            folded.op = (cmp.op == ASMOp::SLTU) ? ASMOp::BLTU : ASMOp::BLT;
+            folded.rs1 = cmp.rs1;
+            folded.rs2 = cmp.rs2;
+            folded.label = br.label;
+            return 2;
+        }
+
+        if (index + 2 >= instrs.size()) return 0;
+        const auto &boolOp = instrs[index + 1];
+        const auto &boolBr = instrs[index + 2];
+        if (boolBr.op != ASMOp::BNEZ || !isTempReg(cmp.rd) ||
+            !sameReg(cmp.rd, boolBr.rs1) ||
+            regUseCount(useCounts, cmp.rd.value) != 2) {
+            return 0;
+        }
+
+        if ((cmp.op == ASMOp::SLT || cmp.op == ASMOp::SLTU) &&
+            boolOp.op == ASMOp::XORI &&
+            sameReg(boolOp.rd, cmp.rd) &&
+            sameReg(boolOp.rs1, cmp.rd) &&
+            boolOp.imm.type == OperandType::IMM &&
+            boolOp.imm.value == 1) {
+            folded.op = (cmp.op == ASMOp::SLTU) ? ASMOp::BGEU : ASMOp::BGE;
+            folded.rs1 = cmp.rs1;
+            folded.rs2 = cmp.rs2;
+            folded.label = boolBr.label;
+            return 3;
+        }
+
+        if (cmp.op == ASMOp::SUB &&
+            (boolOp.op == ASMOp::SEQZ || boolOp.op == ASMOp::SNEZ) &&
+            sameReg(boolOp.rd, cmp.rd) &&
+            sameReg(boolOp.rs1, cmp.rd)) {
+            folded.op = (boolOp.op == ASMOp::SEQZ) ? ASMOp::BEQ : ASMOp::BNE;
+            folded.rs1 = cmp.rs1;
+            folded.rs2 = cmp.rs2;
+            folded.label = boolBr.label;
+            return 3;
+        }
+
+        return 0;
+    }
+
+    void addUse(const Operand &op, std::unordered_map<int, int> &useCounts) const {
+        if (op.type == OperandType::REG) {
+            useCounts[op.value]++;
+        }
+    }
+
+    void countInstrUses(const ASMInstr &instr, std::unordered_map<int, int> &useCounts) const {
+        switch (instr.op) {
+            case ASMOp::ADD: case ASMOp::SUB: case ASMOp::MUL: case ASMOp::DIV:
+            case ASMOp::DIVU: case ASMOp::REM: case ASMOp::REMU:
+            case ASMOp::ADDW: case ASMOp::SUBW: case ASMOp::MULW: case ASMOp::DIVW:
+            case ASMOp::DIVUW: case ASMOp::REMW: case ASMOp::REMUW:
+            case ASMOp::AND: case ASMOp::OR: case ASMOp::XOR:
+            case ASMOp::SLL: case ASMOp::SRL: case ASMOp::SRA:
+            case ASMOp::SLLW: case ASMOp::SRLW: case ASMOp::SRAW:
+            case ASMOp::SLT: case ASMOp::SLTU:
+                addUse(instr.rs1, useCounts);
+                addUse(instr.rs2, useCounts);
+                break;
+            case ASMOp::ADDI: case ASMOp::ANDI: case ASMOp::ORI: case ASMOp::XORI:
+            case ASMOp::SLLI: case ASMOp::SRLI: case ASMOp::SRAI:
+            case ASMOp::SLTI: case ASMOp::SLTIU:
+            case ASMOp::LW: case ASMOp::LWU: case ASMOp::LD:
+            case ASMOp::LB: case ASMOp::LH: case ASMOp::LBU: case ASMOp::LHU:
+            case ASMOp::MV: case ASMOp::SEQZ: case ASMOp::SNEZ:
+            case ASMOp::BNEZ: case ASMOp::JR:
+                addUse(instr.rs1, useCounts);
+                break;
+            case ASMOp::SW: case ASMOp::SD: case ASMOp::SB: case ASMOp::SH:
+            case ASMOp::BEQ: case ASMOp::BNE: case ASMOp::BLT: case ASMOp::BGE:
+            case ASMOp::BLTU: case ASMOp::BGEU:
+                addUse(instr.rs1, useCounts);
+                addUse(instr.rs2, useCounts);
+                break;
+            default:
+                break;
+        }
+    }
+
+    std::unordered_map<int, int> countUses(const std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        std::unordered_map<int, int> useCounts;
+        for (const auto &block : blocks) {
+            if (!block) continue;
+            for (const auto &instr : block->instrs) {
+                countInstrUses(instr, useCounts);
+            }
+        }
+        return useCounts;
     }
 
     std::string formatLabel(const Operand &label) const {
