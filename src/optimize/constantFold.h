@@ -108,6 +108,8 @@ private:
                 replaceValue(print->printVar, constMap, changed);
             } else if (auto exit = std::dynamic_pointer_cast<IRExit>(instr)) {
                 replaceValue(exit->exitCode, constMap, changed);
+            } else if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
+                simplifyBranch(br, constMap, changed);
             } else if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
                 rewriteCall(call, constMap, changed);
                 clearDefinedVar(instr, constMap);
