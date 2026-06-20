@@ -52,6 +52,8 @@ private:
     using ValuePtr = std::shared_ptr<IRValue>;
     using VarPtr = std::shared_ptr<IRVar>;
     using LitPtr = std::shared_ptr<IRLiteral>;
+    using ConstMap = std::map<IRVar*, LitPtr>;
+    using AliasMap = std::map<IRVar*, ValuePtr>;
 
     void optimizeFunc(std::shared_ptr<IRFunction> func) {
         if (!func || !func->body) return;
@@ -71,63 +73,85 @@ private:
                       std::set<IRNode*> &toRemove,
                       bool &changed) {
         if (!blk) return;
-        std::map<IRVar*, LitPtr> constMap;
+        ConstMap constMap;
+        AliasMap aliasMap;
         for (auto &instr : blk->instrList) {
             if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
-                replaceValue(op->leftValue, constMap, changed);
-                replaceValue(op->rightValue, constMap, changed);
-                auto lhs = getLiteral(op->leftValue, constMap);
-                auto rhs = getLiteral(op->rightValue, constMap);
+                replaceValue(op->leftValue, constMap, aliasMap, changed);
+                replaceValue(op->rightValue, constMap, aliasMap, changed);
+                auto lhs = getLiteral(op->leftValue, constMap, aliasMap);
+                auto rhs = getLiteral(op->rightValue, constMap, aliasMap);
                 auto folded = foldBinary(op->op, lhs, rhs, op->utag, op->w64tag);
                 if (folded && op->result) {
                     constMap[op->result.get()] = *folded;
+                    aliasMap.erase(op->result.get());
                     changed = true;
+                } else if (auto simplified = simplifyBinary(op, lhs, rhs)) {
+                    bindSimplifiedValue(op->result, *simplified, constMap, aliasMap, changed);
                 } else if (op->result) {
                     constMap.erase(op->result.get());
+                    aliasMap.erase(op->result.get());
                 }
             } else if (auto phi = std::dynamic_pointer_cast<IRPHI>(instr)) {
                 auto folded = foldPhi(phi);
                 if (folded && phi->result) {
                     constMap[phi->result.get()] = *folded;
+                    aliasMap.erase(phi->result.get());
                     changed = true;
                 } else if (phi->result) {
                     constMap.erase(phi->result.get());
+                    aliasMap.erase(phi->result.get());
                 }
             } else if (auto phi = std::dynamic_pointer_cast<IRPhi>(instr)) {
-                if (phi->result) constMap.erase(phi->result.get());
+                if (phi->result) {
+                    constMap.erase(phi->result.get());
+                    aliasMap.erase(phi->result.get());
+                }
             } else if (auto cast = std::dynamic_pointer_cast<IRSext>(instr)) {
-                foldCast(cast->value, cast->result, constMap, changed);
+                replaceVar(cast->value, aliasMap, changed);
+                foldCast(cast->value, cast->result, constMap, aliasMap, changed);
             } else if (auto cast = std::dynamic_pointer_cast<IRZext>(instr)) {
-                foldCast(cast->value, cast->result, constMap, changed);
+                replaceVar(cast->value, aliasMap, changed);
+                foldCast(cast->value, cast->result, constMap, aliasMap, changed);
             } else if (auto cast = std::dynamic_pointer_cast<IRTrunc>(instr)) {
-                foldCast(cast->value, cast->result, constMap, changed);
+                replaceVar(cast->value, aliasMap, changed);
+                foldCast(cast->value, cast->result, constMap, aliasMap, changed);
             } else if (auto ret = std::dynamic_pointer_cast<IRReturn>(instr)) {
-                rewriteReturn(ret, constMap, changed);
+                rewriteReturn(ret, constMap, aliasMap, changed);
             } else if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
-                rewriteStore(store, constMap, changed);
+                rewriteStore(store, constMap, aliasMap, changed);
             } else if (auto print = std::dynamic_pointer_cast<IRPrint>(instr)) {
-                replaceValue(print->printVar, constMap, changed);
+                replaceValue(print->printVar, constMap, aliasMap, changed);
             } else if (auto exit = std::dynamic_pointer_cast<IRExit>(instr)) {
-                replaceValue(exit->exitCode, constMap, changed);
+                replaceValue(exit->exitCode, constMap, aliasMap, changed);
             } else if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
-                simplifyBranch(br, constMap, changed);
+                simplifyBranch(br, constMap, aliasMap, changed);
             } else if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
-                rewriteCall(call, constMap, changed);
-                clearDefinedVar(instr, constMap);
+                rewriteCall(call, constMap, aliasMap, changed);
+                clearDefinedVar(instr, constMap, aliasMap);
             } else {
-                clearDefinedVar(instr, constMap);
+                clearDefinedVar(instr, constMap, aliasMap);
             }
         }
     }
 
-    LitPtr getLiteral(const ValuePtr &value, const std::map<IRVar*, LitPtr> &constMap) {
-        if (!value) return nullptr;
-        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) return lit;
-        if (auto var = std::dynamic_pointer_cast<IRVar>(value)) {
-            auto it = constMap.find(var.get());
-            if (it != constMap.end()) return it->second;
+    ValuePtr resolveValue(ValuePtr value, const ConstMap &constMap, const AliasMap &aliasMap) {
+        int limit = 100;
+        while (value && limit-- > 0) {
+            if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) return lit;
+            auto var = std::dynamic_pointer_cast<IRVar>(value);
+            if (!var) return value;
+            auto cit = constMap.find(var.get());
+            if (cit != constMap.end()) return cit->second;
+            auto ait = aliasMap.find(var.get());
+            if (ait == aliasMap.end()) return value;
+            value = ait->second;
         }
-        return nullptr;
+        return value;
+    }
+
+    LitPtr getLiteral(const ValuePtr &value, const ConstMap &constMap, const AliasMap &aliasMap) {
+        return std::dynamic_pointer_cast<IRLiteral>(resolveValue(value, constMap, aliasMap));
     }
 
     long long literalValue(const LitPtr &lit) {
@@ -165,6 +189,87 @@ private:
     bool sameLiteral(const LitPtr &a, const LitPtr &b) {
         if (!a || !b) return false;
         return a->literalType == b->literalType && literalValue(a) == literalValue(b);
+    }
+
+    bool isZero(const LitPtr &lit) {
+        return lit && literalValue(lit) == 0;
+    }
+
+    bool isOne(const LitPtr &lit) {
+        return lit && literalValue(lit) == 1;
+    }
+
+    bool sameValue(const ValuePtr &a, const ValuePtr &b) {
+        auto av = std::dynamic_pointer_cast<IRVar>(a);
+        auto bv = std::dynamic_pointer_cast<IRVar>(b);
+        if (av && bv) return av.get() == bv.get();
+        auto al = std::dynamic_pointer_cast<IRLiteral>(a);
+        auto bl = std::dynamic_pointer_cast<IRLiteral>(b);
+        return sameLiteral(al, bl);
+    }
+
+    std::optional<ValuePtr> simplifyBinary(const std::shared_ptr<IRBinaryop> &op,
+                                           const LitPtr &lhs,
+                                           const LitPtr &rhs) {
+        if (!op) return std::nullopt;
+        auto zero = std::make_shared<IRLiteral>(INT_LITERAL, 0, false);
+        switch (op->op) {
+            case ADD:
+                if (isZero(rhs)) return op->leftValue;
+                if (isZero(lhs)) return op->rightValue;
+                break;
+            case SUB:
+                if (isZero(rhs)) return op->leftValue;
+                break;
+            case MUL:
+                if (isZero(lhs) || isZero(rhs)) return zero;
+                if (isOne(rhs)) return op->leftValue;
+                if (isOne(lhs)) return op->rightValue;
+                break;
+            case DIV:
+                if (isOne(rhs)) return op->leftValue;
+                break;
+            case MOD:
+                if (isOne(rhs)) return zero;
+                break;
+            case ANDOP:
+                if (isZero(lhs) || isZero(rhs)) return zero;
+                break;
+            case OROP:
+            case XOROP:
+                if (isZero(rhs)) return op->leftValue;
+                if (isZero(lhs)) return op->rightValue;
+                break;
+            case LEFTSHIFTOP:
+            case RIGHTSHIFTOP:
+                if (isZero(rhs)) return op->leftValue;
+                break;
+            case EQ:
+                if (sameValue(op->leftValue, op->rightValue)) return makeBool(true);
+                break;
+            case NEQ:
+                if (sameValue(op->leftValue, op->rightValue)) return makeBool(false);
+                break;
+            default:
+                break;
+        }
+        return std::nullopt;
+    }
+
+    void bindSimplifiedValue(const VarPtr &result,
+                             const ValuePtr &value,
+                             ConstMap &constMap,
+                             AliasMap &aliasMap,
+                             bool &changed) {
+        if (!result || !value) return;
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) {
+            constMap[result.get()] = lit;
+            aliasMap.erase(result.get());
+        } else {
+            constMap.erase(result.get());
+            aliasMap[result.get()] = value;
+        }
+        changed = true;
     }
 
     std::optional<LitPtr> foldBinary(IROp op, const LitPtr &lhs, const LitPtr &rhs, bool unsignedTag, bool wide64 = false) {
@@ -303,22 +408,29 @@ private:
     }
 
     void foldCast(const VarPtr &value, const VarPtr &result,
-                  std::map<IRVar*, LitPtr> &constMap,
+                  ConstMap &constMap,
+                  AliasMap &aliasMap,
                   bool &changed) {
         if (!result) return;
-        auto lit = getLiteral(value, constMap);
+        auto lit = getLiteral(value, constMap, aliasMap);
         if (!lit) {
             constMap.erase(result.get());
+            aliasMap.erase(result.get());
             return;
         }
         constMap[result.get()] = lit;
+        aliasMap.erase(result.get());
         changed = true;
     }
 
     void clearDefinedVar(const std::shared_ptr<IRNode> &instr,
-                         std::map<IRVar*, LitPtr> &constMap) {
+                         ConstMap &constMap,
+                         AliasMap &aliasMap) {
         auto eraseVar = [&](const VarPtr &var) {
-            if (var) constMap.erase(var.get());
+            if (var) {
+                constMap.erase(var.get());
+                aliasMap.erase(var.get());
+            }
         };
 
         if (auto p = std::dynamic_pointer_cast<IRLoad>(instr)) eraseVar(p->tmp);
@@ -327,58 +439,84 @@ private:
         else if (auto p = std::dynamic_pointer_cast<IRGetint>(instr)) eraseVar(p->result);
     }
 
-    void replaceValue(ValuePtr &val, const std::map<IRVar*, LitPtr> &constMap, bool &changed) {
-        if (auto var = std::dynamic_pointer_cast<IRVar>(val)) {
-            auto it = constMap.find(var.get());
-            if (it != constMap.end()) {
-                val = it->second;
-                changed = true;
-            }
+    void replaceValue(ValuePtr &val, const ConstMap &constMap, const AliasMap &aliasMap, bool &changed) {
+        auto resolved = resolveValue(val, constMap, aliasMap);
+        if (resolved && resolved != val) {
+            val = resolved;
+            changed = true;
+        }
+    }
+
+    void replaceVar(VarPtr &var, const AliasMap &aliasMap, bool &changed) {
+        if (!var) return;
+        auto it = aliasMap.find(var.get());
+        if (it == aliasMap.end()) return;
+        if (auto replacement = std::dynamic_pointer_cast<IRVar>(it->second)) {
+            var = replacement;
+            changed = true;
         }
     }
 
     void rewriteStore(const std::shared_ptr<IRStore> &store,
-                      const std::map<IRVar*, LitPtr> &constMap,
+                      const ConstMap &constMap,
+                      const AliasMap &aliasMap,
                       bool &changed) {
         if (!store || !store->storeValue) return;
-        auto it = constMap.find(store->storeValue.get());
-        if (it == constMap.end()) return;
-        store->storeLiteral = it->second;
-        store->storeValue = nullptr;
-        changed = true;
+        ValuePtr value = store->storeValue;
+        replaceValue(value, constMap, aliasMap, changed);
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) {
+            store->storeLiteral = lit;
+            store->storeValue = nullptr;
+        } else if (auto var = std::dynamic_pointer_cast<IRVar>(value)) {
+            store->storeValue = var;
+        }
     }
 
     void rewriteReturn(const std::shared_ptr<IRReturn> &ret,
-                       const std::map<IRVar*, LitPtr> &constMap,
+                       const ConstMap &constMap,
+                       const AliasMap &aliasMap,
                        bool &changed) {
         if (!ret || !ret->returnValue) return;
-        auto it = constMap.find(ret->returnValue.get());
-        if (it == constMap.end()) return;
-        ret->returnLiteral = it->second;
-        ret->returnValue = nullptr;
-        changed = true;
+        ValuePtr value = ret->returnValue;
+        replaceValue(value, constMap, aliasMap, changed);
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(value)) {
+            ret->returnLiteral = lit;
+            ret->returnValue = nullptr;
+        } else if (auto var = std::dynamic_pointer_cast<IRVar>(value)) {
+            ret->returnValue = var;
+        }
     }
 
     void rewriteCall(const std::shared_ptr<IRCall> &call,
-                     const std::map<IRVar*, LitPtr> &constMap,
+                     const ConstMap &constMap,
+                     const AliasMap &aliasMap,
                      bool &changed) {
         if (!call || !call->pList) return;
         for (auto &param : call->pList->paramList) {
             auto val = std::dynamic_pointer_cast<IRValue>(param);
             if (!val) continue;
-            replaceValue(val, constMap, changed);
+            replaceValue(val, constMap, aliasMap, changed);
             param = std::dynamic_pointer_cast<IRNode>(val);
         }
     }
 
     void simplifyBranch(const std::shared_ptr<IRBr> &br,
-                        const std::map<IRVar*, LitPtr> &constMap,
+                        const ConstMap &constMap,
+                        const AliasMap &aliasMap,
                         bool &changed) {
         if (!br || !br->condition || !br->trueLabel || !br->falseLabel) return;
-        auto it = constMap.find(br->condition.get());
-        if (it == constMap.end()) return;
+        auto condValue = resolveValue(br->condition, constMap, aliasMap);
+        if (auto condVar = std::dynamic_pointer_cast<IRVar>(condValue)) {
+            if (condVar != br->condition) {
+                br->condition = condVar;
+                changed = true;
+            }
+            return;
+        }
+        auto condLit = std::dynamic_pointer_cast<IRLiteral>(condValue);
+        if (!condLit) return;
 
-        auto chosen = literalValue(it->second) != 0 ? br->trueLabel : br->falseLabel;
+        auto chosen = literalValue(condLit) != 0 ? br->trueLabel : br->falseLabel;
         br->condition = nullptr;
         br->trueLabel = chosen;
         br->falseLabel = nullptr;
