@@ -213,12 +213,14 @@ private:
                                            const LitPtr &rhs) {
         if (!op) return std::nullopt;
         auto zero = std::make_shared<IRLiteral>(INT_LITERAL, 0, false);
+        bool operandsSame = sameValue(op->leftValue, op->rightValue);
         switch (op->op) {
             case ADD:
                 if (isZero(rhs)) return op->leftValue;
                 if (isZero(lhs)) return op->rightValue;
                 break;
             case SUB:
+                if (operandsSame) return zero;
                 if (isZero(rhs)) return op->leftValue;
                 break;
             case MUL:
@@ -233,10 +235,16 @@ private:
                 if (isOne(rhs)) return zero;
                 break;
             case ANDOP:
+                if (operandsSame) return op->leftValue;
                 if (isZero(lhs) || isZero(rhs)) return zero;
                 break;
             case OROP:
+                if (operandsSame) return op->leftValue;
+                if (isZero(rhs)) return op->leftValue;
+                if (isZero(lhs)) return op->rightValue;
+                break;
             case XOROP:
+                if (operandsSame) return zero;
                 if (isZero(rhs)) return op->leftValue;
                 if (isZero(lhs)) return op->rightValue;
                 break;
@@ -245,10 +253,18 @@ private:
                 if (isZero(rhs)) return op->leftValue;
                 break;
             case EQ:
-                if (sameValue(op->leftValue, op->rightValue)) return makeBool(true);
+                if (operandsSame) return makeBool(true);
                 break;
             case NEQ:
-                if (sameValue(op->leftValue, op->rightValue)) return makeBool(false);
+                if (operandsSame) return makeBool(false);
+                break;
+            case LT:
+            case GT:
+                if (operandsSame) return makeBool(false);
+                break;
+            case LEQ:
+            case GEQ:
+                if (operandsSame) return makeBool(true);
                 break;
             default:
                 break;
