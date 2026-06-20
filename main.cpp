@@ -18,6 +18,7 @@
 #include "src/optimize/deadCodeEliminate.h"
 #include "src/optimize/localCSE.h"
 #include "src/optimize/memoryForward.h"
+#include "src/optimize/sccp.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -64,8 +65,13 @@ int main(){
     JaneZ::DominantTree domTree;
     domTree.optimize(code_generator.irRoot);
 
+    JaneZ::SCCP sccp;
+    sccp.optimize(code_generator.irRoot);
+
     JaneZ::FunctionInline functionInline;
     functionInline.optimize(code_generator.irRoot);
+
+    sccp.optimize(code_generator.irRoot);
 
     JaneZ::ConstantFold constantFold;
     constantFold.optimize(code_generator.irRoot);
