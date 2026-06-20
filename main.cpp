@@ -17,6 +17,7 @@
 #include "src/optimize/cfgClean.h"
 #include "src/optimize/deadCodeEliminate.h"
 #include "src/optimize/localCSE.h"
+#include "src/optimize/licm.h"
 #include "src/optimize/memoryForward.h"
 #include "src/optimize/sccp.h"
 #include <filesystem>
@@ -93,6 +94,9 @@ int main(){
 
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
+
+    JaneZ::LICM licm;
+    licm.optimize(code_generator.irRoot);
 
     deadCodeEliminate.optimize(code_generator.irRoot);
 
