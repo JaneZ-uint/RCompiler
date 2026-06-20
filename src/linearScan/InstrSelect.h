@@ -30,6 +30,7 @@
 #include <vector>
 #include <unordered_map>
 #include <iostream>
+#include <limits>
 
 namespace JaneZ {
 
@@ -159,6 +160,56 @@ public:
 
     bool fitsShift6(long long value) {
         return value >= 0 && value < 64;
+    }
+
+    bool powerOfTwoShift(long long value, int &shift) {
+        if (value <= 0 || (value & (value - 1)) != 0) return false;
+        shift = 0;
+        while (value > 1) {
+            value >>= 1;
+            shift++;
+        }
+        return shift < 64;
+    }
+
+    bool checkedMul(long long lhs, long long rhs, long long &result) {
+        __int128 wide = static_cast<__int128>(lhs) * static_cast<__int128>(rhs);
+        if (wide < std::numeric_limits<long long>::min() ||
+            wide > std::numeric_limits<long long>::max()) {
+            return false;
+        }
+        result = static_cast<long long>(wide);
+        return true;
+    }
+
+    void emitAddOffset(int dst, int base, long long offset) {
+        if (offset == 0) {
+            ASMInstr mv;
+            mv.op = ASMOp::MV;
+            mv.rd = Operand(OperandType::REG, dst);
+            mv.rs1 = Operand(OperandType::REG, base);
+            currentBlock->instrs.push_back(mv);
+        } else if (fitsSigned12(offset)) {
+            ASMInstr addi;
+            addi.op = ASMOp::ADDI;
+            addi.rd = Operand(OperandType::REG, dst);
+            addi.rs1 = Operand(OperandType::REG, base);
+            addi.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(addi);
+        } else {
+            int tmp = freshVReg();
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, tmp);
+            li.imm = Operand(OperandType::IMM, offset);
+            currentBlock->instrs.push_back(li);
+            ASMInstr add;
+            add.op = ASMOp::ADD;
+            add.rd = Operand(OperandType::REG, dst);
+            add.rs1 = Operand(OperandType::REG, base);
+            add.rs2 = Operand(OperandType::REG, tmp);
+            currentBlock->instrs.push_back(add);
+        }
     }
 
     std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
@@ -910,27 +961,48 @@ public:
             else
                 elemSize = pointedType->size;
 
-            int idx = materialize(op->index);
-            int sz = freshVReg();
-            ASMInstr li;
-            li.op = ASMOp::LI;
-            li.rd = Operand(OperandType::REG, sz);
-            li.imm = Operand(OperandType::IMM, elemSize);
-            currentBlock->instrs.push_back(li);
+            long long indexImm = 0;
+            long long offset = 0;
+            if (literalValue(op->index, indexImm) && checkedMul(indexImm, elemSize, offset)) {
+                emitAddOffset(dst, base, offset);
+                return;
+            }
 
-            int prod = freshVReg();
-            ASMInstr mul;
-            mul.op = ASMOp::MUL;
-            mul.rd = Operand(OperandType::REG, prod);
-            mul.rs1 = Operand(OperandType::REG, idx);
-            mul.rs2 = Operand(OperandType::REG, sz);
-            currentBlock->instrs.push_back(mul);
+            int idx = materialize(op->index);
+            int scaled = idx;
+            int shift = 0;
+            if (elemSize == 1) {
+                scaled = idx;
+            } else if (powerOfTwoShift(elemSize, shift)) {
+                scaled = freshVReg();
+                ASMInstr sh;
+                sh.op = ASMOp::SLLI;
+                sh.rd = Operand(OperandType::REG, scaled);
+                sh.rs1 = Operand(OperandType::REG, idx);
+                sh.imm = Operand(OperandType::IMM, shift);
+                currentBlock->instrs.push_back(sh);
+            } else {
+                int sz = freshVReg();
+                ASMInstr li;
+                li.op = ASMOp::LI;
+                li.rd = Operand(OperandType::REG, sz);
+                li.imm = Operand(OperandType::IMM, elemSize);
+                currentBlock->instrs.push_back(li);
+
+                scaled = freshVReg();
+                ASMInstr mul;
+                mul.op = ASMOp::MUL;
+                mul.rd = Operand(OperandType::REG, scaled);
+                mul.rs1 = Operand(OperandType::REG, idx);
+                mul.rs2 = Operand(OperandType::REG, sz);
+                currentBlock->instrs.push_back(mul);
+            }
 
             ASMInstr add;
             add.op = ASMOp::ADD;
             add.rd = Operand(OperandType::REG, dst);
             add.rs1 = Operand(OperandType::REG, base);
-            add.rs2 = Operand(OperandType::REG, prod);
+            add.rs2 = Operand(OperandType::REG, scaled);
             currentBlock->instrs.push_back(add);
         } else if (op->offset != -1) {
             int off = 0;
@@ -941,33 +1013,7 @@ public:
             else
                 off = op->offset * pointedType->size;
 
-            if (off == 0) {
-                ASMInstr mv;
-                mv.op = ASMOp::MV;
-                mv.rd = Operand(OperandType::REG, dst);
-                mv.rs1 = Operand(OperandType::REG, base);
-                currentBlock->instrs.push_back(mv);
-            } else if (off >= -2048 && off <= 2047) {
-                ASMInstr addi;
-                addi.op = ASMOp::ADDI;
-                addi.rd = Operand(OperandType::REG, dst);
-                addi.rs1 = Operand(OperandType::REG, base);
-                addi.imm = Operand(OperandType::IMM, off);
-                currentBlock->instrs.push_back(addi);
-            } else {
-                int tmp = freshVReg();
-                ASMInstr li;
-                li.op = ASMOp::LI;
-                li.rd = Operand(OperandType::REG, tmp);
-                li.imm = Operand(OperandType::IMM, off);
-                currentBlock->instrs.push_back(li);
-                ASMInstr add;
-                add.op = ASMOp::ADD;
-                add.rd = Operand(OperandType::REG, dst);
-                add.rs1 = Operand(OperandType::REG, base);
-                add.rs2 = Operand(OperandType::REG, tmp);
-                currentBlock->instrs.push_back(add);
-            }
+            emitAddOffset(dst, base, off);
         } else {
             ASMInstr mv;
             mv.op = ASMOp::MV;
