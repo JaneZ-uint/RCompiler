@@ -142,6 +142,10 @@ private:
         IRUtil::replaceUses(instr, replaceMap);
         if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
             rewriteStoreValue(store, replaceMap);
+        } else if (auto ret = std::dynamic_pointer_cast<IRReturn>(instr)) {
+            rewriteReturnValue(ret, replaceMap);
+        } else if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
+            rewriteBranchCondition(br, replaceMap);
         }
     }
 
@@ -156,6 +160,39 @@ private:
         } else if (auto var = std::dynamic_pointer_cast<IRVar>(it->second)) {
             store->storeValue = var;
         }
+    }
+
+    void rewriteReturnValue(const std::shared_ptr<IRReturn> &ret,
+                            const std::map<IRVar*, ValuePtr> &replaceMap) {
+        if (!ret || !ret->returnValue) return;
+        auto lit = replacementLiteral(ret->returnValue, replaceMap);
+        if (!lit) return;
+        ret->returnLiteral = lit;
+        ret->returnValue = nullptr;
+    }
+
+    void rewriteBranchCondition(const std::shared_ptr<IRBr> &br,
+                                const std::map<IRVar*, ValuePtr> &replaceMap) {
+        if (!br || !br->condition || !br->trueLabel || !br->falseLabel) return;
+        auto lit = replacementLiteral(br->condition, replaceMap);
+        if (!lit) return;
+        br->trueLabel = literalIsTrue(lit) ? br->trueLabel : br->falseLabel;
+        br->condition = nullptr;
+        br->falseLabel = nullptr;
+    }
+
+    std::shared_ptr<IRLiteral> replacementLiteral(const std::shared_ptr<IRVar> &var,
+                                                  const std::map<IRVar*, ValuePtr> &replaceMap) {
+        if (!var) return nullptr;
+        auto it = replaceMap.find(var.get());
+        if (it == replaceMap.end()) return nullptr;
+        return std::dynamic_pointer_cast<IRLiteral>(it->second);
+    }
+
+    bool literalIsTrue(const std::shared_ptr<IRLiteral> &lit) {
+        if (!lit) return false;
+        if (lit->literalType == BOOL_LITERAL) return lit->boolValue || lit->intValue != 0;
+        return lit->intValue != 0;
     }
 };
 
