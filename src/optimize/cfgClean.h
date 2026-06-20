@@ -171,10 +171,15 @@ private:
                               std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
         if (!blk) return;
         for (auto &instr : blk->instrList) {
-            auto phi = std::dynamic_pointer_cast<IRPHI>(instr);
-            if (!phi || !phi->result) continue;
-            auto replacement = singlePhiValue(phi);
-            if (replacement) replaceMap[phi->result.get()] = replacement;
+            if (auto phi = std::dynamic_pointer_cast<IRPHI>(instr)) {
+                if (!phi->result) continue;
+                auto replacement = singlePhiValue(phi);
+                if (replacement) replaceMap[phi->result.get()] = replacement;
+            } else if (auto phi = std::dynamic_pointer_cast<IRPhi>(instr)) {
+                if (!phi->result) continue;
+                auto replacement = singleLegacyPhiValue(phi);
+                if (replacement) replaceMap[phi->result.get()] = replacement;
+            }
         }
     }
 
@@ -205,6 +210,33 @@ private:
         return first;
     }
 
+    std::shared_ptr<IRValue> singleLegacyPhiValue(const std::shared_ptr<IRPhi> &phi) {
+        if (!phi) return nullptr;
+        std::shared_ptr<IRValue> first = nullptr;
+        int valueCount = 0;
+
+        auto consider = [&](const std::shared_ptr<IRValue> &value) -> bool {
+            if (!value) return true;
+            valueCount++;
+            if (!first) {
+                first = value;
+                return true;
+            }
+            return sameValue(first, value);
+        };
+
+        if (phi->firstBlock) {
+            auto firstValue = std::make_shared<IRLiteral>(BOOL_LITERAL, phi->firstState ? 1 : 0, phi->firstState);
+            if (!consider(firstValue)) return nullptr;
+        }
+        if (phi->secondBlock) {
+            if (!consider(phi->secondState)) return nullptr;
+        }
+
+        if (valueCount == 0) return nullptr;
+        return first;
+    }
+
     bool sameValue(const std::shared_ptr<IRValue> &lhs,
                    const std::shared_ptr<IRValue> &rhs) {
         if (lhs == rhs) return true;
@@ -220,7 +252,49 @@ private:
     void applyReplacements(const std::shared_ptr<IRBlock> &blk,
                            const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
         if (!blk) return;
-        for (auto &instr : blk->instrList) IRUtil::replaceUses(instr, replaceMap);
+        for (auto &instr : blk->instrList) {
+            applyLiteralReplacement(instr, replaceMap);
+            IRUtil::replaceUses(instr, replaceMap);
+        }
+    }
+
+    void applyLiteralReplacement(const std::shared_ptr<IRNode> &instr,
+                                 const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        if (!instr || replaceMap.empty()) return;
+        if (auto ret = std::dynamic_pointer_cast<IRReturn>(instr)) {
+            if (!ret->returnValue) return;
+            auto lit = replacementLiteral(ret->returnValue, replaceMap);
+            if (!lit) return;
+            ret->returnLiteral = lit;
+            ret->returnValue = nullptr;
+        } else if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
+            if (!store->storeValue) return;
+            auto lit = replacementLiteral(store->storeValue, replaceMap);
+            if (!lit) return;
+            store->storeLiteral = lit;
+            store->storeValue = nullptr;
+        } else if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
+            if (!br->condition || !br->trueLabel || !br->falseLabel) return;
+            auto lit = replacementLiteral(br->condition, replaceMap);
+            if (!lit) return;
+            br->trueLabel = literalIsTrue(lit) ? br->trueLabel : br->falseLabel;
+            br->condition = nullptr;
+            br->falseLabel = nullptr;
+        }
+    }
+
+    std::shared_ptr<IRLiteral> replacementLiteral(const std::shared_ptr<IRVar> &var,
+                                                  const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        if (!var) return nullptr;
+        auto it = replaceMap.find(var.get());
+        if (it == replaceMap.end()) return nullptr;
+        return std::dynamic_pointer_cast<IRLiteral>(it->second);
+    }
+
+    bool literalIsTrue(const std::shared_ptr<IRLiteral> &lit) {
+        if (!lit) return false;
+        if (lit->literalType == BOOL_LITERAL) return lit->boolValue || lit->intValue != 0;
+        return lit->intValue != 0;
     }
 };
 
