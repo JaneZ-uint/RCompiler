@@ -145,6 +145,22 @@ public:
         return low;
     }
 
+    bool literalValue(const std::shared_ptr<IRNode> &node, long long &value) {
+        if (auto lit = std::dynamic_pointer_cast<IRLiteral>(node)) {
+            value = lit->intValue;
+            return true;
+        }
+        return false;
+    }
+
+    bool fitsSigned12(long long value) {
+        return value >= -2048 && value <= 2047;
+    }
+
+    bool fitsShift6(long long value) {
+        return value >= 0 && value < 64;
+    }
+
     std::string asmFunctionName(const std::shared_ptr<IRFunction>& func) {
         std::string name = func->name;
         if (func->parentStructType) {
@@ -515,9 +531,13 @@ public:
     }
 
     void selectBinaryOp(std::shared_ptr<IRBinaryop> op) {
-        int lhs = materialize(op->leftValue);
-        int rhs = materialize(op->rightValue);
         int dst = getVReg(op->result);
+        int lhs = -1;
+        int rhs = -1;
+        long long lhsImm = 0;
+        long long rhsImm = 0;
+        bool lhsLiteral = literalValue(op->leftValue, lhsImm);
+        bool rhsLiteral = literalValue(op->rightValue, rhsImm);
         bool zextU32Result = op->utag && !op->w64tag &&
                              op->result && op->result->type &&
                              op->result->type->type == BaseType::INT &&
@@ -525,21 +545,63 @@ public:
                              std::dynamic_pointer_cast<IRIntType>(op->result->type)->bitWidth == 32 &&
                              std::dynamic_pointer_cast<IRIntType>(op->result->type)->isUnsigned;
 
+        auto lhsReg = [&]() {
+            if (lhs == -1) lhs = materialize(op->leftValue);
+            return lhs;
+        };
+
+        auto rhsReg = [&]() {
+            if (rhs == -1) rhs = materialize(op->rightValue);
+            return rhs;
+        };
+
         auto emit = [&](ASMOp asmOp) {
             ASMInstr i;
             i.op = asmOp;
             i.rd = Operand(OperandType::REG, dst);
-            i.rs1 = Operand(OperandType::REG, lhs);
-            i.rs2 = Operand(OperandType::REG, rhs);
+            i.rs1 = Operand(OperandType::REG, lhsReg());
+            i.rs2 = Operand(OperandType::REG, rhsReg());
             currentBlock->instrs.push_back(i);
+        };
+
+        auto emitImm = [&](ASMOp asmOp, int src, long long imm) {
+            ASMInstr i;
+            i.op = asmOp;
+            i.rd = Operand(OperandType::REG, dst);
+            i.rs1 = Operand(OperandType::REG, src);
+            i.imm = Operand(OperandType::IMM, imm);
+            currentBlock->instrs.push_back(i);
+        };
+
+        auto emitInvertBool = [&]() {
+            ASMInstr x;
+            x.op = ASMOp::XORI;
+            x.rd = Operand(OperandType::REG, dst);
+            x.rs1 = Operand(OperandType::REG, dst);
+            x.imm = Operand(OperandType::IMM, 1);
+            currentBlock->instrs.push_back(x);
         };
 
         switch (op->op) {
             case IROp::ADD:
+                if (op->w64tag) {
+                    if (rhsLiteral && fitsSigned12(rhsImm)) {
+                        emitImm(ASMOp::ADDI, lhsReg(), rhsImm);
+                        break;
+                    }
+                    if (lhsLiteral && fitsSigned12(lhsImm)) {
+                        emitImm(ASMOp::ADDI, rhsReg(), lhsImm);
+                        break;
+                    }
+                }
                 emit(op->w64tag ? ASMOp::ADD : ASMOp::ADDW);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::SUB:
+                if (op->w64tag && rhsLiteral && fitsSigned12(-rhsImm)) {
+                    emitImm(ASMOp::ADDI, lhsReg(), -rhsImm);
+                    break;
+                }
                 emit(op->w64tag ? ASMOp::SUB : ASMOp::SUBW);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
@@ -555,54 +617,91 @@ public:
                 emit(op->w64tag ? (op->utag ? ASMOp::REMU : ASMOp::REM) : (op->utag ? ASMOp::REMUW : ASMOp::REMW));
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
-            case IROp::LT:  emit(op->utag ? ASMOp::SLTU : ASMOp::SLT); break;
+            case IROp::LT:
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(op->utag ? ASMOp::SLTIU : ASMOp::SLTI, lhsReg(), rhsImm);
+                    break;
+                }
+                emit(op->utag ? ASMOp::SLTU : ASMOp::SLT);
+                break;
             case IROp::GT: {
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(op->utag ? ASMOp::SLTIU : ASMOp::SLTI, rhsReg(), lhsImm);
+                    break;
+                }
                 ASMInstr i;
                 i.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 i.rd = Operand(OperandType::REG, dst);
-                i.rs1 = Operand(OperandType::REG, rhs);
-                i.rs2 = Operand(OperandType::REG, lhs);
+                i.rs1 = Operand(OperandType::REG, rhsReg());
+                i.rs2 = Operand(OperandType::REG, lhsReg());
                 currentBlock->instrs.push_back(i);
                 break;
             }
             case IROp::LEQ: {
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(op->utag ? ASMOp::SLTIU : ASMOp::SLTI, rhsReg(), lhsImm);
+                    emitInvertBool();
+                    break;
+                }
                 // a <= b  ⟺  !(b < a)
                 ASMInstr slt;
                 slt.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 slt.rd = Operand(OperandType::REG, dst);
-                slt.rs1 = Operand(OperandType::REG, rhs);
-                slt.rs2 = Operand(OperandType::REG, lhs);
+                slt.rs1 = Operand(OperandType::REG, rhsReg());
+                slt.rs2 = Operand(OperandType::REG, lhsReg());
                 currentBlock->instrs.push_back(slt);
-                ASMInstr x;
-                x.op = ASMOp::XORI;
-                x.rd = Operand(OperandType::REG, dst);
-                x.rs1 = Operand(OperandType::REG, dst);
-                x.imm = Operand(OperandType::IMM, 1);
-                currentBlock->instrs.push_back(x);
+                emitInvertBool();
                 break;
             }
             case IROp::GEQ: {
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(op->utag ? ASMOp::SLTIU : ASMOp::SLTI, lhsReg(), rhsImm);
+                    emitInvertBool();
+                    break;
+                }
                 // a >= b  ⟺  !(a < b)
                 ASMInstr slt;
                 slt.op = op->utag ? ASMOp::SLTU : ASMOp::SLT;
                 slt.rd = Operand(OperandType::REG, dst);
-                slt.rs1 = Operand(OperandType::REG, lhs);
-                slt.rs2 = Operand(OperandType::REG, rhs);
+                slt.rs1 = Operand(OperandType::REG, lhsReg());
+                slt.rs2 = Operand(OperandType::REG, rhsReg());
                 currentBlock->instrs.push_back(slt);
-                ASMInstr x;
-                x.op = ASMOp::XORI;
-                x.rd = Operand(OperandType::REG, dst);
-                x.rs1 = Operand(OperandType::REG, dst);
-                x.imm = Operand(OperandType::IMM, 1);
-                currentBlock->instrs.push_back(x);
+                emitInvertBool();
                 break;
             }
             case IROp::EQ: {
+                if ((rhsLiteral && rhsImm == 0) || (lhsLiteral && lhsImm == 0)) {
+                    int src = rhsLiteral ? lhsReg() : rhsReg();
+                    ASMInstr seqz;
+                    seqz.op = ASMOp::SEQZ;
+                    seqz.rd = Operand(OperandType::REG, dst);
+                    seqz.rs1 = Operand(OperandType::REG, src);
+                    currentBlock->instrs.push_back(seqz);
+                    break;
+                }
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(ASMOp::XORI, lhsReg(), rhsImm);
+                    ASMInstr seqz;
+                    seqz.op = ASMOp::SEQZ;
+                    seqz.rd = Operand(OperandType::REG, dst);
+                    seqz.rs1 = Operand(OperandType::REG, dst);
+                    currentBlock->instrs.push_back(seqz);
+                    break;
+                }
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(ASMOp::XORI, rhsReg(), lhsImm);
+                    ASMInstr seqz;
+                    seqz.op = ASMOp::SEQZ;
+                    seqz.rd = Operand(OperandType::REG, dst);
+                    seqz.rs1 = Operand(OperandType::REG, dst);
+                    currentBlock->instrs.push_back(seqz);
+                    break;
+                }
                 ASMInstr sub;
                 sub.op = ASMOp::SUB;
                 sub.rd = Operand(OperandType::REG, dst);
-                sub.rs1 = Operand(OperandType::REG, lhs);
-                sub.rs2 = Operand(OperandType::REG, rhs);
+                sub.rs1 = Operand(OperandType::REG, lhsReg());
+                sub.rs2 = Operand(OperandType::REG, rhsReg());
                 currentBlock->instrs.push_back(sub);
                 ASMInstr seqz;
                 seqz.op = ASMOp::SEQZ;
@@ -612,11 +711,38 @@ public:
                 break;
             }
             case IROp::NEQ: {
+                if ((rhsLiteral && rhsImm == 0) || (lhsLiteral && lhsImm == 0)) {
+                    int src = rhsLiteral ? lhsReg() : rhsReg();
+                    ASMInstr snez;
+                    snez.op = ASMOp::SNEZ;
+                    snez.rd = Operand(OperandType::REG, dst);
+                    snez.rs1 = Operand(OperandType::REG, src);
+                    currentBlock->instrs.push_back(snez);
+                    break;
+                }
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(ASMOp::XORI, lhsReg(), rhsImm);
+                    ASMInstr snez;
+                    snez.op = ASMOp::SNEZ;
+                    snez.rd = Operand(OperandType::REG, dst);
+                    snez.rs1 = Operand(OperandType::REG, dst);
+                    currentBlock->instrs.push_back(snez);
+                    break;
+                }
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(ASMOp::XORI, rhsReg(), lhsImm);
+                    ASMInstr snez;
+                    snez.op = ASMOp::SNEZ;
+                    snez.rd = Operand(OperandType::REG, dst);
+                    snez.rs1 = Operand(OperandType::REG, dst);
+                    currentBlock->instrs.push_back(snez);
+                    break;
+                }
                 ASMInstr sub;
                 sub.op = ASMOp::SUB;
                 sub.rd = Operand(OperandType::REG, dst);
-                sub.rs1 = Operand(OperandType::REG, lhs);
-                sub.rs2 = Operand(OperandType::REG, rhs);
+                sub.rs1 = Operand(OperandType::REG, lhsReg());
+                sub.rs2 = Operand(OperandType::REG, rhsReg());
                 currentBlock->instrs.push_back(sub);
                 ASMInstr snez;
                 snez.op = ASMOp::SNEZ;
@@ -626,22 +752,60 @@ public:
                 break;
             }
             case IROp::ANDOP:
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(ASMOp::ANDI, lhsReg(), rhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(ASMOp::ANDI, rhsReg(), lhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
                 emit(ASMOp::AND);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::OROP:
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(ASMOp::ORI, lhsReg(), rhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(ASMOp::ORI, rhsReg(), lhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
                 emit(ASMOp::OR);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::XOROP:
+                if (rhsLiteral && fitsSigned12(rhsImm)) {
+                    emitImm(ASMOp::XORI, lhsReg(), rhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
+                if (lhsLiteral && fitsSigned12(lhsImm)) {
+                    emitImm(ASMOp::XORI, rhsReg(), lhsImm);
+                    if (zextU32Result) emitZeroExtend32(dst);
+                    break;
+                }
                 emit(ASMOp::XOR);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::LEFTSHIFTOP:
+                if (op->w64tag && rhsLiteral && fitsShift6(rhsImm)) {
+                    emitImm(ASMOp::SLLI, lhsReg(), rhsImm);
+                    break;
+                }
                 emit(op->w64tag ? ASMOp::SLL : ASMOp::SLLW);
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::RIGHTSHIFTOP:
+                if (op->w64tag && rhsLiteral && fitsShift6(rhsImm)) {
+                    emitImm(op->utag ? ASMOp::SRLI : ASMOp::SRAI, lhsReg(), rhsImm);
+                    break;
+                }
                 emit(op->w64tag ? (op->utag ? ASMOp::SRL : ASMOp::SRA) : (op->utag ? ASMOp::SRLW : ASMOp::SRAW));
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
