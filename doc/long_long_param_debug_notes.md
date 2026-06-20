@@ -1588,3 +1588,29 @@ Decision:
 
 - Do not commit enum long-parameter tests for now.
 - Continue with non-enum parameter combinations that compile and run.
+
+## Grouped Reference Aggregate Long-Parameter Probe
+
+Date: 2026-06-20
+
+Goal:
+
+- Expand the previous grouped-dereference fix into a normal long-parameter case with every common parameter family mixed together.
+- Cover scalar values, scalar references, struct values, struct references, array values, array references, `& &usize`, `&mut usize`, `&mut Pair`, and `&mut [usize; 3]` in one call.
+- Force all 2048 parameters to contribute to the final checksum so stack-passed parameters cannot be silently ignored.
+
+Test:
+
+- `local_tests/long_param_grouped_ref_mix_2048.rx`
+  - 2048 explicit parameters.
+  - Uses `(*p)`, `(*p).field`, `(*arr_ref)[idx]`, and `**p` inside the callee.
+  - Uses large `usize` values above 32-bit range and negative `isize` values.
+
+Result:
+
+- RV64/qemu output: `1`.
+- This combination did not reproduce the hidden `long long param` WA.
+
+Next direction:
+
+- Keep the same normal parameter-type pressure, but add method `self` and aggregate return (`ret_ptr`) so the hidden return pointer and implicit receiver shift the stack-argument boundary.
