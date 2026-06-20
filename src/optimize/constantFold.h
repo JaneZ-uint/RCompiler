@@ -203,6 +203,14 @@ private:
         return lit && literalValue(lit) == 1;
     }
 
+    bool isAllOnes(const LitPtr &lit, bool wide64) {
+        if (!lit) return false;
+        if (wide64) {
+            return static_cast<uint64_t>(literalValue(lit)) == UINT64_MAX;
+        }
+        return toU32(literalValue(lit)) == 0xffffffffULL;
+    }
+
     bool sameValue(const ValuePtr &a, const ValuePtr &b) {
         auto av = std::dynamic_pointer_cast<IRVar>(a);
         auto bv = std::dynamic_pointer_cast<IRVar>(b);
@@ -241,9 +249,14 @@ private:
             case ANDOP:
                 if (operandsSame) return op->leftValue;
                 if (isZero(lhs) || isZero(rhs)) return zero;
+                if (isAllOnes(rhs, op->w64tag)) return op->leftValue;
+                if (isAllOnes(lhs, op->w64tag)) return op->rightValue;
                 break;
             case OROP:
                 if (operandsSame) return op->leftValue;
+                if (isAllOnes(lhs, op->w64tag) || isAllOnes(rhs, op->w64tag)) {
+                    return std::make_shared<IRLiteral>(INT_LITERAL, -1, true);
+                }
                 if (isZero(rhs)) return op->leftValue;
                 if (isZero(lhs)) return op->rightValue;
                 break;
