@@ -31,8 +31,8 @@ static bool isCalleeSaved(int r) {
 
 static std::vector<int> getAllocRegs() {
     std::vector<int> regs;
-    for (int r : CALLEE_SAVED) regs.push_back(r);
     for (int r : CALLER_SAVED) regs.push_back(r);
+    for (int r : CALLEE_SAVED) regs.push_back(r);
     return regs;
 }
 
