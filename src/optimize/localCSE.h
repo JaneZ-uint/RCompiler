@@ -149,6 +149,12 @@ private:
                 continue;
             }
 
+            if (std::dynamic_pointer_cast<IRStore>(instr)) {
+                loadTable.clear();
+                killDefs(instr, binaryTable, getptrTable, castTable, loadTable, replaceMap);
+                continue;
+            }
+
             if (IRUtil::hasSideEffect(instr)) {
                 binaryTable.clear();
                 getptrTable.clear();
