@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <cstdint>
 #include <optional>
 #include <set>
 #include <vector>
@@ -153,6 +154,10 @@ private:
         return makeInt(toI32(value));
     }
 
+    LitPtr makeI64(uint64_t value) {
+        return makeInt(static_cast<long long>(value));
+    }
+
     LitPtr makeBool(bool value) {
         return std::make_shared<IRLiteral>(BOOL_LITERAL, value ? 1 : 0, value);
     }
@@ -167,9 +172,8 @@ private:
         long long l = literalValue(lhs);
         long long r = literalValue(rhs);
 
-        // For 64-bit wide operations (usize), skip constant folding to avoid truncation
         if (wide64) {
-            return std::nullopt;
+            return foldBinary64(op, l, r, unsignedTag);
         }
 
         long long li32 = toI32(l);
@@ -214,6 +218,57 @@ private:
             case RIGHTSHIFTOP:
                 if (ri32 < 0 || ri32 >= 32) return std::nullopt;
                 return makeI32(unsignedTag ? lu32 >> ri32 : li32 >> ri32);
+            default:
+                return std::nullopt;
+        }
+    }
+
+    std::optional<LitPtr> foldBinary64(IROp op, long long l, long long r, bool unsignedTag) {
+        uint64_t lu64 = static_cast<uint64_t>(l);
+        uint64_t ru64 = static_cast<uint64_t>(r);
+        int64_t li64 = static_cast<int64_t>(lu64);
+        int64_t ri64 = static_cast<int64_t>(ru64);
+
+        switch (op) {
+            case ADD: return makeI64(lu64 + ru64);
+            case SUB: return makeI64(lu64 - ru64);
+            case MUL: return makeI64(lu64 * ru64);
+            case DIV:
+                if (unsignedTag) {
+                    if (ru64 == 0) return std::nullopt;
+                    return makeI64(lu64 / ru64);
+                } else {
+                    if (ri64 == 0) return std::nullopt;
+                    if (li64 == INT64_MIN && ri64 == -1) return std::nullopt;
+                    return makeI64(static_cast<uint64_t>(li64 / ri64));
+                }
+            case MOD:
+                if (unsignedTag) {
+                    if (ru64 == 0) return std::nullopt;
+                    return makeI64(lu64 % ru64);
+                } else {
+                    if (ri64 == 0) return std::nullopt;
+                    if (li64 == INT64_MIN && ri64 == -1) return std::nullopt;
+                    return makeI64(static_cast<uint64_t>(li64 % ri64));
+                }
+            case EQ: return makeBool(unsignedTag ? lu64 == ru64 : li64 == ri64);
+            case NEQ: return makeBool(unsignedTag ? lu64 != ru64 : li64 != ri64);
+            case LT: return makeBool(unsignedTag ? lu64 < ru64 : li64 < ri64);
+            case GT: return makeBool(unsignedTag ? lu64 > ru64 : li64 > ri64);
+            case LEQ: return makeBool(unsignedTag ? lu64 <= ru64 : li64 <= ri64);
+            case GEQ: return makeBool(unsignedTag ? lu64 >= ru64 : li64 >= ri64);
+            case LOGICALAND: return makeBool((lu64 != 0) && (ru64 != 0));
+            case LOGICALOR: return makeBool((lu64 != 0) || (ru64 != 0));
+            case XOROP: return makeI64(lu64 ^ ru64);
+            case OROP: return makeI64(lu64 | ru64);
+            case ANDOP: return makeI64(lu64 & ru64);
+            case LEFTSHIFTOP:
+                if (ri64 < 0 || ri64 >= 64) return std::nullopt;
+                return makeI64(lu64 << static_cast<unsigned>(ri64));
+            case RIGHTSHIFTOP:
+                if (ri64 < 0 || ri64 >= 64) return std::nullopt;
+                if (unsignedTag) return makeI64(lu64 >> static_cast<unsigned>(ri64));
+                return makeI64(static_cast<uint64_t>(li64 >> static_cast<unsigned>(ri64)));
             default:
                 return std::nullopt;
         }
