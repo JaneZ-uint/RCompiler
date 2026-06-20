@@ -88,9 +88,9 @@ private:
         auto it = key.empty() ? lastStore.end() : lastStore.find(key);
         if (it != lastStore.end() && it->second.value) {
             replaceMap[load->tmp.get()] = it->second.value;
-        } else {
-            replaceMap.erase(load->tmp.get());
+            return;
         }
+        replaceMap.erase(load->tmp.get());
         lastStore.clear();
     }
 
