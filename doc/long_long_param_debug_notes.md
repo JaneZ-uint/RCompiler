@@ -1614,3 +1614,86 @@ Result:
 Next direction:
 
 - Keep the same normal parameter-type pressure, but add method `self` and aggregate return (`ret_ptr`) so the hidden return pointer and implicit receiver shift the stack-argument boundary.
+
+## Found WA: Else Block Swallowed Outer Operators
+
+Date: 2026-06-20
+
+Goal:
+
+- Follow the grouped-reference probe by adding method `self`, hidden aggregate return pointer, and a mixed long parameter list.
+- Keep the case inside normal Rx syntax: no unsupported Rust features, no strings/chars, no deliberately invalid parser corner.
+
+Generated regressions:
+
+- `local_tests/method_sret_bare_if_min.rx`
+  - Minimal reproducer.
+  - Method receiver `&self`.
+  - Struct return value, so the call uses a hidden return pointer.
+  - `self` contains a `usize` field, `[usize; 4]` field, and `bool` field.
+  - The method body uses a bare `if` expression inside a larger `+` expression.
+- `local_tests/long_param_method_sret_ref_mix_1024.rx`
+  - 1024 explicit parameters plus `&self`.
+  - Mixed parameter cycle: `usize`, `&usize`, `isize`, `&isize`, `bool`, `&bool`, `Pair`, `&Pair`, `[usize; 4]`, `&[usize; 4]`, `& &usize`, `&mut usize`, `&mut Pair`, `&mut [usize; 4]`, `u32`, `&u32`.
+  - Returns `Ret { total: usize, echo: [usize; 4] }`.
+  - Uses all parameters in the checksum.
+
+Reproduction before fix:
+
+- A minimized method/sret case compiled and ran, but printed:
+  - result flag: `0`
+  - actual result: `406256`
+  - low-32-ish expected/result-shaped value: `1914576287`
+- Parenthesizing the `if` expression or assigning it to a temporary before the addition made the same logic pass.
+
+Root cause:
+
+- `Parser::parse_expr_if()` parsed the `else` arm with `parse_expr()`.
+- For an expression like:
+
+```rust
+self.bias + if (self.flag) { 101usize } else { 103usize } + p0
+```
+
+- The parser treated `else { 103usize } + p0` as the entire else arm instead of leaving `+ p0` for the outer binary expression.
+- That changed the AST shape and the later lowering produced wrong runtime behavior.
+
+Fix:
+
+- In `src/parser/PrattParser.cpp`, parse an `else` arm as:
+  - `parse_expr_if()` for `else if (...) { ... } ...`
+  - `parse_expr_block()` for `else { ... }`
+- This keeps the block expression bounded and lets following binary operators bind in the outer expression.
+
+Defensive codegen hardening kept from the investigation:
+
+- Function return jumps now use an `EXIT_LABEL` operand namespace printed as `.LexitN`.
+- Normal IR block labels remain `.LN`.
+- This avoids accidental ambiguity between synthetic function-exit labels and ordinary block labels while preserving existing branch formatting for normal blocks.
+
+Verification after fix:
+
+- `cmake --build build -j2`: pass
+- `local_tests/method_sret_bare_if_min.rx`: output `1`
+- `local_tests/long_param_method_sret_ref_mix_1024.rx`: output `1`
+- `local_tests/long_param_grouped_ref_mix_2048.rx`: output `1`
+- `local_tests/long_param_expr_combo_1536.rx`: output `1`
+- Temporary method/sret variants:
+  - `/tmp/host_payload_ret4.rx`: output `1`
+  - `/tmp/host_payload_group_if.rx`: output `1`
+  - `/tmp/host_payload_let_if.rx`: output `1`
+  - `/tmp/method_sret_full_64.rx`: output `1`
+- `bash /tmp/qt2.sh RCompiler-Testcases/long-param/src`: `PASS=34 FAIL=0`
+- `RCompiler-Testcases/semantic-2/src` compile-only RV64 pipeline: `PASS=50 FAIL=0`
+- `RCompiler-Testcases/semantic-1/global.json` compileexitcode oracle: `PASS=222 FAIL=0`
+
+Runner caveat:
+
+- `/tmp/qemu_test.sh` is absent in this environment.
+- `bash /tmp/qt2.sh RCompiler-Testcases/semantic-2/src` still reports `PASS=1 FAIL=49`; this is the same known bad stdout-oracle/layout issue and was not used as the semantic-2 regression signal.
+
+Why this is a plausible hidden `long long param` WA:
+
+- The trigger is not an invalid syntax trick.
+- It appears naturally when a long-parameter checksum mixes `self` fields, boolean-dependent terms, and trailing parameter terms.
+- A hidden generator can easily emit `... + if (...) { ... } else { ... } + param_k` without extra parentheses.

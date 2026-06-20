@@ -40,6 +40,13 @@ public:
     }
 
 private:
+    std::string formatLabel(const Operand &label) {
+        if(label.type == OperandType::EXIT_LABEL){
+            return ".Lexit" + std::to_string(label.value);
+        }
+        return ".L" + std::to_string(label.value);
+    }
+
     std::string getRegName(int regId) {
         // Map virtual registers to physical registers for naive allocation
         // 0-31 are physical registers in RISC-V
@@ -144,11 +151,7 @@ private:
             std::cout << instr.funcName;
         } 
         else if (instr.op == ASMOp::J || instr.op == ASMOp::JAL) {
-            if (instr.label.type == OperandType::LABEL) {
-                std::cout << ".L" << instr.label.value;
-            } else {
-                std::cout << ".L" << instr.label.value; 
-            }
+            std::cout << formatLabel(instr.label);
         }
         else if (instr.op == ASMOp::JR) {
             std::cout << getRegName(instr.rs1.value);
@@ -178,11 +181,11 @@ private:
                  instr.op == ASMOp::BGE || instr.op == ASMOp::BLTU || instr.op == ASMOp::BGEU) {
             std::cout << getRegName(instr.rs1.value) << ", " 
                       << getRegName(instr.rs2.value) << ", " 
-                      << ".L" << instr.label.value;
+                      << formatLabel(instr.label);
         }
         else if (instr.op == ASMOp::BNEZ) {
             std::cout << getRegName(instr.rs1.value) << ", " 
-                      << ".L" << instr.label.value;
+                      << formatLabel(instr.label);
         }
         else if (instr.op == ASMOp::ADDI || instr.op == ASMOp::SLTI || instr.op == ASMOp::SLTIU ||
                  instr.op == ASMOp::ANDI || instr.op == ASMOp::ORI || instr.op == ASMOp::XORI ||

@@ -854,7 +854,11 @@ std::shared_ptr<ExprIf> Parser::parse_expr_if() {
     if(currentPos >= tokens.size()){
         throw std::runtime_error("End of Program.");
     }
-    elseBlock = parse_expr();
+    if(tokens[currentPos].type == kIF){
+        elseBlock = parse_expr_if();
+    }else{
+        elseBlock = parse_expr_block();
+    }
     return std::make_shared<ExprIf>(std::move(condition),std::move(thenBlock),std::move(elseBlock));
 }
 

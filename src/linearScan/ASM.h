@@ -10,6 +10,7 @@ enum class OperandType{
     REG,
     IMM,
     LABEL,
+    EXIT_LABEL,
 };
 
 struct Operand{

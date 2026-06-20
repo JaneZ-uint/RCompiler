@@ -331,7 +331,7 @@ public:
 
         int myExitBlockID = exitblock++;
         currenctExitBlock = myExitBlockID;
-        currentFuncExitLabel = ".L" + std::to_string(currenctExitBlock);
+        currentFuncExitLabel = ".Lexit" + std::to_string(currenctExitBlock);
 
         std::string funcName = asmFunctionName(irFunc);
 
@@ -899,7 +899,7 @@ public:
         if (op->returnType && op->returnType->type == BaseType::VOID) {
             ASMInstr j;
             j.op = ASMOp::J;
-            j.label = Operand(OperandType::LABEL, currenctExitBlock);
+            j.label = Operand(OperandType::EXIT_LABEL, currenctExitBlock);
             currentBlock->instrs.push_back(j);
             return;
         }
@@ -925,7 +925,7 @@ public:
         // j exitLabel
         ASMInstr j;
         j.op = ASMOp::J;
-        j.label = Operand(OperandType::LABEL, currenctExitBlock);
+        j.label = Operand(OperandType::EXIT_LABEL, currenctExitBlock);
         currentBlock->instrs.push_back(j);
     }
 

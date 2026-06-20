@@ -554,11 +554,17 @@ private:
 
     void buildEdges(std::vector<CFGBlock>& cfg, std::unordered_map<std::string, int>& labelToIdx,
                     int bi, std::vector<ASMInstr>& instrs) {
+        auto formatLabel = [](const Operand &label) {
+            if(label.type == OperandType::EXIT_LABEL){
+                return ".Lexit" + std::to_string(label.value);
+            }
+            return ".L" + std::to_string(label.value);
+        };
         bool seenUncondJump = false;
         for (int i = (int)instrs.size() - 1; i >= 0; i--) {
             auto& instr = instrs[i];
             if (instr.op == ASMOp::J || instr.op == ASMOp::JAL) {
-                std::string target = ".L" + std::to_string(instr.label.value);
+                std::string target = formatLabel(instr.label);
                 if (labelToIdx.count(target)) {
                     cfg[bi].succs.push_back(labelToIdx[target]);
                 }
@@ -568,7 +574,7 @@ private:
             if (instr.op == ASMOp::BNEZ || instr.op == ASMOp::BEQ || instr.op == ASMOp::BNE ||
                 instr.op == ASMOp::BLT || instr.op == ASMOp::BGE || instr.op == ASMOp::BLTU ||
                 instr.op == ASMOp::BGEU) {
-                std::string target = ".L" + std::to_string(instr.label.value);
+                std::string target = formatLabel(instr.label);
                 if (labelToIdx.count(target)) {
                     cfg[bi].succs.push_back(labelToIdx[target]);
                 }

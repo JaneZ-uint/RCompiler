@@ -1,0 +1,32 @@
+struct Ret {
+    total: usize,
+    echo: [usize; 4],
+}
+
+struct Host {
+    bias: usize,
+    payload: [usize; 4],
+    flag: bool,
+}
+
+impl Host {
+    fn eval(&self, p0: usize) -> Ret {
+        let mut acc: usize = 0usize;
+        acc += self.bias + self.payload[1usize] + if (self.flag) { 101usize } else { 103usize } + p0;
+        return Ret {
+            total: acc,
+            echo: [acc, self.bias, self.payload[2usize], self.payload[3usize]],
+        };
+    }
+}
+
+fn main() {
+    let h: Host = Host {
+        bias: 900000000000usize,
+        payload: [7usize, 234567890123usize, 44usize, 55usize],
+        flag: true,
+    };
+    let r: Ret = h.eval(1000usize);
+    printlnInt(r.total == 1134567891224usize && r.echo[0usize] == r.total && r.echo[2usize] == 44usize);
+    exit(0);
+}
