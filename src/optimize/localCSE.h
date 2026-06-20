@@ -79,6 +79,20 @@ private:
         }
     };
 
+    struct LoadKey {
+        std::string address;
+        std::string type;
+        bool w64tag;
+        bool utag;
+
+        bool operator<(const LoadKey &other) const {
+            if (address != other.address) return address < other.address;
+            if (type != other.type) return type < other.type;
+            if (w64tag != other.w64tag) return w64tag < other.w64tag;
+            return utag < other.utag;
+        }
+    };
+
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return;
         optimizeBlock(func->body);
@@ -90,6 +104,7 @@ private:
         std::map<BinaryKey, std::shared_ptr<IRVar>> binaryTable;
         std::map<GetptrKey, std::shared_ptr<IRVar>> getptrTable;
         std::map<CastKey, std::shared_ptr<IRVar>> castTable;
+        std::map<LoadKey, std::shared_ptr<IRVar>> loadTable;
         std::map<IRVar*, std::shared_ptr<IRValue>> replaceMap;
 
         for (auto &instr : blk->instrList) {
@@ -128,12 +143,19 @@ private:
                 continue;
             }
 
+            auto load = std::dynamic_pointer_cast<IRLoad>(instr);
+            if (load && load->tmp) {
+                processLoad(load, loadTable, replaceMap);
+                continue;
+            }
+
             if (IRUtil::hasSideEffect(instr)) {
                 binaryTable.clear();
                 getptrTable.clear();
                 castTable.clear();
+                loadTable.clear();
             }
-            killDefs(instr, binaryTable, getptrTable, castTable, replaceMap);
+            killDefs(instr, binaryTable, getptrTable, castTable, loadTable, replaceMap);
         }
     }
 
@@ -195,10 +217,29 @@ private:
         }
     }
 
+    void processLoad(const std::shared_ptr<IRLoad> &load,
+                     std::map<LoadKey, std::shared_ptr<IRVar>> &loadTable,
+                     std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        auto key = makeLoadKey(load);
+        if (!key) {
+            replaceMap.erase(load->tmp.get());
+            return;
+        }
+
+        auto it = loadTable.find(*key);
+        if (it != loadTable.end()) {
+            replaceMap[load->tmp.get()] = it->second;
+        } else {
+            loadTable[*key] = load->tmp;
+            replaceMap.erase(load->tmp.get());
+        }
+    }
+
     void killDefs(const std::shared_ptr<IRNode> &instr,
                   std::map<BinaryKey, std::shared_ptr<IRVar>> &binaryTable,
                   std::map<GetptrKey, std::shared_ptr<IRVar>> &getptrTable,
                   std::map<CastKey, std::shared_ptr<IRVar>> &castTable,
+                  std::map<LoadKey, std::shared_ptr<IRVar>> &loadTable,
                   std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
         for (auto &def : IRUtil::defs(instr)) {
             if (!def) continue;
@@ -213,6 +254,10 @@ private:
             }
             for (auto it = castTable.begin(); it != castTable.end();) {
                 if (it->second.get() == def.get()) it = castTable.erase(it);
+                else ++it;
+            }
+            for (auto it = loadTable.begin(); it != loadTable.end();) {
+                if (it->second.get() == def.get()) it = loadTable.erase(it);
                 else ++it;
             }
         }
@@ -249,6 +294,13 @@ private:
         if (key.value.empty() || key.originalType.empty() || key.targetType.empty()) {
             return std::nullopt;
         }
+        return key;
+    }
+
+    std::optional<LoadKey> makeLoadKey(const std::shared_ptr<IRLoad> &load) const {
+        if (!load || !load->addressVar || !load->type) return std::nullopt;
+        LoadKey key{valueKey(load->addressVar), typeKey(load->type), load->w64tag, load->utag};
+        if (key.address.empty() || key.type.empty()) return std::nullopt;
         return key;
     }
 
