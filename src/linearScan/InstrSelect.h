@@ -815,29 +815,31 @@ public:
 
     void handlePhiCopies(std::shared_ptr<IRBlock> targetBlock) {
         if (!targetBlock) return;
-        std::vector<std::pair<int, int>> copies;
+        struct PhiCopy {
+            int dst = -1;
+            int src = -1;
+            bool hasImm = false;
+            long long imm = 0;
+        };
+        std::vector<PhiCopy> copies;
+
+        auto addValueCopy = [&](int dst, const std::shared_ptr<IRValue> &srcNode) {
+            if (!srcNode) return;
+            if (auto lit = std::dynamic_pointer_cast<IRLiteral>(srcNode)) {
+                copies.push_back(PhiCopy{dst, -1, true, lit->intValue});
+            } else {
+                copies.push_back(PhiCopy{dst, materialize(srcNode), false, 0});
+            }
+        };
+
         for (auto& instr : targetBlock->instrList) {
             if (auto* phi = dynamic_cast<IRPhi*>(instr.get())) {
                 int dst = getVReg(phi->result);
                 if (phi->firstBlock == currentIRBlock) {
-                    int immVal = phi->firstState ? 1 : 0;
-                    int tmp = freshVReg();
-                    ASMInstr li;
-                    li.op = ASMOp::LI;
-                    li.rd = Operand(OperandType::REG, tmp);
-                    li.imm = Operand(OperandType::IMM, immVal);
-                    currentBlock->instrs.push_back(li);
-                    copies.push_back({dst, tmp});
+                    copies.push_back(PhiCopy{dst, -1, true, phi->firstState ? 1 : 0});
                 } else if (phi->secondBlock == currentIRBlock) {
                     if (phi->secondState) {
-                        int src = materialize(phi->secondState);
-                        int tmp = freshVReg();
-                        ASMInstr mv;
-                        mv.op = ASMOp::MV;
-                        mv.rd = Operand(OperandType::REG, tmp);
-                        mv.rs1 = Operand(OperandType::REG, src);
-                        currentBlock->instrs.push_back(mv);
-                        copies.push_back({dst, tmp});
+                        addValueCopy(dst, phi->secondState);
                     }
                 }
             } else if (auto* phi = dynamic_cast<IRPHI*>(instr.get())) {
@@ -851,22 +853,63 @@ public:
                     }
                 }
                 if (!srcNode) continue;
-                int src = materialize(srcNode);
-                int tmp = freshVReg();
-                ASMInstr mv;
-                mv.op = ASMOp::MV;
-                mv.rd = Operand(OperandType::REG, tmp);
-                mv.rs1 = Operand(OperandType::REG, src);
-                currentBlock->instrs.push_back(mv);
-                copies.push_back({dst, tmp});
+                addValueCopy(dst, srcNode);
             }
         }
-        for (auto& [dst, tmp] : copies) {
+
+        bool needsTemps = false;
+        for (auto &copy : copies) {
+            if (copy.hasImm || copy.src == copy.dst) continue;
+            for (auto &other : copies) {
+                if (copy.dst == other.src) {
+                    needsTemps = true;
+                    break;
+                }
+            }
+            if (needsTemps) break;
+        }
+
+        auto emitMove = [&](int dst, int src) {
+            if (dst == src) return;
             ASMInstr mv;
             mv.op = ASMOp::MV;
             mv.rd = Operand(OperandType::REG, dst);
-            mv.rs1 = Operand(OperandType::REG, tmp);
+            mv.rs1 = Operand(OperandType::REG, src);
             currentBlock->instrs.push_back(mv);
+        };
+
+        auto emitLoadImm = [&](int dst, long long imm) {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, dst);
+            li.imm = Operand(OperandType::IMM, imm);
+            currentBlock->instrs.push_back(li);
+        };
+
+        if (!needsTemps) {
+            for (auto &copy : copies) {
+                if (copy.hasImm) emitLoadImm(copy.dst, copy.imm);
+                else emitMove(copy.dst, copy.src);
+            }
+            return;
+        }
+
+        std::vector<std::pair<int, int>> tempCopies;
+        for (auto &copy : copies) {
+            int tmp = freshVReg();
+            if (copy.hasImm) {
+                emitLoadImm(tmp, copy.imm);
+            } else {
+                ASMInstr mv;
+                mv.op = ASMOp::MV;
+                mv.rd = Operand(OperandType::REG, tmp);
+                mv.rs1 = Operand(OperandType::REG, copy.src);
+                currentBlock->instrs.push_back(mv);
+            }
+            tempCopies.push_back({copy.dst, tmp});
+        }
+        for (auto& [dst, tmp] : tempCopies) {
+            emitMove(dst, tmp);
         }
     }
 
