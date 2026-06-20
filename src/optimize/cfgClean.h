@@ -14,6 +14,7 @@
 #include "../ir/IRPhi.h"
 #include "../ir/IRReturn.h"
 #include "../ir/IRRoot.h"
+#include "IRUtil.h"
 
 namespace JaneZ {
 
@@ -37,6 +38,7 @@ private:
         auto reachable = collectReachable(func);
         removeUnreachableBlocks(func, reachable);
         cleanupPhiInputs(func, reachable);
+        simplifyPhiNodes(func);
     }
 
     std::vector<std::shared_ptr<IRBlock>> orderedBlocks(const std::shared_ptr<IRFunction> &func) {
@@ -153,6 +155,72 @@ private:
             phi->secondBlock = nullptr;
             phi->secondState = nullptr;
         }
+    }
+
+    void simplifyPhiNodes(const std::shared_ptr<IRFunction> &func) {
+        std::map<IRVar*, std::shared_ptr<IRValue>> replaceMap;
+        collectSimplifiedPhi(func->body, replaceMap);
+        for (auto &blk : func->body->blockList) collectSimplifiedPhi(blk, replaceMap);
+        if (replaceMap.empty()) return;
+
+        applyReplacements(func->body, replaceMap);
+        for (auto &blk : func->body->blockList) applyReplacements(blk, replaceMap);
+    }
+
+    void collectSimplifiedPhi(const std::shared_ptr<IRBlock> &blk,
+                              std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        if (!blk) return;
+        for (auto &instr : blk->instrList) {
+            auto phi = std::dynamic_pointer_cast<IRPHI>(instr);
+            if (!phi || !phi->result) continue;
+            auto replacement = singlePhiValue(phi);
+            if (replacement) replaceMap[phi->result.get()] = replacement;
+        }
+    }
+
+    std::shared_ptr<IRValue> singlePhiValue(const std::shared_ptr<IRPHI> &phi) {
+        std::shared_ptr<IRValue> first = nullptr;
+        int valueCount = 0;
+
+        auto consider = [&](const std::shared_ptr<IRValue> &value) -> bool {
+            if (!value) return true;
+            valueCount++;
+            if (!first) {
+                first = value;
+                return true;
+            }
+            return sameValue(first, value);
+        };
+
+        if (!phi->entries.empty()) {
+            for (auto &entry : phi->entries) {
+                if (!consider(entry.first)) return nullptr;
+            }
+        } else {
+            if (!consider(phi->firstState)) return nullptr;
+            if (!consider(phi->secondState)) return nullptr;
+        }
+
+        if (valueCount == 0) return nullptr;
+        return first;
+    }
+
+    bool sameValue(const std::shared_ptr<IRValue> &lhs,
+                   const std::shared_ptr<IRValue> &rhs) {
+        if (lhs == rhs) return true;
+        auto lv = std::dynamic_pointer_cast<IRVar>(lhs);
+        auto rv = std::dynamic_pointer_cast<IRVar>(rhs);
+        if (lv || rv) return lv && rv && lv.get() == rv.get();
+        auto ll = std::dynamic_pointer_cast<IRLiteral>(lhs);
+        auto rl = std::dynamic_pointer_cast<IRLiteral>(rhs);
+        return ll && rl && ll->literalType == rl->literalType &&
+               ll->intValue == rl->intValue && ll->boolValue == rl->boolValue;
+    }
+
+    void applyReplacements(const std::shared_ptr<IRBlock> &blk,
+                           const std::map<IRVar*, std::shared_ptr<IRValue>> &replaceMap) {
+        if (!blk) return;
+        for (auto &instr : blk->instrList) IRUtil::replaceUses(instr, replaceMap);
     }
 };
 
