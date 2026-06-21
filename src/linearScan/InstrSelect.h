@@ -845,8 +845,12 @@ public:
                 if (zextU32Result) emitZeroExtend32(dst);
                 break;
             case IROp::LEFTSHIFTOP:
-                if (op->w64tag && rhsLiteral && fitsShift6(rhsImm)) {
+                if (rhsLiteral && ((op->w64tag && fitsShift6(rhsImm)) ||
+                                   (!op->w64tag && zextU32Result && rhsImm >= 0 && rhsImm < 32))) {
                     emitImm(ASMOp::SLLI, lhsReg(), rhsImm);
+                    if (!op->w64tag) {
+                        emitZeroExtend32(dst);
+                    }
                     break;
                 }
                 emit(op->w64tag ? ASMOp::SLL : ASMOp::SLLW);
@@ -855,6 +859,22 @@ public:
             case IROp::RIGHTSHIFTOP:
                 if (op->w64tag && rhsLiteral && fitsShift6(rhsImm)) {
                     emitImm(op->utag ? ASMOp::SRLI : ASMOp::SRAI, lhsReg(), rhsImm);
+                    break;
+                }
+                if (!op->w64tag && op->utag && rhsLiteral && rhsImm >= 0 && rhsImm < 32) {
+                    ASMInstr sl;
+                    sl.op = ASMOp::SLLI;
+                    sl.rd = Operand(OperandType::REG, dst);
+                    sl.rs1 = Operand(OperandType::REG, lhsReg());
+                    sl.imm = Operand(OperandType::IMM, 32);
+                    currentBlock->instrs.push_back(sl);
+
+                    ASMInstr sr;
+                    sr.op = ASMOp::SRLI;
+                    sr.rd = Operand(OperandType::REG, dst);
+                    sr.rs1 = Operand(OperandType::REG, dst);
+                    sr.imm = Operand(OperandType::IMM, 32 + rhsImm);
+                    currentBlock->instrs.push_back(sr);
                     break;
                 }
                 emit(op->w64tag ? (op->utag ? ASMOp::SRL : ASMOp::SRA) : (op->utag ? ASMOp::SRLW : ASMOp::SRAW));

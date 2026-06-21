@@ -21,6 +21,7 @@
 #include "src/optimize/memoryForward.h"
 #include "src/optimize/sccp.h"
 #include "src/optimize/sroa.h"
+#include "src/optimize/strengthReduction.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -95,6 +96,9 @@ int main(){
 
     constantFold.optimize(code_generator.irRoot);
     cfgClean.optimize(code_generator.irRoot);
+
+    JaneZ::StrengthReduction strengthReduction;
+    strengthReduction.optimize(code_generator.irRoot);
 
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
