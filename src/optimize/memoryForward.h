@@ -80,6 +80,7 @@ private:
     std::map<IRBlock*, std::vector<IRBlock*>> domChildren;
     std::vector<IRBlock*> rpo;
     std::map<IRBlock*, int> rpoIndex;
+    std::map<IRVar*, IRBlock*> defBlock;
     std::set<IRVar*> objectRoots;
 
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
@@ -88,6 +89,7 @@ private:
         computeRPO(func->body.get());
         if (rpo.empty()) return;
         buildDomTree(func->body.get());
+        buildDefBlockMap();
         collectObjectRoots();
 
         ForwardState state;
@@ -102,6 +104,7 @@ private:
         domChildren.clear();
         rpo.clear();
         rpoIndex.clear();
+        defBlock.clear();
         objectRoots.clear();
 
         blocks.push_back(func->body);
@@ -210,6 +213,18 @@ private:
         }
     }
 
+    void buildDefBlockMap() {
+        defBlock.clear();
+        for (auto &blk : blocks) {
+            if (!blk) continue;
+            for (auto &instr : blk->instrList) {
+                for (auto &def : IRUtil::defs(instr)) {
+                    if (def) defBlock[def.get()] = blk.get();
+                }
+            }
+        }
+    }
+
     void optimizeDomTree(IRBlock *blk, ForwardState state) {
         if (!blk) return;
         if (!canKeepIncomingMemory(blk)) state.stores.clear();
@@ -296,7 +311,23 @@ private:
 
     bool canForwardStoreValue(const StoreState &store, IRBlock *currentBlock) const {
         if (store.block == currentBlock) return true;
-        return std::dynamic_pointer_cast<IRLiteral>(store.value) != nullptr;
+        if (std::dynamic_pointer_cast<IRLiteral>(store.value)) return true;
+        auto valueVar = std::dynamic_pointer_cast<IRVar>(store.value);
+        if (!valueVar) return false;
+        auto defIt = defBlock.find(valueVar.get());
+        return defIt == defBlock.end() || dominates(defIt->second, currentBlock);
+    }
+
+    bool dominates(IRBlock *dom, IRBlock *blk) const {
+        if (!dom || !blk) return false;
+        if (dom == blk) return true;
+        auto it = idom.find(blk);
+        while (it != idom.end() && it->second != blk) {
+            blk = it->second;
+            if (blk == dom) return true;
+            it = idom.find(blk);
+        }
+        return false;
     }
 
     void processStore(const std::shared_ptr<IRStore> &store,
