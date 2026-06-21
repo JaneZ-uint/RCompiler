@@ -23,6 +23,28 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 当前 OJ 优化性能点共 17 个：
 
+### 1.1 最新 OJ 反馈
+
+最新提交到 `69f5ec3 opt: reduce near-power-of-two multiplies` 后，OJ 总分约 `60.24 / 100`。当前丢分主要集中在数据结构、NTT 和解释器类隐藏点：
+
+| 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
+|---|---|---:|---:|---|
+| 1 | `opti_graph_algorithms_suite` | `3.09 / 8.00` | `4.91` | 图/邻接结构，地址计算、load/store 和寄存器压力 |
+| 2 | `opti_ntt_convolution` | `2.75 / 6.00` | `3.25` | 模乘、`%`、循环内数组访问 |
+| 3 | `opti_range_structures_suite` | `3.85 / 7.00` | `3.15` | 树状/区间结构，结构字段和数组访问 |
+| 4 | `opti_bytecode_vm_interpreter` | `2.92 / 6.00` | `3.08` | 解释器 dispatch、状态字段反复读写、分支 |
+| 5 | `opti_inmemory_index_query` | `3.93 / 7.00` | `3.07` | 内存索引，结构体字段 alias 和 load forwarding |
+| 6 | `opti_tree_hashmap_suite` | `3.99 / 7.00` | `3.01` | tree/hashmap 混合，load forwarding、CSE、spill |
+
+最近三项增强整体有收益，但 `opti_block_hash_pipeline` 从 `5.32` 降到 `4.90`，`opti_recursive_utility_pipeline`、`opti_dp_suite`、`opti_branch_state_machine` 也有小幅回退。优先怀疑 `69f5ec3` 的 `x * (2^k +/- 1)` 展开：RV64GC 中 `mul` 是单条指令，展开成 `slli + add/sub` 可能增加动态指令数和寄存器压力。
+
+当前短期调整：
+
+1. 先收紧或回滚 `near-power-of-two multiplies`，只保留明确收益的乘法 strength reduction。
+2. 增强 MemoryForward 的结构体字段 alias 精度，重点覆盖 `a[i].x` 和 `a[i].y`、同根不同常量字段的 disjoint 判断。
+3. 针对 `opti_ntt_convolution`，优先寻找不增加新 ASM 的 `% const`、模乘、循环不变量优化。
+4. 针对 `opti_bytecode_vm_interpreter`，优先减少循环内状态字段的重复 load/store 和无谓 spill。
+
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|
 | `opti_compute_hash_mix` | hash 混合、整数表达式、数组访问 | GVN, load forwarding, LICM |
