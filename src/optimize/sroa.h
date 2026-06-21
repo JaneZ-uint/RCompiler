@@ -137,7 +137,8 @@ private:
     }
 
     bool isScalarFieldType(const std::shared_ptr<IRType> &type) const {
-        return std::dynamic_pointer_cast<IRIntType>(type) != nullptr;
+        return std::dynamic_pointer_cast<IRIntType>(type) != nullptr ||
+               std::dynamic_pointer_cast<IRPtrType>(type) != nullptr;
     }
 
     FieldInfo makeFieldInfo(int index, const std::shared_ptr<IRType> &type) const {
@@ -147,6 +148,8 @@ private:
         if (auto intType = std::dynamic_pointer_cast<IRIntType>(type)) {
             field.w64tag = intType->bitWidth == 64;
             field.utag = intType->isUnsigned;
+        } else if (std::dynamic_pointer_cast<IRPtrType>(type)) {
+            field.w64tag = true;
         }
         return field;
     }
@@ -160,6 +163,7 @@ private:
             slot->reName = root->reName + "$sroa" + std::to_string(field.index);
         }
         if (field.w64tag) slot->isW64Stack = true;
+        if (std::dynamic_pointer_cast<IRPtrType>(field.type)) slot->isPtrStorage = true;
         return slot;
     }
 
@@ -345,6 +349,10 @@ private:
         if (auto li = std::dynamic_pointer_cast<IRIntType>(lhs)) {
             auto ri = std::dynamic_pointer_cast<IRIntType>(rhs);
             return ri && li->bitWidth == ri->bitWidth && li->isUnsigned == ri->isUnsigned;
+        }
+        if (auto lp = std::dynamic_pointer_cast<IRPtrType>(lhs)) {
+            auto rp = std::dynamic_pointer_cast<IRPtrType>(rhs);
+            return rp && sameTypeShape(lp->baseType, rp->baseType);
         }
         return lhs.get() == rhs.get();
     }
