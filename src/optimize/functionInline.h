@@ -194,10 +194,18 @@ private:
     bool isAllowedInlineInstr(const std::shared_ptr<IRFunction> &func,
                               const std::shared_ptr<IRNode> &instr) const {
         if (!instr) return false;
-        if (std::dynamic_pointer_cast<IRAlloca>(instr) ||
-            std::dynamic_pointer_cast<IRLoad>(instr) ||
-            std::dynamic_pointer_cast<IRStore>(instr) ||
-            std::dynamic_pointer_cast<IRGetptr>(instr)) return false;
+        if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
+            return alloca->allocatedType && isScalarMemoryType(alloca->allocatedType);
+        }
+        if (auto load = std::dynamic_pointer_cast<IRLoad>(instr)) {
+            return load->addressVar && load->type && isScalarMemoryType(load->type);
+        }
+        if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
+            return store->address && store->valueType && isScalarMemoryType(store->valueType);
+        }
+        if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(instr)) {
+            return getptr->base && getptr->res;
+        }
         if (std::dynamic_pointer_cast<IRReturn>(instr)) return false;
         if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
             return call->function.get() != func.get();
