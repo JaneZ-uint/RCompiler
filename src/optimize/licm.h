@@ -361,15 +361,6 @@ private:
                 if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(user)) {
                     result = getptrHoistableWithExtra(getptr, loop, defBlock, hoistedDefs,
                                                       extraHoisted);
-                } else if (auto sext = std::dynamic_pointer_cast<IRSext>(user)) {
-                    result = varInvariantWithExtra(sext->value, loop, defBlock, hoistedDefs,
-                                                   extraHoisted);
-                } else if (auto zext = std::dynamic_pointer_cast<IRZext>(user)) {
-                    result = varInvariantWithExtra(zext->value, loop, defBlock, hoistedDefs,
-                                                   extraHoisted);
-                } else if (auto trunc = std::dynamic_pointer_cast<IRTrunc>(user)) {
-                    result = varInvariantWithExtra(trunc->value, loop, defBlock, hoistedDefs,
-                                                   extraHoisted);
                 } else if (auto binary = std::dynamic_pointer_cast<IRBinaryop>(user)) {
                     result = binaryFeedsHoistableUse(binary, loop, defBlock, hoistedDefs,
                                                      useMap, extraHoisted, visiting);
@@ -394,7 +385,6 @@ private:
             !binaryHoistableWithExtra(binary, loop, defBlock, hoistedDefs, extraHoisted)) {
             return false;
         }
-        if (profitableBinary(binary)) return true;
         if (!cheapBinary(binary)) return false;
 
         auto nextExtra = extraHoisted;
@@ -454,9 +444,6 @@ private:
         switch (op->op) {
             case ADD:
             case SUB:
-            case ANDOP:
-            case OROP:
-            case XOROP:
                 return true;
             default:
                 return false;

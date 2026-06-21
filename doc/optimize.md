@@ -27,6 +27,8 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 最新已知 OJ 反馈来自 `b231011 opt: tighten scalar memory inlining`，总分比 `d53bcc7` 略降。收紧 scalar-memory helper inline 是负优化：`sort_kmp`、`tree_hashmap`、`compression`、`inmemory` 下降，只有 `array`、`graph`、`string` 小幅上升。因此该调参已撤销，后续不继续沿“整体收紧 scalar-memory inline”方向推进。
 
+随后对 LICM 做保守化处理：cheap binary hoist 只保留服务 `getptr` 地址链的 `add/sub`，不再通过 cast 或贵表达式链继续泛化传播，也不再提前 `and/or/xor`。目标是保留数组地址计算收益，同时减少解释器、hash pipeline、状态机类样例中的 live range 膨胀。
+
 | 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
 |---|---|---:|---:|---|
 | 1 | `opti_graph_algorithms_suite` | `3.27 / 8.00` | `4.73` | 图/邻接结构，地址计算、load/store 和寄存器压力 |
@@ -44,7 +46,7 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 2. 已增强 MemoryForward 的结构体字段 alias 精度，覆盖同根路径中不同常量字段的 disjoint 判断。
 3. 已在 LocalCSE 后重跑 MemoryForward/ConstantFold/CFGClean，让 getptr canonicalize 后的地址事实继续参与转发。
 4. 已为 MemoryForward 增加 dominated load cache，覆盖 `load p; ...; load p` 且中间无别名写入的场景。
-5. 已增强 LICM，对服务于可提升 getptr/cast/贵表达式的循环不变量 cheap binary 做依赖驱动提升。
+5. 已增强 LICM，并在 OJ 负反馈后收窄为只提前服务 getptr 地址链的 `add/sub` cheap binary。
 6. 已做 boolean branch peephole，减少解释器/状态机中 `seqz/snez/slti + bnez` 形态的临时值。
 7. 暂不做 `% const` 魔数除法/模乘 lowering；它通常需要 `mulh/mulhu` 或更复杂序列，先避免 OJ `CE_ASM` 风险。
 
@@ -58,7 +60,7 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 - 小幅提升：`opti_array_transform +0.06`、`opti_graph_algorithms_suite +0.06`、`opti_string_automata_suite +0.10`。
 - 明显回退：`opti_sort_kmp_suite -0.22`、`opti_inmemory_index_query -0.14`、`opti_tree_hashmap_suite -0.14`、`opti_compression_match_finder -0.08`、`opti_struct_pool_fold -0.06`。
-- 结论：收紧 scalar-memory inline 会伤害更多 case，撤销该调参；下一步优先检查 LICM cheap binary hoist 或 SROA pointer fields。
+- 结论：收紧 scalar-memory inline 会伤害更多 case，撤销该调参；下一步优先验证收窄 LICM cheap binary hoist 后的 OJ 变化。
 
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|
@@ -170,7 +172,7 @@ opt: extend cse across dominated blocks
 - profitable binary: `mul/div/mod/shift`
 - pure getptr
 - casts
-- 服务于可提升地址链或贵表达式链的 cheap binary: `add/sub/and/or/xor`
+- 服务于可提升 getptr 地址链的 cheap binary: `add/sub`
 
 当前仍不 hoist load，避免内存 alias 误判。
 
@@ -432,7 +434,7 @@ Global2Local -> Mem2Reg -> DominantTree
 短期后续优先级：
 
 1. 先提交 OJ，记录 17 个隐藏点相对 `d3ead4e` 的变化。
-2. 如果某项回退明显，按单 commit 二分：优先检查 LICM cheap binary hoist、SROA pointer fields、spill overwritten store cleanup。`b231011` 的 inline 收紧已经确认是负优化并撤销。
+2. 如果某项回退明显，按单 commit 二分：优先检查 SROA pointer fields、spill overwritten store cleanup。`b231011` 的 inline 收紧已经确认是负优化并撤销，LICM cheap binary hoist 已收窄到地址链。
 3. 如果整体仍不理想，再针对最低分 case 做专门优化，不再泛化堆 pass。
 
 如果 OJ 分数仍不理想，再做：
