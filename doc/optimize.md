@@ -93,6 +93,8 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 - dominator-tree CSE/GVN for pure binary/getptr/cast and conservative load reuse
 - LICM，含 expensive scalar/getptr/cast hoist，以及地址链 cheap binary hoist
 - strength reduction，保留 power-of-two multiply and unsigned div/mod
+- SROA 小范围版本，含 int/pointer scalar fields
+- function inline cost model，含 scalar memory helper inline
 - SCCP，含：
   - sparse executable edge propagation
   - phi 常量传播
@@ -102,8 +104,12 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
   - `x == const` / `x != const` 的分支内事实传播
 - 后端 peephole 和寄存器分配策略已有若干调整
 - boolean branch peephole for common compare-to-zero forms
+- post-regalloc spill cleanup：
+  - redundant reload reuse
+  - same-value spill store deletion
+  - overwritten spill store deletion
 
-当前后续优化不应重复做已完成的基础 pass，而应围绕隐藏点继续增强内存、循环和跨块表达式能力。
+当前后续优化不应重复做已完成的基础 pass。下一轮应先等 OJ 反馈，按 case 回归决定是否回滚或调参。
 
 ## 3. 下一阶段优先级
 
@@ -273,6 +279,8 @@ opt: add dominator-based gvn for pure expressions
 
 目标：拆小结构体字段或固定下标数组元素，减少结构体池和小对象内存访问。
 
+状态：已完成当前安全版本。支持小 struct/fixed array 的 int/pointer scalar fields，支持 `memset 0` 和候选间 `memcpy` copy init。指针字段会保留 pointer-storage 栈槽语义。
+
 第一版只做非常保守场景：
 
 - 局部 alloca。
@@ -307,6 +315,8 @@ opt: scalarize simple aggregate locals
 
 目标：更贴近隐藏点里的 helper 函数调用。
 
+状态：已完成当前安全版本。仍限制为无基本块、非递归、int/void 返回的小函数；已允许 scalar alloca/getptr/load/store helper inline，继续由 cost/growth budget 控制。
+
 增强方向：
 
 - 单调用小函数更激进 inline。
@@ -334,6 +344,8 @@ opt: tune function inline cost model
 ### P6: Register Pressure 和 Spill Cleanup
 
 目标：隐藏点里大型循环、解释器、图算法容易因为虚拟寄存器过多而 spill。
+
+状态：已完成当前安全版本。post-regalloc peephole 已覆盖同块 redundant reload、same-value store、overwritten store cleanup，不新增 asm 指令。
 
 IR 层优先：
 
@@ -401,12 +413,15 @@ Global2Local -> Mem2Reg -> DominantTree
 2. LICM
 3. Alias-aware memory forwarding
 4. Cross-block GVN
+5. SROA 小范围版本增强
+6. Inline cost model 调优
+7. Spill/reload cleanup
 
 短期后续优先级：
 
-1. SROA 小范围版本增强：当前只拆很小的 struct/fixed array，后续可支持更多安全 memcpy/copy init 场景。
-2. Inline cost model 调优：面向 helper/getter/setter 更激进，面向 long-param/大聚合/解释器热点更保守。
-3. Spill/reload cleanup：只使用现有 RV64GC 指令，优先做基本块内冗余 reload/store 删除。
+1. 先提交 OJ，记录 17 个隐藏点相对 `d3ead4e` 的变化。
+2. 如果某项回退明显，按单 commit 二分：优先检查 inline scalar memory helper、LICM cheap binary hoist、spill overwritten store cleanup。
+3. 如果整体仍不理想，再针对最低分 case 做专门优化，不再泛化堆 pass。
 
 如果 OJ 分数仍不理想，再做：
 
