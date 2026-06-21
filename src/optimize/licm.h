@@ -301,6 +301,9 @@ private:
             return profitableBinary(op) ? op->result : nullptr;
         }
         if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(instr)) return getptr->res;
+        if (auto sext = std::dynamic_pointer_cast<IRSext>(instr)) return sext->result;
+        if (auto zext = std::dynamic_pointer_cast<IRZext>(instr)) return zext->result;
+        if (auto trunc = std::dynamic_pointer_cast<IRTrunc>(instr)) return trunc->result;
         return nullptr;
     }
 
@@ -316,6 +319,15 @@ private:
         if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(instr)) {
             return varInvariant(getptr->base, loop, defBlock, hoistedDefs) &&
                    varInvariant(getptr->index, loop, defBlock, hoistedDefs);
+        }
+        if (auto sext = std::dynamic_pointer_cast<IRSext>(instr)) {
+            return varInvariant(sext->value, loop, defBlock, hoistedDefs);
+        }
+        if (auto zext = std::dynamic_pointer_cast<IRZext>(instr)) {
+            return varInvariant(zext->value, loop, defBlock, hoistedDefs);
+        }
+        if (auto trunc = std::dynamic_pointer_cast<IRTrunc>(instr)) {
+            return varInvariant(trunc->value, loop, defBlock, hoistedDefs);
         }
         return false;
     }
