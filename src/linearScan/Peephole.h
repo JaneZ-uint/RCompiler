@@ -130,6 +130,18 @@ private:
 
         const auto &cmp = instrs[index];
         const auto &br = instrs[index + 1];
+        if ((cmp.op == ASMOp::SEQZ || cmp.op == ASMOp::SNEZ) &&
+            isTempReg(cmp.rd) &&
+            br.op == ASMOp::BNEZ &&
+            sameReg(cmp.rd, br.rs1) &&
+            regUseCount(useCounts, cmp.rd.value) == 1) {
+            folded.op = (cmp.op == ASMOp::SEQZ) ? ASMOp::BEQ : ASMOp::BNE;
+            folded.rs1 = cmp.rs1;
+            folded.rs2 = Operand(OperandType::REG, 0);
+            folded.label = br.label;
+            return 2;
+        }
+
         if ((cmp.op == ASMOp::SLT || cmp.op == ASMOp::SLTU) &&
             isTempReg(cmp.rd) &&
             br.op == ASMOp::BNEZ &&
@@ -140,6 +152,27 @@ private:
             folded.rs2 = cmp.rs2;
             folded.label = br.label;
             return 2;
+        }
+
+        if (isTempReg(cmp.rd) &&
+            br.op == ASMOp::BNEZ &&
+            sameReg(cmp.rd, br.rs1) &&
+            regUseCount(useCounts, cmp.rd.value) == 1 &&
+            cmp.imm.type == OperandType::IMM) {
+            if (cmp.op == ASMOp::SLTI && cmp.imm.value == 0) {
+                folded.op = ASMOp::BLT;
+                folded.rs1 = cmp.rs1;
+                folded.rs2 = Operand(OperandType::REG, 0);
+                folded.label = br.label;
+                return 2;
+            }
+            if (cmp.op == ASMOp::SLTIU && cmp.imm.value == 1) {
+                folded.op = ASMOp::BEQ;
+                folded.rs1 = cmp.rs1;
+                folded.rs2 = Operand(OperandType::REG, 0);
+                folded.label = br.label;
+                return 2;
+            }
         }
 
         if (index + 2 >= instrs.size()) return 0;
@@ -162,6 +195,29 @@ private:
             folded.rs2 = cmp.rs2;
             folded.label = boolBr.label;
             return 3;
+        }
+
+        if ((cmp.op == ASMOp::SLTI || cmp.op == ASMOp::SLTIU) &&
+            boolOp.op == ASMOp::XORI &&
+            sameReg(boolOp.rd, cmp.rd) &&
+            sameReg(boolOp.rs1, cmp.rd) &&
+            boolOp.imm.type == OperandType::IMM &&
+            boolOp.imm.value == 1 &&
+            cmp.imm.type == OperandType::IMM) {
+            if (cmp.op == ASMOp::SLTI && cmp.imm.value == 0) {
+                folded.op = ASMOp::BGE;
+                folded.rs1 = cmp.rs1;
+                folded.rs2 = Operand(OperandType::REG, 0);
+                folded.label = boolBr.label;
+                return 3;
+            }
+            if (cmp.op == ASMOp::SLTIU && cmp.imm.value == 1) {
+                folded.op = ASMOp::BNE;
+                folded.rs1 = cmp.rs1;
+                folded.rs2 = Operand(OperandType::REG, 0);
+                folded.label = boolBr.label;
+                return 3;
+            }
         }
 
         if (cmp.op == ASMOp::SUB &&
