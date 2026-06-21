@@ -491,6 +491,7 @@ private:
             disjointPrecisePaths(lhs.path, rhs.path)) {
             return false;
         }
+        if (disjointByKnownOffset(lhs.path, rhs.path)) return false;
         return true;
     }
 
@@ -503,6 +504,38 @@ private:
         if (prefix.size() > path.size()) return false;
         if (path.compare(0, prefix.size(), prefix) != 0) return false;
         return prefix.size() == path.size() || path[prefix.size()] == '/';
+    }
+
+    bool disjointByKnownOffset(const std::string &lhs, const std::string &rhs) const {
+        auto lhsParts = splitPath(lhs);
+        auto rhsParts = splitPath(rhs);
+        size_t count = std::min(lhsParts.size(), rhsParts.size());
+        for (size_t i = 0; i < count; i++) {
+            if (lhsParts[i] == rhsParts[i]) continue;
+            return isOffsetComponent(lhsParts[i]) &&
+                   isOffsetComponent(rhsParts[i]) &&
+                   lhsParts[i] != rhsParts[i];
+        }
+        return false;
+    }
+
+    std::vector<std::string> splitPath(const std::string &path) const {
+        std::vector<std::string> parts;
+        size_t start = 0;
+        while (start < path.size()) {
+            size_t slash = path.find('/', start);
+            if (slash == std::string::npos) {
+                parts.push_back(path.substr(start));
+                break;
+            }
+            parts.push_back(path.substr(start, slash - start));
+            start = slash + 1;
+        }
+        return parts;
+    }
+
+    bool isOffsetComponent(const std::string &component) const {
+        return component.size() > 1 && component[0] == 'o';
     }
 
     void appendPath(std::string &path, const std::string &component) {
