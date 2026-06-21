@@ -67,8 +67,15 @@ private:
         AccessInfo access;
     };
 
+    struct LoadState {
+        std::shared_ptr<IRVar> value;
+        IRBlock *block = nullptr;
+        AccessInfo access;
+    };
+
     struct ForwardState {
         std::map<std::string, StoreState> stores;
+        std::map<std::string, LoadState> loads;
         std::map<IRVar*, ValuePtr> replaceMap;
         std::map<IRVar*, AddressInfo> addressFacts;
     };
@@ -227,7 +234,10 @@ private:
 
     void optimizeDomTree(IRBlock *blk, ForwardState state) {
         if (!blk) return;
-        if (!canKeepIncomingMemory(blk)) state.stores.clear();
+        if (!canKeepIncomingMemory(blk)) {
+            state.stores.clear();
+            state.loads.clear();
+        }
         std::set<IRNode*> toRemove;
 
         for (auto &instr : blk->instrList) {
@@ -255,6 +265,7 @@ private:
 
             if (isMemoryBarrier(instr)) {
                 state.stores.clear();
+                state.loads.clear();
             }
             killDefs(instr, state);
         }
@@ -300,13 +311,26 @@ private:
             return;
         }
 
+        auto loaded = findForwardLoad(access, state);
+        if (loaded != state.loads.end() && loaded->second.value &&
+            canForwardLoadValue(loaded->second, blk)) {
+            state.replaceMap[load->tmp.get()] = loaded->second.value;
+            state.addressFacts.erase(load->tmp.get());
+            return;
+        }
+
         state.replaceMap.erase(load->tmp.get());
         state.addressFacts.erase(load->tmp.get());
         if (!access.valid) {
             state.stores.clear();
+            state.loads.clear();
             return;
         }
         forgetAliasedStores(access.address, state);
+        auto key = accessKey(access);
+        if (!key.empty()) {
+            state.loads[key] = LoadState{load->tmp, blk, access};
+        }
     }
 
     bool canForwardStoreValue(const StoreState &store, IRBlock *currentBlock) const {
@@ -315,6 +339,13 @@ private:
         auto valueVar = std::dynamic_pointer_cast<IRVar>(store.value);
         if (!valueVar) return false;
         auto defIt = defBlock.find(valueVar.get());
+        return defIt == defBlock.end() || dominates(defIt->second, currentBlock);
+    }
+
+    bool canForwardLoadValue(const LoadState &load, IRBlock *currentBlock) const {
+        if (load.block == currentBlock) return true;
+        if (!load.value) return false;
+        auto defIt = defBlock.find(load.value.get());
         return defIt == defBlock.end() || dominates(defIt->second, currentBlock);
     }
 
@@ -349,8 +380,10 @@ private:
 
         if (!access.valid) {
             state.stores.clear();
+            state.loads.clear();
             return;
         }
+        forgetAliasedLoads(access.address, state);
         forgetAliasedStores(access.address, state);
         auto key = accessKey(access);
         if (!key.empty() && value) {
@@ -392,6 +425,13 @@ private:
             for (auto it = state.stores.begin(); it != state.stores.end();) {
                 if (storeMentionsVar(it->second, def.get(), defKey)) {
                     it = state.stores.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            for (auto it = state.loads.begin(); it != state.loads.end();) {
+                if (loadMentionsVar(it->second, def.get(), defKey)) {
+                    it = state.loads.erase(it);
                 } else {
                     ++it;
                 }
@@ -460,10 +500,32 @@ private:
         return state.stores.end();
     }
 
+    std::map<std::string, LoadState>::iterator
+    findForwardLoad(const AccessInfo &access, ForwardState &state) {
+        if (!access.valid) return state.loads.end();
+        for (auto it = state.loads.begin(); it != state.loads.end(); ++it) {
+            if (sameLocation(access.address, it->second.access.address) &&
+                compatibleAccess(access, it->second.access)) {
+                return it;
+            }
+        }
+        return state.loads.end();
+    }
+
     void forgetAliasedStores(const AddressInfo &address, ForwardState &state) {
         for (auto it = state.stores.begin(); it != state.stores.end();) {
             if (mayAlias(address, it->second.access.address)) {
                 it = state.stores.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void forgetAliasedLoads(const AddressInfo &address, ForwardState &state) {
+        for (auto it = state.loads.begin(); it != state.loads.end();) {
+            if (mayAlias(address, it->second.access.address)) {
+                it = state.loads.erase(it);
             } else {
                 ++it;
             }
@@ -629,6 +691,13 @@ private:
         }
         return store.access.address.exact == key ||
                (store.access.address.knownRoot && store.access.address.root == key);
+    }
+
+    bool loadMentionsVar(const LoadState &load, IRVar *var, const std::string &key) const {
+        if (!var) return false;
+        if (load.value && load.value.get() == var) return true;
+        return load.access.address.exact == key ||
+               (load.access.address.knownRoot && load.access.address.root == key);
     }
 
     bool isMemoryBarrier(const std::shared_ptr<IRNode> &instr) {
