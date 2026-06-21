@@ -3,6 +3,7 @@
 #include "ASM.h"
 #include <algorithm>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -69,6 +70,7 @@ private:
         long long offset = 0;
         int size = 0;
         int reg = -1;
+        int storeIndex = -1;
     };
 
     bool isSelfMove(const ASMInstr &instr) const {
@@ -299,8 +301,11 @@ private:
 
     void eraseKnownReg(std::vector<StackSlotValue> &known, int reg) const {
         known.erase(std::remove_if(known.begin(), known.end(),
-            [&](const StackSlotValue &slot) { return slot.reg == reg || slot.base == reg; }),
+            [&](const StackSlotValue &slot) { return slot.base == reg; }),
             known.end());
+        for (auto &slot : known) {
+            if (slot.reg == reg) slot.reg = -1;
+        }
     }
 
     void eraseOverlappingSlots(std::vector<StackSlotValue> &known,
@@ -326,13 +331,15 @@ private:
                       int base,
                       long long offset,
                       int size,
-                      int reg) const {
+                      int reg,
+                      int storeIndex = -1) const {
         int idx = findKnownSlot(known, base, offset, size);
         if (idx >= 0) {
             known[idx].reg = reg;
+            known[idx].storeIndex = storeIndex;
             return;
         }
-        known.push_back(StackSlotValue{base, offset, size, reg});
+        known.push_back(StackSlotValue{base, offset, size, reg, storeIndex});
     }
 
     bool cleanupRedundantStackAccesses(std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
@@ -341,6 +348,7 @@ private:
             if (!block) continue;
             std::vector<StackSlotValue> known;
             std::vector<ASMInstr> out;
+            std::set<int> deadStoreIndices;
             out.reserve(block->instrs.size());
 
             for (const auto &instr : block->instrs) {
@@ -352,8 +360,9 @@ private:
                     int dst = (int)instr.rd.value;
                     int idx = findKnownSlot(known, base, offset, size);
                     int src = idx >= 0 ? known[idx].reg : -1;
+                    int storeIndex = idx >= 0 ? known[idx].storeIndex : -1;
                     eraseKnownReg(known, dst);
-                    if (idx >= 0) {
+                    if (idx >= 0 && src >= 0) {
                         if (src != dst) {
                             ASMInstr mv;
                             mv.op = ASMOp::MV;
@@ -361,7 +370,7 @@ private:
                             mv.rs1 = Operand(OperandType::REG, src);
                             out.push_back(mv);
                         }
-                        rememberSlot(known, base, offset, size, dst);
+                        rememberSlot(known, base, offset, size, dst, storeIndex);
                         changed = true;
                     } else {
                         out.push_back(instr);
@@ -373,13 +382,21 @@ private:
                 if (isTrackedStackStore(instr, base, offset, size)) {
                     int src = (int)instr.rs2.value;
                     int idx = findKnownSlot(known, base, offset, size);
+                    int previousStore = idx >= 0 ? known[idx].storeIndex : -1;
+                    int currentStore = -1;
                     if (idx >= 0 && known[idx].reg == src) {
                         changed = true;
                     } else {
+                        if (previousStore >= 0) {
+                            deadStoreIndices.insert(previousStore);
+                            changed = true;
+                        }
                         eraseOverlappingSlots(known, base, offset, size);
+                        currentStore = static_cast<int>(out.size());
                         out.push_back(instr);
                     }
-                    rememberSlot(known, base, offset, size, src);
+                    rememberSlot(known, base, offset, size, src,
+                                 currentStore >= 0 ? currentStore : previousStore);
                     continue;
                 }
 
@@ -405,15 +422,23 @@ private:
                 if (clearAll || isTerminator(instr)) {
                     known.clear();
                 } else {
-                    known.erase(std::remove_if(known.begin(), known.end(),
-                        [&](const StackSlotValue &slot) {
-                            return instrDefsReg(instr, slot.reg);
-                        }),
-                        known.end());
+                    for (auto &slot : known) {
+                        if (slot.reg >= 0 && instrDefsReg(instr, slot.reg)) {
+                            slot.reg = -1;
+                        }
+                    }
                 }
                 out.push_back(instr);
             }
 
+            if (!deadStoreIndices.empty()) {
+                std::vector<ASMInstr> filtered;
+                filtered.reserve(out.size());
+                for (int i = 0; i < static_cast<int>(out.size()); i++) {
+                    if (!deadStoreIndices.count(i)) filtered.push_back(out[i]);
+                }
+                out = std::move(filtered);
+            }
             if (out.size() != block->instrs.size()) changed = true;
             block->instrs = std::move(out);
         }
