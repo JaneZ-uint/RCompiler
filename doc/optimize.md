@@ -25,7 +25,7 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 ### 1.1 最新 OJ 反馈
 
-最新提交到 `69f5ec3 opt: reduce near-power-of-two multiplies` 后，OJ 总分约 `60.24 / 100`。当前丢分主要集中在数据结构、NTT 和解释器类隐藏点：
+最新已知 OJ 反馈来自 `69f5ec3 opt: reduce near-power-of-two multiplies` 附近，OJ 总分约 `60.24 / 100`。当前丢分主要集中在数据结构、NTT 和解释器类隐藏点：
 
 | 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
 |---|---|---:|---:|---|
@@ -38,12 +38,15 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 最近三项增强整体有收益，但 `opti_block_hash_pipeline` 从 `5.32` 降到 `4.90`，`opti_recursive_utility_pipeline`、`opti_dp_suite`、`opti_branch_state_machine` 也有小幅回退。优先怀疑 `69f5ec3` 的 `x * (2^k +/- 1)` 展开：RV64GC 中 `mul` 是单条指令，展开成 `slli + add/sub` 可能增加动态指令数和寄存器压力。
 
-当前短期调整：
+当前短期调整状态：
 
-1. 先收紧或回滚 `near-power-of-two multiplies`，只保留明确收益的乘法 strength reduction。
-2. 增强 MemoryForward 的结构体字段 alias 精度，重点覆盖 `a[i].x` 和 `a[i].y`、同根不同常量字段的 disjoint 判断。
-3. 针对 `opti_ntt_convolution`，优先寻找不增加新 ASM 的 `% const`、模乘、循环不变量优化。
-4. 针对 `opti_bytecode_vm_interpreter`，优先减少循环内状态字段的重复 load/store 和无谓 spill。
+1. 已收紧 `near-power-of-two multiplies`，保留 `x * 2^k`、unsigned `/ % 2^k` 这类明确收益转换。
+2. 已增强 MemoryForward 的结构体字段 alias 精度，覆盖同根路径中不同常量字段的 disjoint 判断。
+3. 已在 LocalCSE 后重跑 MemoryForward/ConstantFold/CFGClean，让 getptr canonicalize 后的地址事实继续参与转发。
+4. 已为 MemoryForward 增加 dominated load cache，覆盖 `load p; ...; load p` 且中间无别名写入的场景。
+5. 已增强 LICM，对服务于可提升 getptr/cast/贵表达式的循环不变量 cheap binary 做依赖驱动提升。
+6. 已做 boolean branch peephole，减少解释器/状态机中 `seqz/snez/slti + bnez` 形态的临时值。
+7. 暂不做 `% const` 魔数除法/模乘 lowering；它通常需要 `mulh/mulhu` 或更复杂序列，先避免 OJ `CE_ASM` 风险。
 
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|
@@ -81,7 +84,15 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 - CFG clean
 - IR DCE
 - memory forwarding 初版
+- alias-aware memory forwarding：
+  - store-load forwarding
+  - dead store elimination for same known location in one block
+  - known-field disjoint alias check
+  - dominated load reuse
 - local CSE 初版，含 binary/getptr/load 的局部处理
+- dominator-tree CSE/GVN for pure binary/getptr/cast and conservative load reuse
+- LICM，含 expensive scalar/getptr/cast hoist，以及地址链 cheap binary hoist
+- strength reduction，保留 power-of-two multiply and unsigned div/mod
 - SCCP，含：
   - sparse executable edge propagation
   - phi 常量传播
@@ -90,6 +101,7 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
   - branch edge facts
   - `x == const` / `x != const` 的分支内事实传播
 - 后端 peephole 和寄存器分配策略已有若干调整
+- boolean branch peephole for common compare-to-zero forms
 
 当前后续优化不应重复做已完成的基础 pass，而应围绕隐藏点继续增强内存、循环和跨块表达式能力。
 
@@ -98,6 +110,8 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 ### P0: Loop-aware GetPtr/Load CSE
 
 目标：减少热循环中的重复地址计算和重复 load。
+
+状态：大部分已经由当前 dominator-tree `LocalCSE` 和 MemoryForward load cache 覆盖。后续只做 alias 精度和 pipeline 调度增强，不再另起一个重复 pass。
 
 第一版保持保守：
 
@@ -132,6 +146,15 @@ opt: extend cse across dominated blocks
 ### P1: LICM
 
 目标：把循环不变量移出循环。
+
+状态：已实现并增强。当前 hoist 范围是：
+
+- profitable binary: `mul/div/mod/shift`
+- pure getptr
+- casts
+- 服务于可提升地址链或贵表达式链的 cheap binary: `add/sub/and/or/xor`
+
+当前仍不 hoist load，避免内存 alias 误判。
 
 实现步骤：
 
@@ -175,6 +198,8 @@ opt: hoist loop invariant scalar expressions
 
 目标：让结构体池、数组局部更新和解释器状态变量少走内存。
 
+状态：已完成当前安全版本。后续方向是继续提升地址规范化能力，尤其是把等价 getptr 链和相同动态 index 下的固定字段路径识别得更稳定。
+
 在现有 `memoryForward` 基础上增强：
 
 - 建立地址 key：
@@ -210,6 +235,8 @@ opt: forward memory across dominated blocks
 ### P3: Cross-block GVN
 
 目标：跨基本块复用已支配的纯表达式。
+
+状态：当前 `LocalCSE` 实际已按 dominator tree 向下传播 pure expression table，覆盖 binary/getptr/cast；后续重点是降低由表达式替换带来的寄存器压力，而不是新增重复 GVN pass。
 
 范围：
 
@@ -368,27 +395,31 @@ Global2Local -> Mem2Reg -> DominantTree
 
 ## 5. 建议后续顺序
 
-短期优先完成：
+已完成或已有等价实现：
 
 1. Loop-aware getptr/load CSE
 2. LICM
 3. Alias-aware memory forwarding
 4. Cross-block GVN
-5. SROA 小范围版本
+
+短期后续优先级：
+
+1. SROA 小范围版本增强：当前只拆很小的 struct/fixed array，后续可支持更多安全 memcpy/copy init 场景。
+2. Inline cost model 调优：面向 helper/getter/setter 更激进，面向 long-param/大聚合/解释器热点更保守。
+3. Spill/reload cleanup：只使用现有 RV64GC 指令，优先做基本块内冗余 reload/store 删除。
 
 如果 OJ 分数仍不理想，再做：
 
-6. Inline cost model 调优
-7. Spill/reload cleanup
-8. 更激进的 loop strength reduction
-9. 多 block inline
-10. Global2Local
+4. 更激进的 loop strength reduction，但需要警惕寄存器压力和 `CE_ASM`。
+5. 多 block inline。
+6. Global2Local。
 
 ## 6. 当前推荐管线
 
-当前实际管线应保持类似：
+当前实际管线：
 
 ```text
+SROA
 Mem2Reg
 DominantTree
 SCCP
@@ -402,36 +433,12 @@ DCE
 MemoryForward
 ConstantFold
 CFGClean
+StrengthReduction
 LocalCSE
-DCE
-InstrSelect
-Peephole
-ASM DCE
-LinearScan
-Peephole
-ASMPrinter
-```
-
-新增循环/GVN/memory pass 后建议变为：
-
-```text
-Mem2Reg
-DominantTree
-SCCP
-FunctionInline
-DominantTree
-SCCP
+MemoryForward
+ConstantFold
 CFGClean
-DCE
-CrossBlockGVN
-LoopCSE
 LICM
-MemoryForward
-ConstantFold
-SCCP
-CFGClean
-DCE
-LocalCSE
 DCE
 InstrSelect
 Peephole
@@ -444,8 +451,9 @@ ASMPrinter
 说明：
 
 - `FunctionInline` 后最好重新跑支配/SSA 或至少确认后续 pass 不依赖过期 CFG。
-- `LICM/GVN/LoopCSE` 依赖干净 CFG 和支配关系，放在 `CFGClean/DCE` 后更稳。
-- `MemoryForward` 后常会制造常量和死 load/store，应接 `ConstantFold/SCCP/CFGClean/DCE`。
+- `LocalCSE` 后重跑 `MemoryForward` 是有意安排：getptr/address 经过 CSE 后，load/store 转发能看到更多等价地址。
+- `LICM` 放在第二轮 MemoryForward/CFGClean 后，避免提升已经能被转发/折叠掉的临时。
+- `MemoryForward` 后常会制造常量和死 load/store，应接 `ConstantFold/CFGClean/DCE`。
 
 ## 7. 验证策略
 
