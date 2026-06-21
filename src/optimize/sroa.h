@@ -75,6 +75,7 @@ private:
     std::map<IRVar*, Candidate> candidates;
     std::map<IRVar*, FieldAddress> fieldAddress;
     std::set<IRVar*> approved;
+    static constexpr int kMaxScalarizedFields = 4;
 
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return;
@@ -119,13 +120,14 @@ private:
     std::vector<FieldInfo> directScalarFields(const std::shared_ptr<IRType> &type) {
         std::vector<FieldInfo> fields;
         if (auto st = std::dynamic_pointer_cast<IRStructType>(type)) {
-            if (st->memberTypes.empty() || st->memberTypes.size() > 8) return {};
+            if (st->memberTypes.empty() ||
+                st->memberTypes.size() > kMaxScalarizedFields) return {};
             for (int i = 0; i < static_cast<int>(st->memberTypes.size()); i++) {
                 if (!isScalarFieldType(st->memberTypes[i].second)) return {};
                 fields.push_back(makeFieldInfo(i, st->memberTypes[i].second));
             }
         } else if (auto arr = std::dynamic_pointer_cast<IRArrayType>(type)) {
-            if (arr->length <= 0 || arr->length > 8) return {};
+            if (arr->length <= 0 || arr->length > kMaxScalarizedFields) return {};
             if (!isScalarFieldType(arr->elementType)) return {};
             for (int i = 0; i < arr->length; i++) {
                 fields.push_back(makeFieldInfo(i, arr->elementType));
