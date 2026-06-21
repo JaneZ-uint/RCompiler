@@ -256,6 +256,7 @@ private:
 
     void hoistLoop(const LoopInfo &loop) {
         auto defBlock = buildDefBlockMap();
+        auto useMap = buildLoopUseMap(loop);
         std::set<IRVar*> hoistedDefs;
         std::vector<std::pair<IRBlock*, std::shared_ptr<IRNode>>> hoisted;
         std::set<IRNode*> selected;
@@ -267,7 +268,7 @@ private:
                 if (!loop.blocks.count(blk)) continue;
                 for (auto &instr : blk->instrList) {
                     if (!instr || selected.count(instr.get())) continue;
-                    auto result = hoistResult(instr);
+                    auto result = hoistResult(instr, loop, defBlock, hoistedDefs, useMap);
                     if (!result || hoistedDefs.count(result.get())) continue;
                     if (!isHoistable(instr, loop, defBlock, hoistedDefs)) continue;
                     selected.insert(instr.get());
@@ -296,15 +297,110 @@ private:
         return defBlock;
     }
 
-    std::shared_ptr<IRVar> hoistResult(const std::shared_ptr<IRNode> &instr) const {
+    std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>>
+    buildLoopUseMap(const LoopInfo &loop) const {
+        std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>> useMap;
+        for (auto *blk : loop.blocks) {
+            if (!blk) continue;
+            for (auto &instr : blk->instrList) {
+                for (auto &use : IRUtil::uses(instr)) {
+                    if (use) useMap[use.get()].push_back(instr);
+                }
+            }
+        }
+        return useMap;
+    }
+
+    std::shared_ptr<IRVar>
+    hoistResult(const std::shared_ptr<IRNode> &instr,
+                const LoopInfo &loop,
+                const std::map<IRVar*, IRBlock*> &defBlock,
+                const std::set<IRVar*> &hoistedDefs,
+                const std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>> &useMap) const {
         if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
-            return profitableBinary(op) ? op->result : nullptr;
+            if (profitableBinary(op) ||
+                usefulCheapBinary(op, loop, defBlock, hoistedDefs, useMap)) {
+                return op->result;
+            }
+            return nullptr;
         }
         if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(instr)) return getptr->res;
         if (auto sext = std::dynamic_pointer_cast<IRSext>(instr)) return sext->result;
         if (auto zext = std::dynamic_pointer_cast<IRZext>(instr)) return zext->result;
         if (auto trunc = std::dynamic_pointer_cast<IRTrunc>(instr)) return trunc->result;
         return nullptr;
+    }
+
+    bool usefulCheapBinary(const std::shared_ptr<IRBinaryop> &op,
+                           const LoopInfo &loop,
+                           const std::map<IRVar*, IRBlock*> &defBlock,
+                           const std::set<IRVar*> &hoistedDefs,
+                           const std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>> &useMap) const {
+        if (!op || !op->result || !cheapBinary(op)) return false;
+        std::set<IRVar*> extraHoisted;
+        std::set<IRVar*> visiting;
+        extraHoisted.insert(op->result.get());
+        return resultFeedsHoistableUse(op->result.get(), loop, defBlock, hoistedDefs,
+                                       useMap, extraHoisted, visiting);
+    }
+
+    bool resultFeedsHoistableUse(IRVar *var,
+                                 const LoopInfo &loop,
+                                 const std::map<IRVar*, IRBlock*> &defBlock,
+                                 const std::set<IRVar*> &hoistedDefs,
+                                 const std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>> &useMap,
+                                 const std::set<IRVar*> &extraHoisted,
+                                 std::set<IRVar*> &visiting) const {
+        if (!var || visiting.count(var)) return false;
+        visiting.insert(var);
+        bool result = false;
+
+        auto it = useMap.find(var);
+        if (it != useMap.end()) {
+            for (auto &user : it->second) {
+                if (auto getptr = std::dynamic_pointer_cast<IRGetptr>(user)) {
+                    result = getptrHoistableWithExtra(getptr, loop, defBlock, hoistedDefs,
+                                                      extraHoisted);
+                } else if (auto sext = std::dynamic_pointer_cast<IRSext>(user)) {
+                    result = varInvariantWithExtra(sext->value, loop, defBlock, hoistedDefs,
+                                                   extraHoisted);
+                } else if (auto zext = std::dynamic_pointer_cast<IRZext>(user)) {
+                    result = varInvariantWithExtra(zext->value, loop, defBlock, hoistedDefs,
+                                                   extraHoisted);
+                } else if (auto trunc = std::dynamic_pointer_cast<IRTrunc>(user)) {
+                    result = varInvariantWithExtra(trunc->value, loop, defBlock, hoistedDefs,
+                                                   extraHoisted);
+                } else if (auto binary = std::dynamic_pointer_cast<IRBinaryop>(user)) {
+                    result = binaryFeedsHoistableUse(binary, loop, defBlock, hoistedDefs,
+                                                     useMap, extraHoisted, visiting);
+                }
+
+                if (result) break;
+            }
+        }
+
+        visiting.erase(var);
+        return result;
+    }
+
+    bool binaryFeedsHoistableUse(const std::shared_ptr<IRBinaryop> &binary,
+                                 const LoopInfo &loop,
+                                 const std::map<IRVar*, IRBlock*> &defBlock,
+                                 const std::set<IRVar*> &hoistedDefs,
+                                 const std::map<IRVar*, std::vector<std::shared_ptr<IRNode>>> &useMap,
+                                 const std::set<IRVar*> &extraHoisted,
+                                 std::set<IRVar*> &visiting) const {
+        if (!binary || !binary->result ||
+            !binaryHoistableWithExtra(binary, loop, defBlock, hoistedDefs, extraHoisted)) {
+            return false;
+        }
+        if (profitableBinary(binary)) return true;
+        if (!cheapBinary(binary)) return false;
+
+        auto nextExtra = extraHoisted;
+        nextExtra.insert(binary->result.get());
+        return resultFeedsHoistableUse(binary->result.get(), loop, defBlock, hoistedDefs,
+                                       useMap, nextExtra, visiting);
     }
 
     bool isHoistable(const std::shared_ptr<IRNode> &instr,
@@ -353,6 +449,40 @@ private:
         }
     }
 
+    bool cheapBinary(const std::shared_ptr<IRBinaryop> &op) const {
+        if (!op) return false;
+        switch (op->op) {
+            case ADD:
+            case SUB:
+            case ANDOP:
+            case OROP:
+            case XOROP:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    bool binaryHoistableWithExtra(const std::shared_ptr<IRBinaryop> &op,
+                                  const LoopInfo &loop,
+                                  const std::map<IRVar*, IRBlock*> &defBlock,
+                                  const std::set<IRVar*> &hoistedDefs,
+                                  const std::set<IRVar*> &extraHoisted) const {
+        if (!safeBinary(op)) return false;
+        return valueInvariantWithExtra(op->leftValue, loop, defBlock, hoistedDefs, extraHoisted) &&
+               valueInvariantWithExtra(op->rightValue, loop, defBlock, hoistedDefs, extraHoisted);
+    }
+
+    bool getptrHoistableWithExtra(const std::shared_ptr<IRGetptr> &getptr,
+                                  const LoopInfo &loop,
+                                  const std::map<IRVar*, IRBlock*> &defBlock,
+                                  const std::set<IRVar*> &hoistedDefs,
+                                  const std::set<IRVar*> &extraHoisted) const {
+        if (!getptr) return false;
+        return varInvariantWithExtra(getptr->base, loop, defBlock, hoistedDefs, extraHoisted) &&
+               varInvariantWithExtra(getptr->index, loop, defBlock, hoistedDefs, extraHoisted);
+    }
+
     bool valueInvariant(const std::shared_ptr<IRValue> &value,
                         const LoopInfo &loop,
                         const std::map<IRVar*, IRBlock*> &defBlock,
@@ -371,6 +501,27 @@ private:
         auto it = defBlock.find(var.get());
         if (it == defBlock.end()) return true;
         return !loop.blocks.count(it->second);
+    }
+
+    bool valueInvariantWithExtra(const std::shared_ptr<IRValue> &value,
+                                 const LoopInfo &loop,
+                                 const std::map<IRVar*, IRBlock*> &defBlock,
+                                 const std::set<IRVar*> &hoistedDefs,
+                                 const std::set<IRVar*> &extraHoisted) const {
+        if (!value) return true;
+        if (std::dynamic_pointer_cast<IRLiteral>(value)) return true;
+        return varInvariantWithExtra(std::dynamic_pointer_cast<IRVar>(value), loop, defBlock,
+                                     hoistedDefs, extraHoisted);
+    }
+
+    bool varInvariantWithExtra(const std::shared_ptr<IRVar> &var,
+                               const LoopInfo &loop,
+                               const std::map<IRVar*, IRBlock*> &defBlock,
+                               const std::set<IRVar*> &hoistedDefs,
+                               const std::set<IRVar*> &extraHoisted) const {
+        if (!var) return true;
+        if (extraHoisted.count(var.get())) return true;
+        return varInvariant(var, loop, defBlock, hoistedDefs);
     }
 
     void removeHoisted(const std::vector<std::pair<IRBlock*, std::shared_ptr<IRNode>>> &hoisted,
