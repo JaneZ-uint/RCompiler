@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <vector>
 #include "../ir/IRBinaryop.h"
 #include "../ir/IRBlock.h"
 #include "../ir/IRFunction.h"
@@ -30,11 +29,6 @@ public:
     }
 
 private:
-    struct NearPowerPlan {
-        int shift = 0;
-        bool add = true;
-    };
-
     void optimizeFunc(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return;
         optimizeBlock(func->body);
@@ -43,22 +37,11 @@ private:
 
     void optimizeBlock(const std::shared_ptr<IRBlock> &block) {
         if (!block) return;
-        std::vector<std::shared_ptr<IRNode>> rewritten;
-        rewritten.reserve(block->instrList.size());
         for (auto &instr : block->instrList) {
             auto op = std::dynamic_pointer_cast<IRBinaryop>(instr);
-            if (!op) {
-                rewritten.push_back(instr);
-                continue;
-            }
-            if (reduceMulNearPowerOfTwo(op, rewritten)) {
-                rewritten.push_back(instr);
-                continue;
-            }
+            if (!op) continue;
             reduceBinary(op);
-            rewritten.push_back(instr);
         }
-        block->instrList.swap(rewritten);
     }
 
     void reduceBinary(const std::shared_ptr<IRBinaryop> &op) {
@@ -88,40 +71,6 @@ private:
         return false;
     }
 
-    bool reduceMulNearPowerOfTwo(const std::shared_ptr<IRBinaryop> &op,
-                                 std::vector<std::shared_ptr<IRNode>> &rewritten) {
-        if (op->op != MUL || !op->w64tag || !op->result) return false;
-
-        std::shared_ptr<IRLiteral> factor;
-        std::shared_ptr<IRValue> value;
-        if ((factor = std::dynamic_pointer_cast<IRLiteral>(op->rightValue))) {
-            value = op->leftValue;
-        } else if ((factor = std::dynamic_pointer_cast<IRLiteral>(op->leftValue))) {
-            value = op->rightValue;
-        } else {
-            return false;
-        }
-
-        auto plan = nearPowerOfTwoPlan(factor);
-        if (!plan || !value) return false;
-
-        auto shifted = std::make_shared<IRVar>();
-        shifted->type = op->result->type;
-
-        auto shiftOp = std::make_shared<IRBinaryop>(LEFTSHIFTOP, shifted);
-        shiftOp->leftValue = value;
-        shiftOp->rightValue = makeShiftLiteral(plan->shift);
-        shiftOp->utag = op->utag;
-        shiftOp->i8tag = op->i8tag;
-        shiftOp->w64tag = op->w64tag;
-        rewritten.push_back(shiftOp);
-
-        op->op = plan->add ? ADD : SUB;
-        op->leftValue = shifted;
-        op->rightValue = value;
-        return true;
-    }
-
     bool reduceUnsignedDivModPowerOfTwo(const std::shared_ptr<IRBinaryop> &op) {
         if (!op->utag || (op->op != DIV && op->op != MOD)) return false;
 
@@ -148,23 +97,6 @@ private:
         if (shift <= 0) return 0;
         if (shift >= 64) return static_cast<long long>(UINT64_MAX);
         return static_cast<long long>((1ULL << shift) - 1ULL);
-    }
-
-    std::optional<NearPowerPlan> nearPowerOfTwoPlan(const std::shared_ptr<IRLiteral> &lit) const {
-        if (!lit || lit->literalType != INT_LITERAL || lit->intValue <= 2) {
-            return std::nullopt;
-        }
-        uint64_t value = static_cast<uint64_t>(lit->intValue);
-
-        if (auto shift = powerOfTwoShift(value - 1, 64)) {
-            return NearPowerPlan{*shift, true};
-        }
-        if (value != UINT64_MAX) {
-            if (auto shift = powerOfTwoShift(value + 1, 64)) {
-                return NearPowerPlan{*shift, false};
-            }
-        }
-        return std::nullopt;
     }
 
     std::optional<int> powerOfTwoShift(const std::shared_ptr<IRLiteral> &lit, bool wide64) const {
