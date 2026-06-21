@@ -25,16 +25,16 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 ### 1.1 最新 OJ 反馈
 
-最新已知 OJ 反馈来自 `69f5ec3 opt: reduce near-power-of-two multiplies` 附近，OJ 总分约 `60.24 / 100`。当前丢分主要集中在数据结构、NTT 和解释器类隐藏点：
+最新已知 OJ 反馈来自 `d53bcc7 docs: mark planned optimizations complete`，OJ 总分约 `60.75 / 100`，相比上一轮约 `+0.51`。收益主要来自数组、树/hashmap、压缩和图；回退主要来自解释器、in-memory index、struct pool 和 block hash。
 
 | 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
 |---|---|---:|---:|---|
-| 1 | `opti_graph_algorithms_suite` | `3.09 / 8.00` | `4.91` | 图/邻接结构，地址计算、load/store 和寄存器压力 |
-| 2 | `opti_ntt_convolution` | `2.75 / 6.00` | `3.25` | 模乘、`%`、循环内数组访问 |
-| 3 | `opti_range_structures_suite` | `3.85 / 7.00` | `3.15` | 树状/区间结构，结构字段和数组访问 |
-| 4 | `opti_bytecode_vm_interpreter` | `2.92 / 6.00` | `3.08` | 解释器 dispatch、状态字段反复读写、分支 |
-| 5 | `opti_inmemory_index_query` | `3.93 / 7.00` | `3.07` | 内存索引，结构体字段 alias 和 load forwarding |
-| 6 | `opti_tree_hashmap_suite` | `3.99 / 7.00` | `3.01` | tree/hashmap 混合，load forwarding、CSE、spill |
+| 1 | `opti_graph_algorithms_suite` | `3.27 / 8.00` | `4.73` | 图/邻接结构，地址计算、load/store 和寄存器压力 |
+| 2 | `opti_ntt_convolution` | `2.76 / 6.00` | `3.24` | 模乘、`%`、循环内数组访问 |
+| 3 | `opti_bytecode_vm_interpreter` | `2.69 / 6.00` | `3.31` | 解释器 dispatch、状态字段反复读写、分支和寄存器压力 |
+| 4 | `opti_range_structures_suite` | `3.89 / 7.00` | `3.11` | 树状/区间结构，结构字段和数组访问 |
+| 5 | `opti_inmemory_index_query` | `3.76 / 7.00` | `3.24` | 内存索引，结构体字段 alias 和 load forwarding |
+| 6 | `opti_block_hash_pipeline` | `4.79 / 7.00` | `2.21` | block hash 长 pipeline，CSE 和 inline/LICM 可能增加寄存器压力 |
 
 最近三项增强整体有收益，但 `opti_block_hash_pipeline` 从 `5.32` 降到 `4.90`，`opti_recursive_utility_pipeline`、`opti_dp_suite`、`opti_branch_state_machine` 也有小幅回退。优先怀疑 `69f5ec3` 的 `x * (2^k +/- 1)` 展开：RV64GC 中 `mul` 是单条指令，展开成 `slli + add/sub` 可能增加动态指令数和寄存器压力。
 
@@ -47,6 +47,12 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 5. 已增强 LICM，对服务于可提升 getptr/cast/贵表达式的循环不变量 cheap binary 做依赖驱动提升。
 6. 已做 boolean branch peephole，减少解释器/状态机中 `seqz/snez/slti + bnez` 形态的临时值。
 7. 暂不做 `% const` 魔数除法/模乘 lowering；它通常需要 `mulh/mulhu` 或更复杂序列，先避免 OJ `CE_ASM` 风险。
+
+本轮 OJ delta：
+
+- 明显提升：`opti_array_transform +0.47`、`opti_tree_hashmap_suite +0.27`、`opti_compression_match_finder +0.19`、`opti_graph_algorithms_suite +0.18`。
+- 明显回退：`opti_bytecode_vm_interpreter -0.23`、`opti_inmemory_index_query -0.17`、`opti_struct_pool_fold -0.14`、`opti_block_hash_pipeline -0.11`。
+- 判断：新增优化总体方向有效，但泛化的 inline / LICM / load reuse 可能在状态机和长 pipeline 上放大活跃区间。下一步先收紧 inline scalar memory helper，再按 OJ 结果决定是否收紧 LICM cheap binary hoist。
 
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|

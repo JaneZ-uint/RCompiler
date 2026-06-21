@@ -174,6 +174,9 @@ private:
         if (cost < 0) return false;
         int costLimit = (callCount == 1 && paramCount <= 10) ? kSingleUseInlineCost : kMaxInlineCost;
         if (isTinyInline(func, cost)) costLimit = std::max(costLimit, kTinyInlineCost);
+        if (hasScalarMemoryInstr(func)) {
+            costLimit = (callCount == 1) ? std::min(costLimit, 32) : std::min(costLimit, 18);
+        }
         if (cost > costLimit) return false;
 
         int returnCnt = 0;
@@ -293,6 +296,22 @@ private:
             }
         }
         return true;
+    }
+
+    bool hasScalarMemoryInstr(const std::shared_ptr<IRFunction> &func) const {
+        if (!func || !func->body) return false;
+        for (auto &instr : func->body->instrList) {
+            if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
+                if (alloca->allocatedType && isScalarMemoryType(alloca->allocatedType)) return true;
+            } else if (auto load = std::dynamic_pointer_cast<IRLoad>(instr)) {
+                if (load->type && isScalarMemoryType(load->type)) return true;
+            } else if (auto store = std::dynamic_pointer_cast<IRStore>(instr)) {
+                if (store->valueType && isScalarMemoryType(store->valueType)) return true;
+            } else if (std::dynamic_pointer_cast<IRGetptr>(instr)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool isScalarMemoryType(const std::shared_ptr<IRType> &type) const {
