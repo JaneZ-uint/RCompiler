@@ -76,6 +76,9 @@ int main(){
     JaneZ::FunctionInline functionInline;
     functionInline.optimize(code_generator.irRoot);
 
+    mem2reg.optimize(code_generator.irRoot);
+    domTree.optimize(code_generator.irRoot);
+
     sccp.optimize(code_generator.irRoot);
 
     JaneZ::ConstantFold constantFold;

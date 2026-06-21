@@ -5,6 +5,7 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include "../ir/IRAlloca.h"
 #include "../ir/IRRoot.h"
 #include "../ir/IRFunction.h"
 #include "../ir/IRImpl.h"
@@ -13,9 +14,12 @@
 #include "../ir/IRValue.h"
 #include "../ir/IRLiteral.h"
 #include "../ir/IRBinaryop.h"
+#include "../ir/IRGetptr.h"
+#include "../ir/IRLoad.h"
 #include "../ir/IRReturn.h"
 #include "../ir/IRCall.h"
 #include "../ir/IRParam.h"
+#include "../ir/IRStore.h"
 #include "../ir/IRType.h"
 #include "../ir/IRSext.h"
 #include "../ir/IRZext.h"
@@ -32,6 +36,8 @@ public:
         if (!root) return;
         collectFunctions(root);
         collectCallCounts();
+        buildCallGraph();
+        collectRecursiveFunctions();
         collectInlineable();
 
         for (auto &child : root->children) {
@@ -51,8 +57,14 @@ private:
     std::vector<std::shared_ptr<IRFunction>> functions;
     std::set<IRFunction*> inlineable;
     std::map<IRFunction*, int> callCounts;
+    std::map<IRFunction*, std::set<IRFunction*>> callGraph;
+    std::set<IRFunction*> recursiveFunctions;
+    std::map<IRFunction*, int> costCache;
     static constexpr int kMaxInlineInstr = 24;
     static constexpr int kSingleUseInlineInstr = 48;
+    static constexpr int kMaxInlineCost = 36;
+    static constexpr int kSingleUseInlineCost = 92;
+    static constexpr int kTinyInlineCost = 14;
     static constexpr int kMaxInlineRounds = 3;
 
     void collectFunctions(std::shared_ptr<IRRoot> root) {
@@ -100,10 +112,53 @@ private:
         }
     }
 
+    void buildCallGraph() {
+        callGraph.clear();
+        for (auto &func : functions) {
+            if (!func || !func->body) continue;
+            auto *raw = func.get();
+            callGraph[raw] = {};
+            collectCallsInBlock(func->body, callGraph[raw]);
+            for (auto &blk : func->body->blockList) collectCallsInBlock(blk, callGraph[raw]);
+        }
+    }
+
+    void collectCallsInBlock(const std::shared_ptr<IRBlock> &block,
+                             std::set<IRFunction*> &out) {
+        if (!block) return;
+        for (auto &instr : block->instrList) {
+            auto call = std::dynamic_pointer_cast<IRCall>(instr);
+            if (call && call->function) out.insert(call->function.get());
+        }
+    }
+
+    void collectRecursiveFunctions() {
+        recursiveFunctions.clear();
+        for (auto &func : functions) {
+            if (!func) continue;
+            std::set<IRFunction*> visiting;
+            if (canReach(func.get(), func.get(), visiting)) {
+                recursiveFunctions.insert(func.get());
+            }
+        }
+    }
+
+    bool canReach(IRFunction *start, IRFunction *target, std::set<IRFunction*> &visiting) {
+        if (!start || !callGraph.count(start)) return false;
+        for (auto *next : callGraph[start]) {
+            if (!next) continue;
+            if (next == target) return true;
+            if (!visiting.insert(next).second) continue;
+            if (canReach(next, target, visiting)) return true;
+        }
+        return false;
+    }
+
     bool canInline(const std::shared_ptr<IRFunction> &func) {
         if (!func || !func->body) return false;
         if (func->name == "main") return false;
         if (!func->body->blockList.empty()) return false;
+        if (recursiveFunctions.count(func.get())) return false;
         if (!std::dynamic_pointer_cast<IRIntType>(func->retType) &&
             !std::dynamic_pointer_cast<IRVoidType>(func->retType)) {
             return false;
@@ -115,17 +170,15 @@ private:
         int instrLimit = (callCount == 1 && paramCount <= 8) ? kSingleUseInlineInstr : kMaxInlineInstr;
         if (instrs.empty() || instrs.size() > static_cast<size_t>(instrLimit)) return false;
 
+        int cost = inlineCost(func);
+        if (cost < 0) return false;
+        int costLimit = (callCount == 1 && paramCount <= 10) ? kSingleUseInlineCost : kMaxInlineCost;
+        if (isTinyInline(func, cost)) costLimit = std::max(costLimit, kTinyInlineCost);
+        if (cost > costLimit) return false;
+
         int returnCnt = 0;
         for (size_t i = 0; i < instrs.size(); i++) {
-            if (std::dynamic_pointer_cast<IRBinaryop>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRSext>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRZext>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRTrunc>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRPrint>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRExit>(instrs[i])) continue;
-            if (std::dynamic_pointer_cast<IRGetint>(instrs[i])) continue;
-            if (auto call = std::dynamic_pointer_cast<IRCall>(instrs[i])) {
-                if (call->function.get() == func.get()) return false;
+            if (isAllowedInlineInstr(func, instrs[i])) {
                 continue;
             }
             if (std::dynamic_pointer_cast<IRReturn>(instrs[i])) {
@@ -138,17 +191,135 @@ private:
         return returnCnt == 1;
     }
 
+    bool isAllowedInlineInstr(const std::shared_ptr<IRFunction> &func,
+                              const std::shared_ptr<IRNode> &instr) const {
+        if (!instr) return false;
+        if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
+            return alloca->allocatedType && isScalarMemoryType(alloca->allocatedType);
+        }
+        if (std::dynamic_pointer_cast<IRLoad>(instr)) return true;
+        if (std::dynamic_pointer_cast<IRStore>(instr)) return true;
+        if (std::dynamic_pointer_cast<IRGetptr>(instr)) return true;
+        if (std::dynamic_pointer_cast<IRReturn>(instr)) return false;
+        if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
+            return call->function.get() != func.get();
+        }
+        return std::dynamic_pointer_cast<IRBinaryop>(instr) ||
+               std::dynamic_pointer_cast<IRSext>(instr) ||
+               std::dynamic_pointer_cast<IRZext>(instr) ||
+               std::dynamic_pointer_cast<IRTrunc>(instr) ||
+               std::dynamic_pointer_cast<IRPrint>(instr) ||
+               std::dynamic_pointer_cast<IRExit>(instr) ||
+               std::dynamic_pointer_cast<IRGetint>(instr);
+    }
+
+    int inlineCost(const std::shared_ptr<IRFunction> &func) {
+        if (!func || !func->body) return -1;
+        auto cached = costCache.find(func.get());
+        if (cached != costCache.end()) return cached->second;
+
+        int cost = paramCost(func);
+        int returnCnt = 0;
+        auto &instrs = func->body->instrList;
+        for (size_t i = 0; i < instrs.size(); i++) {
+            auto instr = instrs[i];
+            if (std::dynamic_pointer_cast<IRReturn>(instr)) {
+                returnCnt++;
+                if (i + 1 != instrs.size()) return costCache[func.get()] = -1;
+                continue;
+            }
+            int icost = instrCost(func, instr);
+            if (icost < 0) return costCache[func.get()] = -1;
+            cost += icost;
+        }
+        if (returnCnt != 1) return costCache[func.get()] = -1;
+        return costCache[func.get()] = cost;
+    }
+
+    int instrCost(const std::shared_ptr<IRFunction> &func,
+                  const std::shared_ptr<IRNode> &instr) const {
+        if (!instr) return -1;
+        if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
+            return alloca->allocatedType && isScalarMemoryType(alloca->allocatedType) ? 2 : -1;
+        }
+        if (std::dynamic_pointer_cast<IRLoad>(instr)) return 3;
+        if (std::dynamic_pointer_cast<IRStore>(instr)) return 3;
+        if (std::dynamic_pointer_cast<IRGetptr>(instr)) return 2;
+        if (std::dynamic_pointer_cast<IRBinaryop>(instr)) return 2;
+        if (std::dynamic_pointer_cast<IRSext>(instr) ||
+            std::dynamic_pointer_cast<IRZext>(instr) ||
+            std::dynamic_pointer_cast<IRTrunc>(instr)) return 1;
+        if (std::dynamic_pointer_cast<IRPrint>(instr) ||
+            std::dynamic_pointer_cast<IRExit>(instr) ||
+            std::dynamic_pointer_cast<IRGetint>(instr)) return 8;
+        if (auto call = std::dynamic_pointer_cast<IRCall>(instr)) {
+            if (call->function.get() == func.get()) return -1;
+            int argc = call->pList ? static_cast<int>(call->pList->paramList.size()) : 0;
+            return 10 + argc;
+        }
+        return -1;
+    }
+
+    int paramCost(const std::shared_ptr<IRFunction> &func) const {
+        if (!func || !func->paramList) return 0;
+        int cost = 0;
+        int count = static_cast<int>(func->paramList->paramList.size());
+        if (count > 8) cost += (count - 8) * 8;
+        for (auto &param : func->paramList->paramList) {
+            auto var = std::dynamic_pointer_cast<IRVar>(param);
+            if (!var || !var->type) continue;
+            if (isAggregateLike(var->type)) cost += 16;
+            else if (auto ptr = std::dynamic_pointer_cast<IRPtrType>(var->type)) {
+                cost += isAggregateLike(ptr->baseType) ? 8 : 2;
+            }
+        }
+        return cost;
+    }
+
+    bool isTinyInline(const std::shared_ptr<IRFunction> &func, int cost) const {
+        if (!func || cost > kTinyInlineCost) return false;
+        for (auto &instr : func->body->instrList) {
+            if (std::dynamic_pointer_cast<IRCall>(instr) ||
+                std::dynamic_pointer_cast<IRPrint>(instr) ||
+                std::dynamic_pointer_cast<IRExit>(instr) ||
+                std::dynamic_pointer_cast<IRGetint>(instr)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool isScalarMemoryType(const std::shared_ptr<IRType> &type) const {
+        return std::dynamic_pointer_cast<IRIntType>(type) ||
+               std::dynamic_pointer_cast<IRPtrType>(type);
+    }
+
+    bool isAggregateLike(const std::shared_ptr<IRType> &type) const {
+        return std::dynamic_pointer_cast<IRStructType>(type) ||
+               std::dynamic_pointer_cast<IRArrayType>(type);
+    }
+
     void inlineInFunction(const std::shared_ptr<IRFunction> &caller) {
         if (!caller || !caller->body) return;
+        int growthBudget = callerGrowthBudget(caller);
         for (int round = 0; round < kMaxInlineRounds; round++) {
             bool changed = false;
-            changed |= inlineInBlock(caller->body);
-            for (auto &blk : caller->body->blockList) changed |= inlineInBlock(blk);
-            if (!changed) break;
+            changed |= inlineInBlock(caller->body, growthBudget);
+            for (auto &blk : caller->body->blockList) changed |= inlineInBlock(blk, growthBudget);
+            if (!changed || growthBudget <= 0) break;
         }
     }
 
-    bool inlineInBlock(const std::shared_ptr<IRBlock> &block) {
+    int callerGrowthBudget(const std::shared_ptr<IRFunction> &caller) const {
+        if (!caller || !caller->body) return 0;
+        int instrCount = static_cast<int>(caller->body->instrList.size());
+        for (auto &blk : caller->body->blockList) {
+            if (blk) instrCount += static_cast<int>(blk->instrList.size());
+        }
+        return std::max(48, std::min(180, 64 + instrCount / 2));
+    }
+
+    bool inlineInBlock(const std::shared_ptr<IRBlock> &block, int &growthBudget) {
         if (!block) return false;
 
         bool changed = false;
@@ -162,16 +333,36 @@ private:
                 continue;
             }
 
+            int growth = inlineGrowth(call->function);
+            if (growth > growthBudget && !forceInline(call->function)) {
+                newInstrs.push_back(instr);
+                continue;
+            }
+
             auto inlined = inlineCall(call);
             if (inlined.empty()) {
                 newInstrs.push_back(instr);
                 continue;
             }
             for (auto &cloned : inlined) newInstrs.push_back(cloned);
+            growthBudget -= std::max(0, growth);
             changed = true;
         }
         block->instrList = std::move(newInstrs);
         return changed;
+    }
+
+    int inlineGrowth(const std::shared_ptr<IRFunction> &func) {
+        int cost = inlineCost(func);
+        if (cost < 0) return 1000000;
+        return std::max(0, cost - 1);
+    }
+
+    bool forceInline(const std::shared_ptr<IRFunction> &func) {
+        if (!func) return false;
+        int calls = callCounts.count(func.get()) ? callCounts[func.get()] : 0;
+        int cost = inlineCost(func);
+        return calls == 1 && cost >= 0 && cost <= kSingleUseInlineCost;
     }
 
     std::vector<std::shared_ptr<IRNode>> inlineCall(const std::shared_ptr<IRCall> &call) {
@@ -192,12 +383,26 @@ private:
         }
 
         ValuePtr returnValue = nullptr;
-        bool inlinedHasW64 = false;
         for (auto &instr : callee->body->instrList) {
-            if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
+            if (auto op = std::dynamic_pointer_cast<IRAlloca>(instr)) {
+                auto cloned = cloneAlloca(op, valueMap);
+                if (!cloned) return {};
+                result.push_back(cloned);
+            } else if (auto op = std::dynamic_pointer_cast<IRGetptr>(instr)) {
+                auto cloned = cloneGetptr(op, valueMap);
+                if (!cloned) return {};
+                result.push_back(cloned);
+            } else if (auto op = std::dynamic_pointer_cast<IRLoad>(instr)) {
+                auto cloned = cloneLoad(op, valueMap);
+                if (!cloned) return {};
+                result.push_back(cloned);
+            } else if (auto op = std::dynamic_pointer_cast<IRStore>(instr)) {
+                auto cloned = cloneStore(op, valueMap);
+                if (!cloned) return {};
+                result.push_back(cloned);
+            } else if (auto op = std::dynamic_pointer_cast<IRBinaryop>(instr)) {
                 auto cloned = cloneBinary(op, valueMap);
                 if (!cloned) return {};
-                if (cloned->w64tag) inlinedHasW64 = true;
                 result.push_back(cloned);
             } else if (auto op = std::dynamic_pointer_cast<IRSext>(instr)) {
                 auto cloned = cloneSext(op, valueMap);
@@ -240,7 +445,7 @@ private:
             assign->rightValue = std::make_shared<IRLiteral>(INT_LITERAL, 0);
             // The synthesized ADD is effectively a mov from returnValue into
             // retVar.  Lower it as a 64-bit add so the upper bits of usize/
-            // isize values survive — addw would truncate.  For i32, the lower
+            // isize values survive; addw would truncate. For i32, the lower
             // 32 bits are identical and subsequent uses re-sign-extend, so
             // tagging w64 unconditionally is safe.
             assign->w64tag = true;
@@ -248,6 +453,71 @@ private:
             result.push_back(assign);
         }
         return result;
+    }
+
+    std::shared_ptr<IRAlloca> cloneAlloca(const std::shared_ptr<IRAlloca> &op,
+                                          std::map<IRVar*, ValuePtr> &valueMap) {
+        if (!op || !op->var || !op->allocatedType || !isScalarMemoryType(op->allocatedType)) {
+            return nullptr;
+        }
+        auto clonedVar = cloneVar(op->var);
+        auto cloned = std::make_shared<IRAlloca>(op->allocatedType, clonedVar);
+        cloned->w64tag = op->w64tag;
+        valueMap[op->var.get()] = clonedVar;
+        return cloned;
+    }
+
+    std::shared_ptr<IRGetptr> cloneGetptr(const std::shared_ptr<IRGetptr> &op,
+                                          std::map<IRVar*, ValuePtr> &valueMap) {
+        if (!op || !op->base || !op->res) return nullptr;
+        auto base = std::dynamic_pointer_cast<IRVar>(mapValue(op->base, valueMap));
+        if (!base) return nullptr;
+        std::shared_ptr<IRVar> index = nullptr;
+        if (op->index) {
+            index = std::dynamic_pointer_cast<IRVar>(mapValue(op->index, valueMap));
+            if (!index) return nullptr;
+        }
+        auto clonedResult = cloneVar(op->res);
+        auto cloned = std::make_shared<IRGetptr>(op->type, base, clonedResult, op->offset, index);
+        valueMap[op->res.get()] = clonedResult;
+        return cloned;
+    }
+
+    std::shared_ptr<IRLoad> cloneLoad(const std::shared_ptr<IRLoad> &op,
+                                      std::map<IRVar*, ValuePtr> &valueMap) {
+        if (!op || !op->tmp || !op->addressVar) return nullptr;
+        auto address = std::dynamic_pointer_cast<IRVar>(mapValue(op->addressVar, valueMap));
+        if (!address) return nullptr;
+        auto clonedResult = cloneVar(op->tmp);
+        auto cloned = std::make_shared<IRLoad>(clonedResult, address, op->type);
+        cloned->w64tag = op->w64tag;
+        cloned->utag = op->utag;
+        valueMap[op->tmp.get()] = clonedResult;
+        return cloned;
+    }
+
+    std::shared_ptr<IRStore> cloneStore(const std::shared_ptr<IRStore> &op,
+                                        std::map<IRVar*, ValuePtr> &valueMap) {
+        if (!op || !op->address) return nullptr;
+        auto address = std::dynamic_pointer_cast<IRVar>(mapValue(op->address, valueMap));
+        if (!address) return nullptr;
+        auto cloned = std::make_shared<IRStore>();
+        cloned->valueType = op->valueType;
+        cloned->address = address;
+        cloned->w64tag = op->w64tag;
+        if (op->storeLiteral) {
+            cloned->storeLiteral = op->storeLiteral;
+        } else if (op->storeValue) {
+            auto mapped = mapValue(op->storeValue, valueMap);
+            if (auto lit = std::dynamic_pointer_cast<IRLiteral>(mapped)) {
+                cloned->storeLiteral = lit;
+            } else if (auto var = std::dynamic_pointer_cast<IRVar>(mapped)) {
+                cloned->storeValue = var;
+            } else {
+                return nullptr;
+            }
+        }
+        return cloned;
     }
 
     std::shared_ptr<IRBinaryop> cloneBinary(const std::shared_ptr<IRBinaryop> &op,
@@ -374,6 +644,7 @@ private:
         cloned->isPtrBindingSlot = var->isPtrBindingSlot;
         return cloned;
     }
+
 };
 
 }
