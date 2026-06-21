@@ -103,6 +103,10 @@ int main(){
     JaneZ::LocalCSE localCSE;
     localCSE.optimize(code_generator.irRoot);
 
+    memoryForward.optimize(code_generator.irRoot);
+    constantFold.optimize(code_generator.irRoot);
+    cfgClean.optimize(code_generator.irRoot);
+
     JaneZ::LICM licm;
     licm.optimize(code_generator.irRoot);
 
