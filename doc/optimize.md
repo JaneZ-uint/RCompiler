@@ -25,7 +25,7 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 
 ### 1.1 最新 OJ 反馈
 
-最新已知 OJ 反馈来自 `d53bcc7 docs: mark planned optimizations complete`，OJ 总分约 `60.75 / 100`，相比上一轮约 `+0.51`。收益主要来自数组、树/hashmap、压缩和图；回退主要来自解释器、in-memory index、struct pool 和 block hash。
+最新已知 OJ 反馈来自 `b231011 opt: tighten scalar memory inlining`，总分比 `d53bcc7` 略降。收紧 scalar-memory helper inline 是负优化：`sort_kmp`、`tree_hashmap`、`compression`、`inmemory` 下降，只有 `array`、`graph`、`string` 小幅上升。因此该调参已撤销，后续不继续沿“整体收紧 scalar-memory inline”方向推进。
 
 | 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
 |---|---|---:|---:|---|
@@ -48,11 +48,17 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 6. 已做 boolean branch peephole，减少解释器/状态机中 `seqz/snez/slti + bnez` 形态的临时值。
 7. 暂不做 `% const` 魔数除法/模乘 lowering；它通常需要 `mulh/mulhu` 或更复杂序列，先避免 OJ `CE_ASM` 风险。
 
-本轮 OJ delta：
+`d53bcc7` 相对上一轮的 OJ delta：
 
 - 明显提升：`opti_array_transform +0.47`、`opti_tree_hashmap_suite +0.27`、`opti_compression_match_finder +0.19`、`opti_graph_algorithms_suite +0.18`。
 - 明显回退：`opti_bytecode_vm_interpreter -0.23`、`opti_inmemory_index_query -0.17`、`opti_struct_pool_fold -0.14`、`opti_block_hash_pipeline -0.11`。
-- 判断：新增优化总体方向有效，但泛化的 inline / LICM / load reuse 可能在状态机和长 pipeline 上放大活跃区间。下一步先收紧 inline scalar memory helper，再按 OJ 结果决定是否收紧 LICM cheap binary hoist。
+- 判断：新增优化总体方向有效，但泛化的 inline / LICM / load reuse 可能在状态机和长 pipeline 上放大活跃区间。
+
+`b231011` 相对 `d53bcc7` 的 OJ delta：
+
+- 小幅提升：`opti_array_transform +0.06`、`opti_graph_algorithms_suite +0.06`、`opti_string_automata_suite +0.10`。
+- 明显回退：`opti_sort_kmp_suite -0.22`、`opti_inmemory_index_query -0.14`、`opti_tree_hashmap_suite -0.14`、`opti_compression_match_finder -0.08`、`opti_struct_pool_fold -0.06`。
+- 结论：收紧 scalar-memory inline 会伤害更多 case，撤销该调参；下一步优先检查 LICM cheap binary hoist 或 SROA pointer fields。
 
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|
@@ -426,7 +432,7 @@ Global2Local -> Mem2Reg -> DominantTree
 短期后续优先级：
 
 1. 先提交 OJ，记录 17 个隐藏点相对 `d3ead4e` 的变化。
-2. 如果某项回退明显，按单 commit 二分：优先检查 inline scalar memory helper、LICM cheap binary hoist、spill overwritten store cleanup。
+2. 如果某项回退明显，按单 commit 二分：优先检查 LICM cheap binary hoist、SROA pointer fields、spill overwritten store cleanup。`b231011` 的 inline 收紧已经确认是负优化并撤销。
 3. 如果整体仍不理想，再针对最低分 case 做专门优化，不再泛化堆 pass。
 
 如果 OJ 分数仍不理想，再做：
