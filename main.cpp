@@ -20,6 +20,7 @@
 #include "src/optimize/licm.h"
 #include "src/optimize/memoryForward.h"
 #include "src/optimize/sccp.h"
+#include "src/optimize/sroa.h"
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -60,6 +61,9 @@ int main(){
     code_generator.generateCode(*root);
 
     //optimize
+    JaneZ::SROA sroa;
+    sroa.optimize(code_generator.irRoot);
+
     JaneZ::Mem2Reg mem2reg;
     mem2reg.optimize(code_generator.irRoot);
 
