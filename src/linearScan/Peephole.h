@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ASM.h"
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -12,6 +13,9 @@ class Peephole {
 public:
     bool optimize(std::vector<std::shared_ptr<ASMBlock>> &blocks, bool removeFallthroughJumps = false) {
         bool changed = false;
+        if (removeFallthroughJumps) {
+            changed |= cleanupRedundantStackAccesses(blocks);
+        }
         auto useCounts = countUses(blocks);
         for (size_t i = 0; i < blocks.size(); i++) {
             if (!blocks[i]) continue;
@@ -60,6 +64,13 @@ public:
     }
 
 private:
+    struct StackSlotValue {
+        int base = -1;
+        long long offset = 0;
+        int size = 0;
+        int reg = -1;
+    };
+
     bool isSelfMove(const ASMInstr &instr) const {
         return instr.op == ASMOp::MV &&
                instr.rd.type == OperandType::REG &&
@@ -188,6 +199,169 @@ private:
 
     bool isMemoryAccess(const ASMInstr &instr) const {
         return isLoad(instr) || isStore(instr);
+    }
+
+    bool isTrackedStackLoad(const ASMInstr &instr, int &base, long long &offset, int &size) const {
+        if (instr.op != ASMOp::LD ||
+            instr.rd.type != OperandType::REG ||
+            instr.rd.value == 0 ||
+            instr.rs1.type != OperandType::REG ||
+            instr.imm.type != OperandType::IMM ||
+            instr.rs1.value != 8) {
+            return false;
+        }
+        base = (int)instr.rs1.value;
+        offset = instr.imm.value;
+        size = RISCV_XLEN_BYTES;
+        return true;
+    }
+
+    bool isTrackedStackStore(const ASMInstr &instr, int &base, long long &offset, int &size) const {
+        if (instr.op != ASMOp::SD ||
+            instr.rs2.type != OperandType::REG ||
+            instr.rs1.type != OperandType::REG ||
+            instr.imm.type != OperandType::IMM ||
+            instr.rs1.value != 8) {
+            return false;
+        }
+        base = (int)instr.rs1.value;
+        offset = instr.imm.value;
+        size = RISCV_XLEN_BYTES;
+        return true;
+    }
+
+    bool sameSlot(const StackSlotValue &slot, int base, long long offset, int size) const {
+        return slot.base == base && slot.offset == offset && slot.size == size;
+    }
+
+    bool slotsOverlap(const StackSlotValue &slot, int base, long long offset, int size) const {
+        if (slot.base != base) return false;
+        long long slotEnd = slot.offset + slot.size;
+        long long memEnd = offset + size;
+        return slot.offset < memEnd && offset < slotEnd;
+    }
+
+    void eraseKnownReg(std::vector<StackSlotValue> &known, int reg) const {
+        known.erase(std::remove_if(known.begin(), known.end(),
+            [&](const StackSlotValue &slot) { return slot.reg == reg || slot.base == reg; }),
+            known.end());
+    }
+
+    void eraseOverlappingSlots(std::vector<StackSlotValue> &known,
+                               int base,
+                               long long offset,
+                               int size) const {
+        known.erase(std::remove_if(known.begin(), known.end(),
+            [&](const StackSlotValue &slot) { return slotsOverlap(slot, base, offset, size); }),
+            known.end());
+    }
+
+    int findKnownSlot(const std::vector<StackSlotValue> &known,
+                      int base,
+                      long long offset,
+                      int size) const {
+        for (size_t i = 0; i < known.size(); i++) {
+            if (sameSlot(known[i], base, offset, size)) return (int)i;
+        }
+        return -1;
+    }
+
+    void rememberSlot(std::vector<StackSlotValue> &known,
+                      int base,
+                      long long offset,
+                      int size,
+                      int reg) const {
+        int idx = findKnownSlot(known, base, offset, size);
+        if (idx >= 0) {
+            known[idx].reg = reg;
+            return;
+        }
+        known.push_back(StackSlotValue{base, offset, size, reg});
+    }
+
+    bool cleanupRedundantStackAccesses(std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        bool changed = false;
+        for (auto &block : blocks) {
+            if (!block) continue;
+            std::vector<StackSlotValue> known;
+            std::vector<ASMInstr> out;
+            out.reserve(block->instrs.size());
+
+            for (const auto &instr : block->instrs) {
+                int base = -1;
+                int size = 0;
+                long long offset = 0;
+
+                if (isTrackedStackLoad(instr, base, offset, size)) {
+                    int dst = (int)instr.rd.value;
+                    int idx = findKnownSlot(known, base, offset, size);
+                    int src = idx >= 0 ? known[idx].reg : -1;
+                    eraseKnownReg(known, dst);
+                    if (idx >= 0) {
+                        if (src != dst) {
+                            ASMInstr mv;
+                            mv.op = ASMOp::MV;
+                            mv.rd = instr.rd;
+                            mv.rs1 = Operand(OperandType::REG, src);
+                            out.push_back(mv);
+                        }
+                        rememberSlot(known, base, offset, size, dst);
+                        changed = true;
+                    } else {
+                        out.push_back(instr);
+                        rememberSlot(known, base, offset, size, dst);
+                    }
+                    continue;
+                }
+
+                if (isTrackedStackStore(instr, base, offset, size)) {
+                    int src = (int)instr.rs2.value;
+                    int idx = findKnownSlot(known, base, offset, size);
+                    if (idx >= 0 && known[idx].reg == src) {
+                        changed = true;
+                    } else {
+                        eraseOverlappingSlots(known, base, offset, size);
+                        out.push_back(instr);
+                    }
+                    rememberSlot(known, base, offset, size, src);
+                    continue;
+                }
+
+                if (instr.op == ASMOp::CALL || !instr.funcName.empty()) {
+                    known.clear();
+                    out.push_back(instr);
+                    continue;
+                }
+
+                if (isStore(instr)) {
+                    known.clear();
+                    out.push_back(instr);
+                    continue;
+                }
+
+                bool clearAll = false;
+                for (const auto &slot : known) {
+                    if (instrDefsReg(instr, slot.base)) {
+                        clearAll = true;
+                        break;
+                    }
+                }
+                if (clearAll || isTerminator(instr)) {
+                    known.clear();
+                } else {
+                    known.erase(std::remove_if(known.begin(), known.end(),
+                        [&](const StackSlotValue &slot) {
+                            return instrDefsReg(instr, slot.reg);
+                        }),
+                        known.end());
+                }
+                out.push_back(instr);
+            }
+
+            if (out.size() != block->instrs.size()) changed = true;
+            block->instrs = std::move(out);
+        }
+        return changed;
     }
 
     int tryFoldAddressAccess(const std::vector<ASMInstr> &instrs,
