@@ -229,7 +229,7 @@ private:
             }
 
             if (auto load = std::dynamic_pointer_cast<IRLoad>(instr)) {
-                processLoad(load, state);
+                processLoad(load, blk, state);
                 continue;
             }
 
@@ -270,6 +270,7 @@ private:
     }
 
     void processLoad(const std::shared_ptr<IRLoad> &load,
+                     IRBlock *blk,
                      ForwardState &state) {
         if (!load || !load->tmp) {
             state.stores.clear();
@@ -277,7 +278,8 @@ private:
         }
         auto access = loadAccess(load, state);
         auto it = findForwardStore(access, state);
-        if (it != state.stores.end() && it->second.value) {
+        if (it != state.stores.end() && it->second.value &&
+            canForwardStoreValue(it->second, blk)) {
             state.replaceMap[load->tmp.get()] = it->second.value;
             state.addressFacts.erase(load->tmp.get());
             return;
@@ -290,6 +292,11 @@ private:
             return;
         }
         forgetAliasedStores(access.address, state);
+    }
+
+    bool canForwardStoreValue(const StoreState &store, IRBlock *currentBlock) const {
+        if (store.block == currentBlock) return true;
+        return std::dynamic_pointer_cast<IRLiteral>(store.value) != nullptr;
     }
 
     void processStore(const std::shared_ptr<IRStore> &store,
