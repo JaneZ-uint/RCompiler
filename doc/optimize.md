@@ -4,7 +4,7 @@
 
 ## 0. 当前约束
 
-- 只做 IR 层和现有后端指令内的优化，暂时不要新增 OJ 可能不接受的 RV64 asm 指令。
+- IR 层优化已基本进入调参阶段；下一阶段允许做后端优化，但仍暂时不要新增 OJ 可能不接受的 RV64 asm 指令。
 - 继续保持 `usize/isize` 为 64-bit，不能破坏 `w64tag`、`isW64Stack`、`ld/sd` 和 64-bit 运算语义。
 - RV64 正确性验证必须用 qemu，不用 REIMU：
 
@@ -392,7 +392,266 @@ IR 层优先：
 opt: clean redundant spill reloads
 ```
 
-## 4. Global2Local 位置
+## 4. 后端优化计划
+
+IR 层已经覆盖了当前能安全做的大部分优化。下一阶段重点转到后端，目标不是新增激进指令，而是降低寄存器压力、减少 spill/reload、改进指令选择和清理冗余 asm。所有优化默认只使用当前已经输出过的 RV64GC/lp64d 指令形态，避免再次触发 OJ `CE_ASM`。
+
+### B0: 后端性能画像和统计
+
+目标：先让后端瓶颈可见，避免继续盲目调 pass。
+
+需要统计：
+
+- 每个函数的 asm 指令数。
+- `ld/sd` 总数，以及访问 `s0/sp` spill slot 的 `ld/sd` 数。
+- 每个函数的虚拟寄存器数、分配到物理寄存器数、spill slot 数。
+- prologue/epilogue 中保存恢复的 callee-saved 数。
+- call 数、跨 call live interval 数。
+- 大 frame 函数数量，以及 frame size 是否超过 12-bit offset。
+
+实现方式：
+
+- 在 debug flag 或临时本地脚本中统计，不影响默认 OJ 输出。
+- 优先对比 17 个 OJ 隐藏点对应方向的本地 microbench：解释器、图、NTT、hash pipeline、数组循环。
+- 每次后端优化后记录静态指标变化，再以 OJ 反馈为最终依据。
+
+建议 commit：
+
+```text
+docs/tooling: add backend asm statistics
+```
+
+### B1: 改进 liveness 和 live interval 精度
+
+目标：减少线性扫描把短生命周期虚拟寄存器错误拉成长区间造成的 spill。
+
+当前风险点：
+
+- `LinearScan` 目前用每个 vreg 的最小 start 和最大 end 形成单区间，不能表达 live hole。
+- block 入口/出口 live set 会把 interval 扩到 block 边界，循环和分支较多时容易放大寄存器压力。
+- `CALL` 当前按固定 caller-saved clobber 处理，但 call 的真实参数 use 和返回值 def 仍可进一步精确。
+
+第一阶段保守增强：
+
+- 指令编号改成带 use/def position 的形式，区分 use-before-def。
+- interval 记录 use positions，用于 spill 选择，不只比较 end。
+- spill victim 优先选“下一次使用最远”的 active interval。
+- 对没有后续 use 的 def 尽早交给 ASM DCE 删除，避免进入分配。
+
+第二阶段增强：
+
+- 支持 live range splitting 的轻量版：只在 spill 前后插入 reload/store，不把整个 vreg 固定成全函数 spill。
+- 不做复杂 SSA-aware allocator，先保持现有 linear scan 框架。
+
+适用隐藏点：
+
+- `opti_bytecode_vm_interpreter`
+- `opti_graph_algorithms_suite`
+- `opti_ntt_convolution`
+- `opti_block_hash_pipeline`
+- `opti_range_structures_suite`
+
+风险：
+
+- liveness 错误会直接 WA，必须先用小函数、多分支、循环、call 的专门用例覆盖。
+- call 边界必须严格遵守 RISC-V ABI：caller-saved 不能跨 call 假定保留。
+
+建议 commit：
+
+```text
+opt: improve linear scan spill choice
+```
+
+### B2: Spill code 优化
+
+目标：减少每条指令周围重复的 `ld/sd`。
+
+当前已有：
+
+- 同基本块内 redundant reload 复用。
+- same-value spill store deletion。
+- overwritten spill store deletion。
+
+下一步增强：
+
+- 在 spill rewrite 阶段为同一条指令内重复 use 同一 spilled vreg 只 load 一次，当前已有基础逻辑，继续检查双 scratch 冲突。
+- 在基本块内维护 `slot -> reg` 和 `reg -> slot` 状态，覆盖更多 `ld slot; ...; ld slot`，中间只要没有写同 slot 就复用。
+- 对 `ld r, slot; op ... r ...; sd r, slot`，如果 vreg 值未改变则删除 store。
+- 对连续 spill slot 访问尽量避免重复 materialize 大 offset 地址。
+- 大 frame 时优先用 `s0` 稳定访问 frame slot，避免每次 `li + add + ld/sd`。
+
+不做：
+
+- 不跨基本块做 spill value forwarding，除非后续有可靠的 CFG dataflow。
+- 不新增压缩指令或 OJ 未确认指令。
+
+适用隐藏点：
+
+- `opti_bytecode_vm_interpreter`
+- `opti_graph_algorithms_suite`
+- `opti_range_structures_suite`
+- `opti_inmemory_index_query`
+
+建议 commit：
+
+```text
+opt: reduce redundant spill traffic
+```
+
+### B3: Copy coalescing 和 move 消除
+
+目标：降低 `mv` 链和 move 引起的额外 live range。
+
+当前已有：
+
+- peephole 删除 self-move。
+- 局部 `mv` 合并到下一条 use。
+
+下一步增强：
+
+- 分配前收集 `mv v1, v2`，如果两者 live interval 不冲突，优先分到同一物理寄存器。
+- 对 phi lowering、call return、argument move 产生的 copy chain 做 coalescing。
+- 对 `li tmp, imm; mv dst, tmp`、`mv tmp, src; op dst, tmp` 这类单 use 模式继续扩大 peephole。
+- 保留 width 语义：涉及 `addw/subw`、显式 sign/zero extend 的 move 不能错误合并。
+
+适用隐藏点：
+
+- `opti_recursive_utility_pipeline`
+- `opti_branch_state_machine`
+- `opti_bytecode_vm_interpreter`
+- `opti_sort_kmp_suite`
+
+建议 commit：
+
+```text
+opt: coalesce non-conflicting moves
+```
+
+### B4: 指令选择改进
+
+目标：在不新增风险指令的前提下，减少明显多余的临时寄存器和指令数。
+
+优先项：
+
+- 更积极使用 12-bit immediate：
+  - `add x, y, const` -> `addi`。
+  - `and/or/xor` with 12-bit const -> 对应 immediate 指令。
+  - compare with small const -> `slti/sltiu`。
+- load/store 地址选择：
+  - `addi addr, base, off; ld/st ..., 0(addr)` 合并为 `ld/st ..., off(base)`。
+  - getptr 常量偏移尽量延迟到 load/store offset。
+  - 大 offset 只 materialize 一次，避免每个访问都 `li + add`。
+- branch 选择：
+  - 已有 compare+branch peephole，继续覆盖 `xori bool, 1; bnez`、`seqz/snez` 的反向分支。
+  - 删除跳到下一块的无条件 `j`。
+- return path：
+  - 小函数单出口保留统一 epilogue；多 return 函数避免生成过长跳转链。
+
+风险：
+
+- 32-bit 和 64-bit 运算不能混淆。`usize/isize` 必须继续保持 64-bit。
+- pseudo `li/mv` 当前已在用，可以继续用；不要引入 OJ 未确认的 pseudo。
+
+适用隐藏点：
+
+- `opti_compute_hash_mix`
+- `opti_array_transform`
+- `opti_ntt_convolution`
+- `opti_image_signal_kernel`
+
+建议 commit：
+
+```text
+opt: select immediate forms in backend
+```
+
+### B5: Call/ABI 和栈帧优化
+
+目标：降低函数调用和栈帧维护成本，同时保持 ABI 正确。
+
+优先项：
+
+- 精确 call 参数 use：只把实际传参用到的 `a0-a7` 计入 use，避免所有 call 都把 `a0-a7` 拉进 liveness。
+- 精确 call 返回 def：只在有返回值时认为 `a0` 被定义。
+- leaf function 不保存 `ra`，没有使用 `s0` frame pointer 时考虑省略 `s0` 保存和设置。
+- 只保存实际分配到的 callee-saved，当前已有基础逻辑，继续检查大函数下是否过度使用 callee-saved。
+- 对没有 alloca、没有 spill、没有 call 的函数生成最小 frame 或无 frame。
+
+风险：
+
+- OJ runtime 和 gcc 链接遵守标准 ABI，任何 call-saved/caller-saved 误判都会 WA。
+- 省略 frame pointer 需要确认所有栈槽 offset 都能稳定基于 `sp` 表达；否则先只做 leaf/no-spill/no-alloca 的安全子集。
+
+适用隐藏点：
+
+- `opti_recursive_utility_pipeline`
+- `opti_compute_hash_mix`
+- `opti_sort_kmp_suite`
+- `opti_branch_state_machine`
+
+建议 commit：
+
+```text
+opt: reduce unnecessary stack frame work
+```
+
+### B6: 块布局和跳转清理
+
+目标：降低分支和跳转开销。
+
+当前已有：
+
+- post-regalloc peephole 可删除跳到下一块的 fallthrough jump。
+
+下一步增强：
+
+- 按 CFG 调整 block 顺序，使 hot-looking fallthrough 更自然。没有 profile 时优先：
+  - loop backedge 仍保留跳转，loop body 顺序连续。
+  - if-else 中让非 exit 分支 fallthrough。
+  - exit/return block 放后面。
+- 合并只有一个 predecessor、一个 successor 的空 block。
+- 删除 `j L1; L1:`、`bnez x, L1; j L2; L1:` 可安全反转时的跳转。
+
+风险：
+
+- 改 block 顺序不能破坏 label 和 branch target。
+- 没有 profile 时只做结构性优化，不做猜测性大重排。
+
+适用隐藏点：
+
+- `opti_branch_state_machine`
+- `opti_bytecode_vm_interpreter`
+- `opti_string_automata_suite`
+
+建议 commit：
+
+```text
+opt: clean backend control flow
+```
+
+### B7: 后端优化执行顺序
+
+推荐顺序：
+
+1. B0 统计和样例画像。
+2. B1 spill 选择和 interval 精度。
+3. B2 spill traffic 清理。
+4. B3 copy coalescing。
+5. B4 immediate/address 指令选择。
+6. B5 call/frame 优化。
+7. B6 block layout 和跳转清理。
+
+每完成一步都按单 commit 提交，并跑：
+
+```bash
+cmake --build build
+bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
+bash /tmp/qemu_test.sh
+```
+
+如果 `/tmp` 脚本不存在，用等价 qemu 流程跑 `semantic-2` 和 `long-param`。semantic-1 继续按 `global.json` 的 `compileexitcode` oracle 跑 222 个样例。
+
+## 5. Global2Local 位置
 
 `Global2Local` 暂时放低优先级。
 
@@ -419,7 +678,7 @@ Global2Local -> Mem2Reg -> DominantTree
 
 但当前不作为下一步任务。
 
-## 5. 建议后续顺序
+## 6. 建议后续顺序
 
 已完成或已有等价实现：
 
@@ -433,17 +692,18 @@ Global2Local -> Mem2Reg -> DominantTree
 
 短期后续优先级：
 
-1. 先提交 OJ，记录 17 个隐藏点相对 `d3ead4e` 的变化。
-2. 如果某项回退明显，按单 commit 二分：优先检查 SROA pointer fields、spill overwritten store cleanup。`b231011` 的 inline 收紧已经确认是负优化并撤销，LICM cheap binary hoist 已收窄到地址链。
-3. 如果整体仍不理想，再针对最低分 case 做专门优化，不再泛化堆 pass。
+1. 后续主线转到后端优化，先做 B0 后端统计，确认 spill、frame、call、branch 的真实占比。
+2. 按 B1-B6 顺序推进：先改 linear scan spill 选择和 interval 精度，再做 spill traffic、copy coalescing、指令选择、call/frame、block layout。
+3. 每个后端优化单独 commit，提交 OJ 后记录 17 个隐藏点变化；若出现负优化，按单 commit 回滚或收窄。
+4. IR 层后续只做有明确 case 证据的小修，不再继续泛化堆 pass。
 
 如果 OJ 分数仍不理想，再做：
 
-4. 更激进的 loop strength reduction，但需要警惕寄存器压力和 `CE_ASM`。
-5. 多 block inline。
-6. Global2Local。
+5. 更激进的 loop strength reduction，但需要警惕寄存器压力和 `CE_ASM`。
+6. 多 block inline。
+7. Global2Local。
 
-## 6. 当前推荐管线
+## 7. 当前推荐管线
 
 当前实际管线：
 
@@ -483,8 +743,9 @@ ASMPrinter
 - `LocalCSE` 后重跑 `MemoryForward` 是有意安排：getptr/address 经过 CSE 后，load/store 转发能看到更多等价地址。
 - `LICM` 放在第二轮 MemoryForward/CFGClean 后，避免提升已经能被转发/折叠掉的临时。
 - `MemoryForward` 后常会制造常量和死 load/store，应接 `ConstantFold/CFGClean/DCE`。
+- 后端后续优化集中在 `ASM DCE -> LinearScan -> Peephole` 这一段，优先降低 spill/reload 和 frame 成本。
 
-## 7. 验证策略
+## 8. 验证策略
 
 正确性：
 
@@ -512,7 +773,7 @@ OJ 隐藏点反馈优先级最高。每次 OJ 后记录：
 - 是否出现 CE/WA/CE_ASM。
 - 本次 pass 是否可能导致寄存器压力上升或代码体积膨胀。
 
-## 8. 风险清单
+## 9. 风险清单
 
 - 所有 memory 优化必须保守处理 alias。遇到 call/getint/memcpy/memset/未知 store 时清空相关状态。
 - 循环优化不能把本轮迭代的 load 复用到下一轮迭代。
