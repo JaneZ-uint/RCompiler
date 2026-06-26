@@ -895,6 +895,8 @@ private:
             intervals[i].physReg = -1;
             intervals[i].spillSlot = -1;
         }
+        linearScanFallback(intervals, allocRegs, physRegBlocked, nextSpillSlot, usedCalleeSaved);
+        return;
         auto fallbackIntervals = intervals;
         int fallbackSpillSlots = 0;
         std::set<int> fallbackCalleeSaved;
