@@ -492,6 +492,26 @@ docs/tooling: add backend asm statistics
 opt: improve linear scan spill choice
 ```
 
+### B1.5: GraphColoring 实验状态
+
+状态：`graphColoring` 分支已经有第一版图染色 allocator，但当前默认强制回退到稳定的 linear-scan fallback。原因是 OJ 反馈显示第一版图染色明显负优化：总分低于 linear scan，且曾出现隐藏点比 O0 慢 2.5 倍；未加大函数 fallback 时还出现过 codegen TLE。
+
+已确认问题：
+
+- 第一版按完整 live interval 两两建干涉边，复杂度接近 `O(vreg^2)`，大函数会 codegen TLE。
+- 只按完整区间染色，没有 live hole / splitting，仍会高估冲突。
+- 没有 move coalescing，可能比 linear scan 产生更多 `mv` 和更差 live range。
+- 没有可靠的 spill cost、loop weight、callee-save 成本模型，少数错误选择会让解释器类点严重退化。
+- 简单成本比较 guard 也不可靠，不能作为默认启用条件。
+
+重新开启图染色前必须满足：
+
+- 构图必须改成稀疏或按活跃集合扫描，避免 `O(n^2)` 大函数 TLE。
+- 先实现非冲突 move coalescing，至少不能比 linear scan 增加明显 copy pressure。
+- spill 选择必须考虑 loop depth/use count/call crossing/callee-save cost。
+- 默认启用条件必须很硬：graph coloring 的 spill slot 数更少，callee-saved 数不更多，且估计 copy 数不增加；否则回退 linear scan。
+- 每次重新打开都必须单独提交，并用 OJ 验证 `opti_bytecode_vm_interpreter` 不出现 0 分。
+
 ### B2: Spill code 优化
 
 目标：减少每条指令周围重复的 `ld/sd`。
