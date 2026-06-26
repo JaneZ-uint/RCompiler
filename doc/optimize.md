@@ -459,12 +459,12 @@ docs/tooling: add backend asm statistics
 已完成子项：
 
 - `CALL` 记录实际占用的 `a0-a7` 参数数，liveness 不再默认把所有 `a0-a7` 都视为 use。
-- spill victim 改为参考下一次 use，而不是只比较 interval end。
+- 试过 spill victim 参考下一次 use，但已回退。当前实现的 next-use 只按线性编号判断，无法正确表达 loop-carried value，在解释器/状态机大循环中可能把动态上很快会用到的值误判成“以后不用”，导致热循环 spill 爆炸。
 
 第一阶段保守增强：
 
 - 继续完善指令编号，区分 use-before-def 和 def-before-use。
-- interval 继续记录 use positions，并用于更多 spill/reload 决策。
+- 只有在识别 CFG/loop 和 live hole 后，才重新引入 next-use/use-position 辅助 spill 决策。
 - 对没有后续 use 的 def 尽早交给 ASM DCE 删除，避免进入分配。
 
 第二阶段增强：
@@ -672,7 +672,7 @@ opt: clean backend control flow
 推荐顺序：
 
 1. B0 统计和样例画像。
-2. B1 live interval / spill 选择 / 轻量 live range splitting。
+2. B1 live interval / live hole / 轻量 live range splitting。
 3. B2 spill traffic 清理和 rematerialization。
 4. B3 copy coalescing。
 5. B4 immediate/address 指令选择。
