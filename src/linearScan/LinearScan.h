@@ -440,13 +440,16 @@ private:
             }
         }
         allocaSize = computeAllocaSize(cfg);
+        bool hasCall = functionHasCall(cfg);
 
         int calleeSaveCount = (int)usedCalleeSaved.size();
-        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * RISCV_XLEN_BYTES + 2 * RISCV_XLEN_BYTES;
+        int fixedSaveCount = hasCall ? 2 : 1;
+        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * RISCV_XLEN_BYTES +
+                        fixedSaveCount * RISCV_XLEN_BYTES;
         if (frameSize % 16 != 0) frameSize = ((frameSize / 16) + 1) * 16;
 
-        int raOffset = frameSize - RISCV_XLEN_BYTES;
-        int s0Offset = frameSize - 2 * RISCV_XLEN_BYTES;
+        int raOffset = hasCall ? frameSize - RISCV_XLEN_BYTES : -1;
+        int s0Offset = frameSize - fixedSaveCount * RISCV_XLEN_BYTES;
         int calleeSaveBase = allocaSize + spillAreaSize;
 
         std::vector<int> calleeSavedList(usedCalleeSaved.begin(), usedCalleeSaved.end());
@@ -542,7 +545,7 @@ private:
                 if (instrs[i].funcName == "__PROLOGUE__") {
                     std::vector<ASMInstr> prologue;
                     emitPrologue(prologue, frameSize, raOffset, s0Offset,
-                                 calleeSavedList, calleeSaveBase);
+                                 calleeSavedList, calleeSaveBase, hasCall);
                     instrs.erase(instrs.begin() + i);
                     instrs.insert(instrs.begin() + i, prologue.begin(), prologue.end());
                     break;
@@ -556,7 +559,7 @@ private:
                 if (instrs[i].funcName == "__EPILOGUE__") {
                     std::vector<ASMInstr> epilogue;
                     emitEpilogue(epilogue, frameSize, raOffset, s0Offset,
-                                 calleeSavedList, calleeSaveBase);
+                                 calleeSavedList, calleeSaveBase, hasCall);
                     instrs.erase(instrs.begin() + i);
                     instrs.insert(instrs.begin() + i, epilogue.begin(), epilogue.end());
                     break;
@@ -831,6 +834,15 @@ private:
         return 0;
     }
 
+    bool functionHasCall(const std::vector<CFGBlock>& cfg) {
+        for (const auto& b : cfg) {
+            for (const auto& instr : b.asmBlock->instrs) {
+                if (instr.op == ASMOp::CALL) return true;
+            }
+        }
+        return false;
+    }
+
     void rewriteOperand(ASMInstr& instr,
                         const std::unordered_map<int, int>& vregToPhys,
                         const std::unordered_map<int, int>& spillLoadMap) {
@@ -908,9 +920,9 @@ private:
     }
 
     void emitPrologue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
-                      const std::vector<int>& calleeSaved, int calleeSaveBase) {
+                      const std::vector<int>& calleeSaved, int calleeSaveBase, bool saveRa) {
         emitAddi(out, 2, 2, -frameSize);
-        emitStoreFixed(out, 1, 2, raOffset);
+        if (saveRa) emitStoreFixed(out, 1, 2, raOffset);
         emitStoreFixed(out, 8, 2, s0Offset);
         for (int i = 0; i < (int)calleeSaved.size(); i++) {
             emitStoreFixed(out, calleeSaved[i], 2, calleeSaveBase + i * RISCV_XLEN_BYTES);
@@ -919,12 +931,12 @@ private:
     }
 
     void emitEpilogue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
-                      const std::vector<int>& calleeSaved, int calleeSaveBase) {
+                      const std::vector<int>& calleeSaved, int calleeSaveBase, bool saveRa) {
         for (int i = 0; i < (int)calleeSaved.size(); i++) {
             emitLoadFixed(out, calleeSaved[i], 2, calleeSaveBase + i * RISCV_XLEN_BYTES);
         }
         emitLoadFixed(out, 8, 2, s0Offset);
-        emitLoadFixed(out, 1, 2, raOffset);
+        if (saveRa) emitLoadFixed(out, 1, 2, raOffset);
         emitAddi(out, 2, 2, frameSize);
     }
 
