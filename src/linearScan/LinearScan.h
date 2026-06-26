@@ -734,7 +734,11 @@ private:
                     uses.push_back(10);
                 break;
             case ASMOp::CALL:
-                for (int i = 10; i <= 17; i++) uses.push_back(i);
+                {
+                    int argCount = instr.callArgCount < 0 ? 8 : instr.callArgCount;
+                    argCount = std::max(0, std::min(argCount, 8));
+                    for (int i = 0; i < argCount; i++) uses.push_back(10 + i);
+                }
                 break;
             default: break;
         }

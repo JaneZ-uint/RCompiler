@@ -1250,6 +1250,7 @@ public:
         ASMInstr call;
         call.op = ASMOp::CALL;
         call.funcName = asmFunctionName(op->function);
+        call.callArgCount = regParams;
         currentBlock->instrs.push_back(call);
 
         if (totalParams > 8) {
@@ -1288,6 +1289,7 @@ public:
             ASMInstr call;
             call.op = ASMOp::CALL;
             call.funcName = op->inttag ? "printInt" : "printlnInt";
+            call.callArgCount = 1;
             currentBlock->instrs.push_back(call);
         }
     }
@@ -1310,6 +1312,7 @@ public:
         ASMInstr call;
         call.op = ASMOp::CALL;
         call.funcName = "__builtin_exit";
+        call.callArgCount = 1;
         currentBlock->instrs.push_back(call);
     }
 
@@ -1317,6 +1320,7 @@ public:
         ASMInstr call;
         call.op = ASMOp::CALL;
         call.funcName = "getInt";
+        call.callArgCount = 0;
         currentBlock->instrs.push_back(call);
         int dst = getVReg(op->result);
         ASMInstr mv;
@@ -1343,6 +1347,7 @@ public:
         currentBlock->instrs.push_back(liA2);
         ASMInstr call; call.op = ASMOp::CALL;
         call.funcName = "memcpy";
+        call.callArgCount = 3;
         currentBlock->instrs.push_back(call);
     }
 
@@ -1362,6 +1367,7 @@ public:
         currentBlock->instrs.push_back(liA2);
         ASMInstr call; call.op = ASMOp::CALL;
         call.funcName = "memset";
+        call.callArgCount = 3;
         currentBlock->instrs.push_back(call);
     }
 

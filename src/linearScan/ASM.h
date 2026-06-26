@@ -98,8 +98,9 @@ struct ASMInstr{
     Operand imm;
     Operand label;
     std::string funcName;
+    int callArgCount;
 
-    ASMInstr() : op(ASMOp::ADD) {}
+    ASMInstr() : op(ASMOp::ADD), callArgCount(-1) {}
 };
 
 class ASMBlock{
