@@ -55,6 +55,12 @@ struct LiveInterval {
     int end;
     int physReg = -1;  
     int spillSlot = -1;
+    long long useWeight = 1;
+};
+
+struct RematValue {
+    ASMOp op = ASMOp::LI;
+    long long imm = 0;
 };
 
 struct FuncInfo {
@@ -264,7 +270,49 @@ private:
             }
         }
 
+        std::vector<int> blockWeight(cfg.size(), 1);
+        for (const auto& b : cfg) {
+            for (int succ : b.succs) {
+                if (succ <= b.id) {
+                    for (int i = succ; i <= b.id && i < (int)blockWeight.size(); i++) {
+                        blockWeight[i] = std::max(blockWeight[i], 8);
+                    }
+                }
+            }
+        }
+
+        std::unordered_map<int, RematValue> rematValues;
+        std::unordered_set<int> rematInvalid;
+        for (auto& b : cfg) {
+            for (auto& instr : b.asmBlock->instrs) {
+                auto defs = uniqueRegs(getDefs(instr));
+                bool isLiCandidate = instr.op == ASMOp::LI &&
+                                     instr.rd.type == OperandType::REG &&
+                                     instr.rd.value >= 32 &&
+                                     instr.imm.type == OperandType::IMM &&
+                                     defs.size() == 1 &&
+                                     defs[0] == instr.rd.value &&
+                                     instr.funcName.empty();
+                for (int r : defs) {
+                    if (r < 32) continue;
+                    if (isLiCandidate && r == instr.rd.value) {
+                        if (rematValues.count(r) || rematInvalid.count(r)) {
+                            rematValues.erase(r);
+                            rematInvalid.insert(r);
+                        } else {
+                            rematValues[r] = RematValue{ASMOp::LI, instr.imm.value};
+                        }
+                    } else {
+                        rematValues.erase(r);
+                        rematInvalid.insert(r);
+                    }
+                }
+            }
+        }
+
         std::unordered_map<int, LiveInterval> intervals; // vreg → interval
+        std::unordered_map<int, long long> useWeight;
+        std::unordered_map<int, std::vector<int>> copyHints;
         for (auto& b : cfg) {
             for (int r : b.liveIn) {
                 extendInterval(intervals, r, b.startIdx, b.startIdx);
@@ -277,12 +325,25 @@ private:
                 auto uses = uniqueRegs(getUses(instr));
                 auto defs = uniqueRegs(getDefs(instr));
                 for (int r : uses) {
-                    if (r >= 32 || isAllocatable(r))
+                    if (r >= 32 || isAllocatable(r)) {
                         extendInterval(intervals, r, idx, idx);
+                        if (r >= 32) useWeight[r] += blockWeight[b.id];
+                    }
                 }
                 for (int r : defs) {
-                    if (r >= 32 || isAllocatable(r))
+                    if (r >= 32 || isAllocatable(r)) {
                         extendInterval(intervals, r, idx, idx);
+                        if (r >= 32 && useWeight.find(r) == useWeight.end()) useWeight[r] = 1;
+                    }
+                }
+                if (instr.op == ASMOp::MV &&
+                    instr.rd.type == OperandType::REG &&
+                    instr.rs1.type == OperandType::REG &&
+                    instr.rd.value >= 32 &&
+                    instr.rs1.value >= 32 &&
+                    instr.rd.value != instr.rs1.value) {
+                    copyHints[instr.rd.value].push_back(instr.rs1.value);
+                    copyHints[instr.rs1.value].push_back(instr.rd.value);
                 }
                 idx++;
             }
@@ -291,6 +352,7 @@ private:
         std::vector<LiveInterval> vregIntervals;
         for (auto& [reg, iv] : intervals) {
             if (reg >= 32) {
+                iv.useWeight = std::max<long long>(1, useWeight[reg]);
                 vregIntervals.push_back(iv);
             }
         }
@@ -343,6 +405,12 @@ private:
 
         int nextSpillSlot = 0;
         std::set<int> usedCalleeSaved;
+        std::unordered_map<int, int> assignedPhys;
+
+        auto spillPriority = [](const LiveInterval& iv) -> long long {
+            long long length = std::max(1, iv.end - iv.start + 1);
+            return (std::max<long long>(1, iv.useWeight) * 1024) / length;
+        };
 
         for (auto& iv : vregIntervals) {
             active.erase(
@@ -365,10 +433,28 @@ private:
                 }
             }
 
+            auto tryCopyHint = [&]() {
+                auto it = copyHints.find(iv.vreg);
+                if (it == copyHints.end()) return;
+                for (int related : it->second) {
+                    auto physIt = assignedPhys.find(related);
+                    if (physIt == assignedPhys.end()) continue;
+                    int reg = physIt->second;
+                    if (freeRegs.count(reg) && !isBlocked(reg, iv.start, iv.end)) {
+                        chosen = reg;
+                        return;
+                    }
+                }
+            };
+
+            tryCopyHint();
             if (crossesCall) {
-                for (int r : CALLEE_SAVED) {
-                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
-                        chosen = r; break;
+                if (chosen == -1 || !isCalleeSaved(chosen)) {
+                    chosen = -1;
+                    for (int r : CALLEE_SAVED) {
+                        if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                            chosen = r; break;
+                        }
                     }
                 }
             }
@@ -384,42 +470,55 @@ private:
                 iv.physReg = chosen;
                 freeRegs.erase(chosen);
                 if (isCalleeSaved(chosen)) usedCalleeSaved.insert(chosen);
+                assignedPhys[iv.vreg] = chosen;
                 active.push_back(&iv);
                 std::sort(active.begin(), active.end(),
                     [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
             } else {
                 LiveInterval* spill = nullptr;
-                for (auto it = active.rbegin(); it != active.rend(); ++it) {
-                    if ((*it)->end > iv.end && !isBlocked((*it)->physReg, iv.start, iv.end)) {
-                        spill = *it;
-                        break;
+                for (auto* candidate : active) {
+                    if (candidate->end > iv.end && !isBlocked(candidate->physReg, iv.start, iv.end)) {
+                        if (!spill ||
+                            spillPriority(*candidate) < spillPriority(*spill) ||
+                            (spillPriority(*candidate) == spillPriority(*spill) &&
+                             candidate->end > spill->end)) {
+                            spill = candidate;
+                        }
                     }
                 }
-                if (spill) {
+                if (spill && spillPriority(*spill) <= spillPriority(iv)) {
                     iv.physReg = spill->physReg;
                     spill->physReg = -1;
                     spill->spillSlot = nextSpillSlot++;
+                    assignedPhys.erase(spill->vreg);
                     active.erase(std::remove(active.begin(), active.end(), spill), active.end());
+                    assignedPhys[iv.vreg] = iv.physReg;
                     active.push_back(&iv);
                     std::sort(active.begin(), active.end(),
                         [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
                 } else {
                     iv.spillSlot = nextSpillSlot++;
+                    assignedPhys.erase(iv.vreg);
                 }
             }
         }
 
         std::unordered_map<int, int> vregToPhys;
         std::unordered_map<int, int> vregToSpill;
+        int compactSpillSlots = 0;
         for (auto& iv : vregIntervals) {
             if (iv.physReg != -1) {
                 vregToPhys[iv.vreg] = iv.physReg;
             } else {
-                vregToSpill[iv.vreg] = iv.spillSlot;
+                if (rematValues.count(iv.vreg)) {
+                    vregToSpill[iv.vreg] = -1;
+                } else {
+                    vregToSpill[iv.vreg] = compactSpillSlots++;
+                }
             }
         }
 
-        int spillAreaSize = nextSpillSlot * RISCV_XLEN_BYTES;
+        int spillAreaSize = compactSpillSlots * RISCV_XLEN_BYTES;
         int allocaSize = 0;
         for (auto& instr : cfg[0].asmBlock->instrs) {
             if (instr.funcName == "__PROLOGUE__") {
@@ -482,17 +581,32 @@ private:
                 auto uses = uniqueRegs(getUses(instr));
                 auto defs = uniqueRegs(getDefs(instr));
 
+                if (instr.op == ASMOp::LI &&
+                    instr.rd.type == OperandType::REG &&
+                    instr.rd.value >= 32 &&
+                    vregToSpill.count(instr.rd.value) &&
+                    rematValues.count(instr.rd.value) &&
+                    instr.imm.type == OperandType::IMM &&
+                    rematValues[instr.rd.value].imm == instr.imm.value) {
+                    continue;
+                }
+
                 std::unordered_map<int, int> spillLoadMap; // vreg → scratch reg used
                 int scratchIdx = 0;
                 int scratchRegs[2] = {SCRATCH1, SCRATCH2};
 
                 for (int r : uses) {
                     if (r >= 32 && vregToSpill.count(r)) {
-                        int slot = vregToSpill[r];
-                        int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
                         int scratch = scratchRegs[scratchIdx++ % 2];
                         spillLoadMap[r] = scratch;
-                        emitLoad(newInstrs, scratch, 8, off);
+                        auto remat = rematValues.find(r);
+                        if (remat != rematValues.end()) {
+                            emitRematerialize(newInstrs, scratch, remat->second);
+                        } else {
+                            int slot = vregToSpill[r];
+                            int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
+                            emitLoad(newInstrs, scratch, 8, off);
+                        }
                     }
                 }
 
@@ -516,6 +630,7 @@ private:
 
                 for (int r : defs) {
                     if (r >= 32 && vregToSpill.count(r)) {
+                        if (rematValues.count(r)) continue;
                         int slot = vregToSpill[r];
                         int off = allocaSize + slot * RISCV_XLEN_BYTES - frameSize;
                         int physUsed = spillDefMap[r];
@@ -737,7 +852,11 @@ private:
                     uses.push_back(10);
                 break;
             case ASMOp::CALL:
-                for (int i = 10; i <= 17; i++) uses.push_back(i);
+                {
+                    int argCount = instr.callArgCount >= 0 ? instr.callArgCount : 8;
+                    if (argCount > 8) argCount = 8;
+                    for (int i = 0; i < argCount; i++) uses.push_back(10 + i);
+                }
                 break;
             default: break;
         }
@@ -849,6 +968,16 @@ private:
             ld.rs1 = Operand(OperandType::REG, dstReg);
             ld.imm = Operand(OperandType::IMM, 0);
             out.push_back(ld);
+        }
+    }
+
+    void emitRematerialize(std::vector<ASMInstr>& out, int dstReg, const RematValue& value) {
+        if (value.op == ASMOp::LI) {
+            ASMInstr li;
+            li.op = ASMOp::LI;
+            li.rd = Operand(OperandType::REG, dstReg);
+            li.imm = Operand(OperandType::IMM, value.imm);
+            out.push_back(li);
         }
     }
 
