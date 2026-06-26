@@ -29,6 +29,7 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <iostream>
 #include <limits>
 
@@ -385,6 +386,38 @@ public:
         }
     }
 
+    void collectBlockGraph(const std::shared_ptr<IRBlock> &block,
+                           std::vector<std::shared_ptr<IRBlock>> &orderedBlocks,
+                           std::unordered_set<IRBlock*> &emitted,
+                           std::unordered_set<IRBlock*> &scanned,
+                           bool emitLabel) {
+        if (!block || !scanned.insert(block.get()).second) return;
+        if (emitLabel && emitted.insert(block.get()).second) {
+            orderedBlocks.push_back(block);
+        }
+
+        for (auto &child : block->blockList) {
+            collectBlockGraph(child, orderedBlocks, emitted, scanned, true);
+        }
+
+        for (auto &instr : block->instrList) {
+            if (auto br = std::dynamic_pointer_cast<IRBr>(instr)) {
+                collectBlockGraph(br->trueLabel, orderedBlocks, emitted, scanned, true);
+                if (br->falseLabel && br->falseLabel != br->trueLabel) {
+                    collectBlockGraph(br->falseLabel, orderedBlocks, emitted, scanned, true);
+                }
+            }
+        }
+    }
+
+    std::vector<std::shared_ptr<IRBlock>> collectFunctionBlocks(const std::shared_ptr<IRBlock> &body) {
+        std::vector<std::shared_ptr<IRBlock>> orderedBlocks;
+        std::unordered_set<IRBlock*> emitted;
+        std::unordered_set<IRBlock*> scanned;
+        collectBlockGraph(body, orderedBlocks, emitted, scanned, false);
+        return orderedBlocks;
+    }
+
     void selectFunc(std::shared_ptr<IRFunction> irFunc) {
         blockMap.clear();
         nextVReg = 32;
@@ -408,7 +441,8 @@ public:
         if (!irFunc->body) return;
 
         blockMap[irFunc->body] = entryBlock;
-        for (auto& block : irFunc->body->blockList) {
+        auto orderedBlocks = collectFunctionBlocks(irFunc->body);
+        for (auto& block : orderedBlocks) {
             int id = (int)block->label;
             auto ab = std::make_shared<ASMBlock>(".L" + std::to_string(id));
             blockMap[block] = ab;
@@ -449,7 +483,7 @@ public:
                 processAlloca(alloca);
             }
         }
-        for (auto& block : irFunc->body->blockList) {
+        for (auto& block : orderedBlocks) {
             for (auto& instr : block->instrList) {
                 if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
                     processAlloca(alloca);
@@ -470,7 +504,7 @@ public:
                 emitAllocaAddr(alloca);
             }
         }
-        for (auto& block : irFunc->body->blockList) {
+        for (auto& block : orderedBlocks) {
             for (auto& instr : block->instrList) {
                 if (auto alloca = std::dynamic_pointer_cast<IRAlloca>(instr)) {
                     auto savedBlock = currentBlock;
@@ -486,7 +520,7 @@ public:
             selectInstr(instr);
         }
 
-        for (auto& block : irFunc->body->blockList) {
+        for (auto& block : orderedBlocks) {
             currentBlock = blockMap[block];
             currentIRBlock = block;
             for (auto& instr : block->instrList) {
