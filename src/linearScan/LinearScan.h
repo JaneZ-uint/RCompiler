@@ -55,7 +55,6 @@ struct LiveInterval {
     int end;
     int physReg = -1;  
     int spillSlot = -1;
-    std::vector<int> usePositions;
 };
 
 struct FuncInfo {
@@ -278,10 +277,8 @@ private:
                 auto uses = uniqueRegs(getUses(instr));
                 auto defs = uniqueRegs(getDefs(instr));
                 for (int r : uses) {
-                    if (r >= 32 || isAllocatable(r)) {
+                    if (r >= 32 || isAllocatable(r))
                         extendInterval(intervals, r, idx, idx);
-                        recordUsePosition(intervals, r, idx);
-                    }
                 }
                 for (int r : defs) {
                     if (r >= 32 || isAllocatable(r))
@@ -294,9 +291,6 @@ private:
         std::vector<LiveInterval> vregIntervals;
         for (auto& [reg, iv] : intervals) {
             if (reg >= 32) {
-                std::sort(iv.usePositions.begin(), iv.usePositions.end());
-                iv.usePositions.erase(std::unique(iv.usePositions.begin(), iv.usePositions.end()),
-                                      iv.usePositions.end());
                 vregIntervals.push_back(iv);
             }
         }
@@ -395,17 +389,10 @@ private:
                     [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
             } else {
                 LiveInterval* spill = nullptr;
-                int currentNextUse = nextUseAfter(iv, iv.start);
-                int bestNextUse = currentNextUse;
-                int bestEnd = iv.end;
-                for (LiveInterval* candidate : active) {
-                    if (isBlocked(candidate->physReg, iv.start, iv.end)) continue;
-                    int candidateNextUse = nextUseAfter(*candidate, iv.start);
-                    if (candidateNextUse > bestNextUse ||
-                        (candidateNextUse == bestNextUse && candidate->end > bestEnd)) {
-                        spill = candidate;
-                        bestNextUse = candidateNextUse;
-                        bestEnd = candidate->end;
+                for (auto it = active.rbegin(); it != active.rend(); ++it) {
+                    if ((*it)->end > iv.end && !isBlocked((*it)->physReg, iv.start, iv.end)) {
+                        spill = *it;
+                        break;
                     }
                 }
                 if (spill) {
@@ -800,26 +787,6 @@ private:
             it->second.start = std::min(it->second.start, start);
             it->second.end = std::max(it->second.end, end);
         }
-    }
-
-    void recordUsePosition(std::unordered_map<int, LiveInterval>& intervals, int reg, int pos) {
-        auto it = intervals.find(reg);
-        if (it == intervals.end()) {
-            LiveInterval iv;
-            iv.vreg = reg;
-            iv.start = pos;
-            iv.end = pos;
-            iv.usePositions.push_back(pos);
-            intervals[reg] = iv;
-        } else {
-            it->second.usePositions.push_back(pos);
-        }
-    }
-
-    int nextUseAfter(const LiveInterval& interval, int pos) {
-        auto it = std::lower_bound(interval.usePositions.begin(), interval.usePositions.end(), pos);
-        if (it == interval.usePositions.end()) return INT_MAX;
-        return *it;
     }
 
     int computeAllocaSize(std::vector<CFGBlock>& cfg) {
