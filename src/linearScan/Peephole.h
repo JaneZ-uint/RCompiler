@@ -16,6 +16,7 @@ public:
         bool changed = false;
         if (removeFallthroughJumps) {
             changed |= cleanupRedundantStackAccesses(blocks);
+            changed |= reuseMaterializedFrameAddresses(blocks);
         }
         auto useCounts = countUses(blocks);
         for (size_t i = 0; i < blocks.size(); i++) {
@@ -71,6 +72,11 @@ private:
         int size = 0;
         int reg = -1;
         int storeIndex = -1;
+    };
+
+    struct FrameAddressValue {
+        long long offset = 0;
+        int reg = -1;
     };
 
     bool isSelfMove(const ASMInstr &instr) const {
@@ -439,6 +445,113 @@ private:
                 }
                 out = std::move(filtered);
             }
+            if (out.size() != block->instrs.size()) changed = true;
+            block->instrs = std::move(out);
+        }
+        return changed;
+    }
+
+    bool isFrameAddressMaterialize(const std::vector<ASMInstr> &instrs,
+                                   size_t index,
+                                   long long &offset,
+                                   int &reg) const {
+        if (index + 1 >= instrs.size()) return false;
+        const auto &li = instrs[index];
+        const auto &add = instrs[index + 1];
+        if (li.op != ASMOp::LI ||
+            li.rd.type != OperandType::REG ||
+            li.imm.type != OperandType::IMM ||
+            add.op != ASMOp::ADD ||
+            add.rd.type != OperandType::REG ||
+            add.rs1.type != OperandType::REG ||
+            add.rs2.type != OperandType::REG ||
+            add.rd.value != li.rd.value ||
+            add.rs1.value != li.rd.value ||
+            add.rs2.value != 8 ||
+            !li.funcName.empty() ||
+            !add.funcName.empty()) {
+            return false;
+        }
+        offset = li.imm.value;
+        reg = (int)add.rd.value;
+        return true;
+    }
+
+    int findKnownFrameAddress(const std::vector<FrameAddressValue> &known,
+                              long long offset) const {
+        for (size_t i = 0; i < known.size(); i++) {
+            if (known[i].offset == offset && known[i].reg >= 0) return (int)i;
+        }
+        return -1;
+    }
+
+    void eraseFrameAddressReg(std::vector<FrameAddressValue> &known, int reg) const {
+        known.erase(std::remove_if(known.begin(), known.end(),
+            [&](const FrameAddressValue &addr) { return addr.reg == reg; }),
+            known.end());
+    }
+
+    void rememberFrameAddress(std::vector<FrameAddressValue> &known,
+                              long long offset,
+                              int reg) const {
+        eraseFrameAddressReg(known, reg);
+        int idx = findKnownFrameAddress(known, offset);
+        if (idx >= 0) {
+            known[idx].reg = reg;
+            return;
+        }
+        known.push_back(FrameAddressValue{offset, reg});
+    }
+
+    bool reuseMaterializedFrameAddresses(std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        bool changed = false;
+        for (auto &block : blocks) {
+            if (!block) continue;
+            std::vector<FrameAddressValue> known;
+            std::vector<ASMInstr> out;
+            out.reserve(block->instrs.size());
+
+            for (size_t i = 0; i < block->instrs.size();) {
+                long long offset = 0;
+                int reg = -1;
+                if (isFrameAddressMaterialize(block->instrs, i, offset, reg)) {
+                    int idx = findKnownFrameAddress(known, offset);
+                    if (idx >= 0 && known[idx].reg != reg) {
+                        eraseFrameAddressReg(known, reg);
+                        ASMInstr mv;
+                        mv.op = ASMOp::MV;
+                        mv.rd = Operand(OperandType::REG, reg);
+                        mv.rs1 = Operand(OperandType::REG, known[idx].reg);
+                        out.push_back(mv);
+                        rememberFrameAddress(known, offset, reg);
+                        changed = true;
+                    } else {
+                        out.push_back(block->instrs[i]);
+                        out.push_back(block->instrs[i + 1]);
+                        rememberFrameAddress(known, offset, reg);
+                    }
+                    i += 2;
+                    continue;
+                }
+
+                const auto &instr = block->instrs[i];
+                if (instr.op == ASMOp::CALL || !instr.funcName.empty() ||
+                    isStore(instr) || isTerminator(instr) ||
+                    instrDefsReg(instr, 8)) {
+                    known.clear();
+                } else {
+                    for (auto it = known.begin(); it != known.end();) {
+                        if (instrDefsReg(instr, it->reg)) {
+                            it = known.erase(it);
+                        } else {
+                            ++it;
+                        }
+                    }
+                }
+                out.push_back(instr);
+                i++;
+            }
+
             if (out.size() != block->instrs.size()) changed = true;
             block->instrs = std::move(out);
         }
