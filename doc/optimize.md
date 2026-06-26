@@ -614,6 +614,11 @@ opt: select immediate forms in backend
 - 只保存实际分配到的 callee-saved，当前已有基础逻辑，继续检查大函数下是否过度使用 callee-saved。
 - 对没有 alloca、没有 spill、没有 call 的函数生成最小 frame 或无 frame。
 
+已完成子项：
+
+- leaf function 已跳过 `ra` save/restore。
+- 无 call、无 alloca、无 spill、无 callee-saved 的 leaf function 直接省略 `s0` save/restore 和 `sp/s0` frame setup。
+
 风险：
 
 - OJ runtime 和 gcc 链接遵守标准 ABI，任何 call-saved/caller-saved 误判都会 WA。
@@ -639,7 +644,7 @@ opt: reduce unnecessary stack frame work
 当前已有：
 
 - post-regalloc peephole 可删除跳到下一块的 fallthrough jump。
-- leaf function 已跳过 `ra` save/restore，仍保留 `s0` frame base 以维持当前栈槽访问逻辑。
+- leaf function 已跳过 `ra` save/restore；完全无栈需求的 leaf function 已省略整个 frame setup。
 
 下一步增强：
 

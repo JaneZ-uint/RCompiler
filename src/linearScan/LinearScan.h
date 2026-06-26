@@ -529,13 +529,19 @@ private:
         bool hasCall = functionHasCall(cfg);
 
         int calleeSaveCount = (int)usedCalleeSaved.size();
-        int fixedSaveCount = hasCall ? 2 : 1;
-        int frameSize = allocaSize + spillAreaSize + calleeSaveCount * RISCV_XLEN_BYTES +
+        bool usesFrameBase = functionUsesPhysicalReg(cfg, 8);
+        bool needsFrame = hasCall || usesFrameBase || allocaSize > 0 || spillAreaSize > 0 ||
+                          calleeSaveCount > 0;
+        int fixedSaveCount = hasCall ? 2 : (needsFrame ? 1 : 0);
+        int frameSize = 0;
+        if (needsFrame) {
+            frameSize = allocaSize + spillAreaSize + calleeSaveCount * RISCV_XLEN_BYTES +
                         fixedSaveCount * RISCV_XLEN_BYTES;
-        if (frameSize % 16 != 0) frameSize = ((frameSize / 16) + 1) * 16;
+            if (frameSize % 16 != 0) frameSize = ((frameSize / 16) + 1) * 16;
+        }
 
         int raOffset = hasCall ? frameSize - RISCV_XLEN_BYTES : -1;
-        int s0Offset = frameSize - fixedSaveCount * RISCV_XLEN_BYTES;
+        int s0Offset = needsFrame ? frameSize - fixedSaveCount * RISCV_XLEN_BYTES : -1;
         int calleeSaveBase = allocaSize + spillAreaSize;
 
         std::vector<int> calleeSavedList(usedCalleeSaved.begin(), usedCalleeSaved.end());
@@ -925,6 +931,23 @@ private:
         return false;
     }
 
+    bool functionUsesPhysicalReg(const std::vector<CFGBlock>& cfg, int reg) {
+        auto hasReg = [&](const Operand& op) {
+            return op.type == OperandType::REG && op.value == reg;
+        };
+        for (const auto& b : cfg) {
+            for (const auto& instr : b.asmBlock->instrs) {
+                if (instr.funcName == "__PROLOGUE__" || instr.funcName == "__EPILOGUE__") {
+                    continue;
+                }
+                if (hasReg(instr.rd) || hasReg(instr.rs1) || hasReg(instr.rs2)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     void rewriteOperand(ASMInstr& instr,
                         const std::unordered_map<int, int>& vregToPhys,
                         const std::unordered_map<int, int>& spillLoadMap) {
@@ -1013,6 +1036,7 @@ private:
 
     void emitPrologue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
                       const std::vector<int>& calleeSaved, int calleeSaveBase, bool saveRa) {
+        if (frameSize == 0) return;
         emitAddi(out, 2, 2, -frameSize);
         if (saveRa) emitStoreFixed(out, 1, 2, raOffset);
         emitStoreFixed(out, 8, 2, s0Offset);
@@ -1024,6 +1048,7 @@ private:
 
     void emitEpilogue(std::vector<ASMInstr>& out, int frameSize, int raOffset, int s0Offset,
                       const std::vector<int>& calleeSaved, int calleeSaveBase, bool saveRa) {
+        if (frameSize == 0) return;
         for (int i = 0; i < (int)calleeSaved.size(); i++) {
             emitLoadFixed(out, calleeSaved[i], 2, calleeSaveBase + i * RISCV_XLEN_BYTES);
         }
