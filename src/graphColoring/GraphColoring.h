@@ -784,6 +784,84 @@ private:
         return ordered;
     }
 
+    void linearScanFallback(
+        std::vector<LiveInterval> &intervals,
+        const std::vector<int> &allocRegs,
+        const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked,
+        int &nextSpillSlot,
+        std::set<int> &usedCalleeSaved) {
+        std::set<int> freeRegs(allocRegs.begin(), allocRegs.end());
+        std::vector<LiveInterval*> active;
+        auto isBlocked = [&](int physReg, int start, int end) -> bool {
+            auto it = physRegBlocked.find(physReg);
+            if (it == physRegBlocked.end()) return false;
+            for (const auto &range : it->second) {
+                if (range.first <= end && range.second >= start) return true;
+            }
+            return false;
+        };
+
+        for (auto &iv : intervals) {
+            active.erase(
+                std::remove_if(active.begin(), active.end(),
+                    [&](LiveInterval *j) {
+                        if (j->end < iv.start) {
+                            freeRegs.insert(j->physReg);
+                            return true;
+                        }
+                        return false;
+                    }),
+                active.end());
+
+            int chosen = -1;
+            bool ivCrossesCall = crossesCall(iv, physRegBlocked);
+            if (ivCrossesCall) {
+                for (int r : CALLEE_SAVED) {
+                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                        chosen = r;
+                        break;
+                    }
+                }
+            }
+            if (chosen == -1) {
+                for (int r : allocRegs) {
+                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                        chosen = r;
+                        break;
+                    }
+                }
+            }
+
+            if (chosen != -1) {
+                iv.physReg = chosen;
+                freeRegs.erase(chosen);
+                if (isCalleeSaved(chosen)) usedCalleeSaved.insert(chosen);
+                active.push_back(&iv);
+                std::sort(active.begin(), active.end(),
+                    [](LiveInterval *a, LiveInterval *b) { return a->end < b->end; });
+            } else {
+                LiveInterval *spill = nullptr;
+                for (auto it = active.rbegin(); it != active.rend(); ++it) {
+                    if ((*it)->end > iv.end && !isBlocked((*it)->physReg, iv.start, iv.end)) {
+                        spill = *it;
+                        break;
+                    }
+                }
+                if (spill) {
+                    iv.physReg = spill->physReg;
+                    spill->physReg = -1;
+                    spill->spillSlot = nextSpillSlot++;
+                    active.erase(std::remove(active.begin(), active.end(), spill), active.end());
+                    active.push_back(&iv);
+                    std::sort(active.begin(), active.end(),
+                        [](LiveInterval *a, LiveInterval *b) { return a->end < b->end; });
+                } else {
+                    iv.spillSlot = nextSpillSlot++;
+                }
+            }
+        }
+    }
+
     void colorIntervals(
         std::vector<LiveInterval> &intervals,
         const std::vector<int> &allocRegs,
@@ -791,11 +869,14 @@ private:
         int &nextSpillSlot,
         std::set<int> &usedCalleeSaved) {
         const int K = static_cast<int>(allocRegs.size());
-        std::unordered_map<int, int> indexOf;
         for (int i = 0; i < static_cast<int>(intervals.size()); i++) {
-            indexOf[intervals[i].vreg] = i;
             intervals[i].physReg = -1;
             intervals[i].spillSlot = -1;
+        }
+        const long long n = static_cast<long long>(intervals.size());
+        if (n > 600 || n * n > 360000) {
+            linearScanFallback(intervals, allocRegs, physRegBlocked, nextSpillSlot, usedCalleeSaved);
+            return;
         }
 
         std::vector<std::set<int>> graph(intervals.size());
