@@ -62,6 +62,29 @@ bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
 - 明显回退：`opti_sort_kmp_suite -0.22`、`opti_inmemory_index_query -0.14`、`opti_tree_hashmap_suite -0.14`、`opti_compression_match_finder -0.08`、`opti_struct_pool_fold -0.06`。
 - 结论：收紧 scalar-memory inline 会伤害更多 case，撤销该调参；下一步优先验证收窄 LICM cheap binary hoist 后的 OJ 变化。
 
+### 1.2 和 O1 差距最大的当前瓶颈
+
+当前与 O1 的主要差距更像后端问题，而不是再缺一个单独的 IR pass。IR 层的 mem2reg、inline、CSE/GVN、MemoryForward、LICM、SCCP、SROA 已经覆盖基础优化；继续泛化 IR pass 很容易把 live range 拉长，使后端 spill 变多。
+
+最高优先级瓶颈：
+
+1. `LinearScan` 仍是单 live interval 模型，没有 live hole，也没有真正的 live range splitting。分支、循环和长 pipeline 会把短命临时拉成长活跃区间。
+2. spill/reload 质量仍不接近 O1。当前只做了局部 cleanup，没有跨 block spill value forwarding，也没有 rematerialization。
+3. copy coalescing 还不足。phi lowering、参数搬运、返回值搬运和 peephole 未覆盖的 `mv` 链会制造额外 live range。
+4. 指令选择和地址模式还不够强。O1 会更稳定地把地址临时折入 `ld/st offset(base)`，并减少常量 materialize 和 getptr 临时。
+5. call/frame 成本刚开始优化。实际参数 liveness、leaf frame、callee/caller saved 压力仍有空间。
+
+这些瓶颈最影响：
+
+- `opti_bytecode_vm_interpreter`
+- `opti_graph_algorithms_suite`
+- `opti_range_structures_suite`
+- `opti_ntt_convolution`
+- `opti_block_hash_pipeline`
+- `opti_inmemory_index_query`
+
+后续主线应集中在 B1/B2/B3：更准确的寄存器分配、更少 spill/reload、更强 copy coalescing。只有当后端内存流量明显下降后，再回头判断是否需要新的 IR loop/alias 优化。
+
 | Case | 主要热点判断 | 优先优化方向 |
 |---|---|---|
 | `opti_compute_hash_mix` | hash 混合、整数表达式、数组访问 | GVN, load forwarding, LICM |
@@ -396,6 +419,8 @@ opt: clean redundant spill reloads
 
 IR 层已经覆盖了当前能安全做的大部分优化。下一阶段重点转到后端，目标不是新增激进指令，而是降低寄存器压力、减少 spill/reload、改进指令选择和清理冗余 asm。所有优化默认只使用当前已经输出过的 RV64GC/lp64d 指令形态，避免再次触发 OJ `CE_ASM`。
 
+后端优化的核心判断：当前最接近 O1 差距的不是算术 strength reduction，而是寄存器分配质量和 spill 流量。即使 IR pass 减少了表达式数量，只要 allocator 把 live range 过度拉长，热点循环仍会被 `ld/sd` 吞掉收益。
+
 ### B0: 后端性能画像和统计
 
 目标：先让后端瓶颈可见，避免继续盲目调 pass。
@@ -431,16 +456,21 @@ docs/tooling: add backend asm statistics
 - block 入口/出口 live set 会把 interval 扩到 block 边界，循环和分支较多时容易放大寄存器压力。
 - `CALL` 当前按固定 caller-saved clobber 处理，但 call 的真实参数 use 和返回值 def 仍可进一步精确。
 
+已完成子项：
+
+- `CALL` 记录实际占用的 `a0-a7` 参数数，liveness 不再默认把所有 `a0-a7` 都视为 use。
+- spill victim 改为参考下一次 use，而不是只比较 interval end。
+
 第一阶段保守增强：
 
-- 指令编号改成带 use/def position 的形式，区分 use-before-def。
-- interval 记录 use positions，用于 spill 选择，不只比较 end。
-- spill victim 优先选“下一次使用最远”的 active interval。
+- 继续完善指令编号，区分 use-before-def 和 def-before-use。
+- interval 继续记录 use positions，并用于更多 spill/reload 决策。
 - 对没有后续 use 的 def 尽早交给 ASM DCE 删除，避免进入分配。
 
 第二阶段增强：
 
 - 支持 live range splitting 的轻量版：只在 spill 前后插入 reload/store，不把整个 vreg 固定成全函数 spill。
+- 允许在 block 内切开长 interval，让短热点片段优先留在物理寄存器。
 - 不做复杂 SSA-aware allocator，先保持现有 linear scan 框架。
 
 适用隐藏点：
@@ -471,14 +501,15 @@ opt: improve linear scan spill choice
 - 同基本块内 redundant reload 复用。
 - same-value spill store deletion。
 - overwritten spill store deletion。
+- 同一条指令内重复 use/def 的 spill rewrite 去重。
 
 下一步增强：
 
-- 在 spill rewrite 阶段为同一条指令内重复 use 同一 spilled vreg 只 load 一次，当前已有基础逻辑，继续检查双 scratch 冲突。
 - 在基本块内维护 `slot -> reg` 和 `reg -> slot` 状态，覆盖更多 `ld slot; ...; ld slot`，中间只要没有写同 slot 就复用。
 - 对 `ld r, slot; op ... r ...; sd r, slot`，如果 vreg 值未改变则删除 store。
 - 对连续 spill slot 访问尽量避免重复 materialize 大 offset 地址。
 - 大 frame 时优先用 `s0` 稳定访问 frame slot，避免每次 `li + add + ld/sd`。
+- 做轻量 rematerialization：常量 `li`、小 offset 地址、简单 `addi` 不一定要 spill slot，必要时重新生成可能更便宜。
 
 不做：
 
@@ -513,6 +544,12 @@ opt: reduce redundant spill traffic
 - 对 phi lowering、call return、argument move 产生的 copy chain 做 coalescing。
 - 对 `li tmp, imm; mv dst, tmp`、`mv tmp, src; op dst, tmp` 这类单 use 模式继续扩大 peephole。
 - 保留 width 语义：涉及 `addw/subw`、显式 sign/zero extend 的 move 不能错误合并。
+
+执行优先级：
+
+- 先做非冲突 move coalescing，不改变 CFG。
+- 再尝试把 call argument staging 产生的 `mv` 链缩短。
+- 最后处理 phi/copy chain，避免一次改动过大。
 
 适用隐藏点：
 
@@ -602,6 +639,7 @@ opt: reduce unnecessary stack frame work
 当前已有：
 
 - post-regalloc peephole 可删除跳到下一块的 fallthrough jump。
+- leaf function 已跳过 `ra` save/restore，仍保留 `s0` frame base 以维持当前栈槽访问逻辑。
 
 下一步增强：
 
@@ -634,8 +672,8 @@ opt: clean backend control flow
 推荐顺序：
 
 1. B0 统计和样例画像。
-2. B1 spill 选择和 interval 精度。
-3. B2 spill traffic 清理。
+2. B1 live interval / spill 选择 / 轻量 live range splitting。
+3. B2 spill traffic 清理和 rematerialization。
 4. B3 copy coalescing。
 5. B4 immediate/address 指令选择。
 6. B5 call/frame 优化。
