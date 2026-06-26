@@ -57,6 +57,19 @@ struct LiveInterval {
     int spillSlot = -1;
 };
 
+struct CopyHint {
+    int lhs = -1;
+    int rhs = -1;
+    int weight = 1;
+};
+
+struct AllocationStats {
+    int spillSlots = 0;
+    int calleeSaved = 0;
+    long long spillWeight = 0;
+    long long copyPenalty = 0;
+};
+
 struct FuncInfo {
     std::string name;
     int firstBlock;
@@ -264,7 +277,9 @@ private:
             }
         }
 
-        std::unordered_map<int, LiveInterval> intervals; // vreg → interval
+        std::unordered_map<int, LiveInterval> intervals; // vreg -> interval
+        std::unordered_map<int, int> useWeight;
+        std::vector<CopyHint> copyHints;
         for (auto& b : cfg) {
             for (int r : b.liveIn) {
                 extendInterval(intervals, r, b.startIdx, b.startIdx);
@@ -276,13 +291,26 @@ private:
             for (auto& instr : b.asmBlock->instrs) {
                 auto uses = uniqueRegs(getUses(instr));
                 auto defs = uniqueRegs(getDefs(instr));
+                int weight = blockWeight(b);
                 for (int r : uses) {
-                    if (r >= 32 || isAllocatable(r))
+                    if (r >= 32 || isAllocatable(r)) {
                         extendInterval(intervals, r, idx, idx);
+                        if (r >= 32) useWeight[r] += weight;
+                    }
                 }
                 for (int r : defs) {
-                    if (r >= 32 || isAllocatable(r))
+                    if (r >= 32 || isAllocatable(r)) {
                         extendInterval(intervals, r, idx, idx);
+                        if (r >= 32) useWeight[r] += weight;
+                    }
+                }
+                if (instr.op == ASMOp::MV &&
+                    instr.rd.type == OperandType::REG &&
+                    instr.rs1.type == OperandType::REG &&
+                    instr.rd.value >= 32 &&
+                    instr.rs1.value >= 32 &&
+                    instr.rd.value != instr.rs1.value) {
+                    copyHints.push_back(CopyHint{(int)instr.rd.value, (int)instr.rs1.value, weight});
                 }
                 idx++;
             }
@@ -331,7 +359,8 @@ private:
 
         int nextSpillSlot = 0;
         std::set<int> usedCalleeSaved;
-        colorIntervals(vregIntervals, allocRegs, physRegBlocked, nextSpillSlot, usedCalleeSaved);
+        colorIntervals(vregIntervals, allocRegs, physRegBlocked, useWeight,
+                       copyHints, nextSpillSlot, usedCalleeSaved);
 
         std::unordered_map<int, int> vregToPhys;
         std::unordered_map<int, int> vregToSpill;
@@ -734,6 +763,17 @@ private:
         return a.start <= b.end && b.start <= a.end;
     }
 
+    bool intervalsTouchOrOverlap(const LiveInterval &a, const LiveInterval &b) const {
+        return a.start <= b.end + 1 && b.start <= a.end + 1;
+    }
+
+    int blockWeight(const CFGBlock &b) const {
+        for (int succ : b.succs) {
+            if (succ <= b.id) return 8;
+        }
+        return 1;
+    }
+
     bool physRegBlockedForInterval(
         int physReg,
         const LiveInterval &iv,
@@ -761,6 +801,158 @@ private:
         return std::max(1, iv.end - iv.start + 1);
     }
 
+    int intervalUseWeight(const LiveInterval &iv,
+                          const std::unordered_map<int, int> &useWeight) const {
+        auto it = useWeight.find(iv.vreg);
+        return it == useWeight.end() ? intervalLength(iv) : std::max(1, it->second);
+    }
+
+    long long spillCost(const LiveInterval &iv,
+                        const std::unordered_map<int, int> &useWeight,
+                        const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked) const {
+        long long cost = intervalUseWeight(iv, useWeight) * 16LL + intervalLength(iv);
+        if (crossesCall(iv, physRegBlocked)) cost += 200;
+        return cost;
+    }
+
+    long long colorChoiceCost(int physReg,
+                             const LiveInterval &iv,
+                             const std::set<int> &usedCalleeSaved,
+                             const std::unordered_map<int, int> &useWeight,
+                             const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked) const {
+        long long cost = 0;
+        bool ivCrossesCall = crossesCall(iv, physRegBlocked);
+        if (isCalleeSaved(physReg)) {
+            if (!usedCalleeSaved.count(physReg)) cost += 48;
+            cost += ivCrossesCall ? 0 : 12;
+        } else if (ivCrossesCall) {
+            cost += 300 + intervalUseWeight(iv, useWeight);
+        }
+        return cost;
+    }
+
+    int findSet(std::unordered_map<int, int> &parent, int v) const {
+        auto it = parent.find(v);
+        if (it == parent.end() || it->second == v) return v;
+        it->second = findSet(parent, it->second);
+        return it->second;
+    }
+
+    int findSetConst(const std::unordered_map<int, int> &parent, int v) const {
+        auto it = parent.find(v);
+        while (it != parent.end() && it->second != v) {
+            v = it->second;
+            it = parent.find(v);
+        }
+        return v;
+    }
+
+    bool canMergeIntervals(const LiveInterval &a, const LiveInterval &b) const {
+        return !intervalsOverlap(a, b);
+    }
+
+    std::vector<LiveInterval> coalesceIntervals(
+        const std::vector<LiveInterval> &intervals,
+        const std::vector<CopyHint> &copyHints,
+        const std::unordered_map<int, int> &useWeight,
+        std::unordered_map<int, int> &alias) const {
+        std::unordered_map<int, LiveInterval> merged;
+        std::unordered_map<int, int> parent;
+        for (const auto &iv : intervals) {
+            parent[iv.vreg] = iv.vreg;
+            merged[iv.vreg] = iv;
+        }
+
+        auto hints = copyHints;
+        std::sort(hints.begin(), hints.end(),
+            [](const CopyHint &a, const CopyHint &b) { return a.weight > b.weight; });
+
+        for (const auto &hint : hints) {
+            if (!parent.count(hint.lhs) || !parent.count(hint.rhs)) continue;
+            int a = findSet(parent, hint.lhs);
+            int b = findSet(parent, hint.rhs);
+            if (a == b) continue;
+            if (!canMergeIntervals(merged[a], merged[b])) continue;
+            int keep = a;
+            int kill = b;
+            int weightA = useWeight.count(a) ? useWeight.at(a) : 0;
+            int weightB = useWeight.count(b) ? useWeight.at(b) : 0;
+            if (weightB > weightA) {
+                keep = b;
+                kill = a;
+            }
+            parent[kill] = keep;
+            merged[keep].start = std::min(merged[keep].start, merged[kill].start);
+            merged[keep].end = std::max(merged[keep].end, merged[kill].end);
+            merged.erase(kill);
+        }
+
+        alias.clear();
+        std::unordered_set<int> seenRoots;
+        std::vector<LiveInterval> out;
+        out.reserve(merged.size());
+        for (const auto &iv : intervals) {
+            int root = findSet(parent, iv.vreg);
+            alias[iv.vreg] = root;
+            if (seenRoots.insert(root).second) {
+                out.push_back(merged[root]);
+            }
+        }
+        std::sort(out.begin(), out.end(),
+            [](const LiveInterval &a, const LiveInterval &b) { return a.start < b.start; });
+        return out;
+    }
+
+    std::unordered_map<int, int> buildIndex(const std::vector<LiveInterval> &intervals) const {
+        std::unordered_map<int, int> idx;
+        for (int i = 0; i < static_cast<int>(intervals.size()); i++) {
+            idx[intervals[i].vreg] = i;
+        }
+        return idx;
+    }
+
+    std::vector<std::set<int>> buildInterferenceGraph(
+        const std::vector<LiveInterval> &intervals,
+        bool &tooDense) const {
+        tooDense = false;
+        const long long maxEdges = 800000;
+        const int maxActive = 900;
+        long long edgeCount = 0;
+        std::vector<std::set<int>> graph(intervals.size());
+        std::vector<int> order(intervals.size());
+        for (int i = 0; i < static_cast<int>(intervals.size()); i++) order[i] = i;
+        std::sort(order.begin(), order.end(), [&](int a, int b) {
+            if (intervals[a].start != intervals[b].start) {
+                return intervals[a].start < intervals[b].start;
+            }
+            return intervals[a].end < intervals[b].end;
+        });
+
+        std::vector<int> active;
+        for (int idx : order) {
+            active.erase(std::remove_if(active.begin(), active.end(), [&](int other) {
+                return intervals[other].end < intervals[idx].start;
+            }), active.end());
+            if (static_cast<int>(active.size()) > maxActive) {
+                tooDense = true;
+                return graph;
+            }
+            for (int other : active) {
+                if (intervalsOverlap(intervals[idx], intervals[other])) {
+                    graph[idx].insert(other);
+                    graph[other].insert(idx);
+                    edgeCount++;
+                    if (edgeCount > maxEdges) {
+                        tooDense = true;
+                        return graph;
+                    }
+                }
+            }
+            active.push_back(idx);
+        }
+        return graph;
+    }
+
     long long allocationCost(
         const std::vector<LiveInterval> &intervals,
         const std::set<int> &usedCalleeSaved,
@@ -781,6 +973,54 @@ private:
             }
         }
         return cost;
+    }
+
+    AllocationStats allocationStats(
+        const std::vector<LiveInterval> &intervals,
+        const std::set<int> &usedCalleeSaved,
+        const std::vector<CopyHint> &copyHints,
+        const std::unordered_map<int, int> &useWeight,
+        const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked) const {
+        AllocationStats stats;
+        stats.calleeSaved = static_cast<int>(usedCalleeSaved.size());
+        std::unordered_map<int, const LiveInterval*> byReg;
+        for (const auto &iv : intervals) {
+            byReg[iv.vreg] = &iv;
+            if (iv.spillSlot >= 0) {
+                stats.spillSlots++;
+                int weight = useWeight.count(iv.vreg) ? useWeight.at(iv.vreg) : intervalLength(iv);
+                stats.spillWeight += 1000 + static_cast<long long>(weight) * 40;
+                if (crossesCall(iv, physRegBlocked)) stats.spillWeight += 500;
+            }
+        }
+        for (const auto &hint : copyHints) {
+            auto lhs = byReg.find(hint.lhs);
+            auto rhs = byReg.find(hint.rhs);
+            if (lhs == byReg.end() || rhs == byReg.end()) continue;
+            const auto *a = lhs->second;
+            const auto *b = rhs->second;
+            if (a->spillSlot >= 0 || b->spillSlot >= 0) {
+                stats.copyPenalty += hint.weight * 2;
+            } else if (a->physReg != b->physReg) {
+                stats.copyPenalty += hint.weight;
+            }
+        }
+        return stats;
+    }
+
+    bool graphColoringIsBetter(const AllocationStats &color,
+                               const AllocationStats &fallback) const {
+        if (color.spillSlots < fallback.spillSlots &&
+            color.calleeSaved <= fallback.calleeSaved + 1) {
+            return true;
+        }
+        if (color.spillSlots == fallback.spillSlots &&
+            color.spillWeight <= fallback.spillWeight &&
+            color.calleeSaved <= fallback.calleeSaved &&
+            color.copyPenalty + 8 < fallback.copyPenalty) {
+            return true;
+        }
+        return false;
     }
 
     std::vector<int> preferredColorOrder(const LiveInterval &iv,
@@ -888,6 +1128,8 @@ private:
         std::vector<LiveInterval> &intervals,
         const std::vector<int> &allocRegs,
         const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked,
+        const std::unordered_map<int, int> &useWeight,
+        const std::vector<CopyHint> &copyHints,
         int &nextSpillSlot,
         std::set<int> &usedCalleeSaved) {
         const int K = static_cast<int>(allocRegs.size());
@@ -895,53 +1137,53 @@ private:
             intervals[i].physReg = -1;
             intervals[i].spillSlot = -1;
         }
-        linearScanFallback(intervals, allocRegs, physRegBlocked, nextSpillSlot, usedCalleeSaved);
-        return;
         auto fallbackIntervals = intervals;
         int fallbackSpillSlots = 0;
         std::set<int> fallbackCalleeSaved;
         linearScanFallback(fallbackIntervals, allocRegs, physRegBlocked,
                            fallbackSpillSlots, fallbackCalleeSaved);
         const long long n = static_cast<long long>(intervals.size());
-        if (n > 600 || n * n > 360000) {
+        if (n > 4000) {
             intervals = std::move(fallbackIntervals);
             nextSpillSlot = fallbackSpillSlots;
             usedCalleeSaved = std::move(fallbackCalleeSaved);
             return;
         }
 
-        std::vector<std::set<int>> graph(intervals.size());
-        for (int i = 0; i < static_cast<int>(intervals.size()); i++) {
-            for (int j = i + 1; j < static_cast<int>(intervals.size()); j++) {
-                if (intervalsOverlap(intervals[i], intervals[j])) {
-                    graph[i].insert(j);
-                    graph[j].insert(i);
-                }
-            }
+        std::unordered_map<int, int> alias;
+        auto colorIntervals = coalesceIntervals(intervals, copyHints, useWeight, alias);
+        bool tooDense = false;
+        auto graph = buildInterferenceGraph(colorIntervals, tooDense);
+        if (tooDense) {
+            intervals = std::move(fallbackIntervals);
+            nextSpillSlot = fallbackSpillSlots;
+            usedCalleeSaved = std::move(fallbackCalleeSaved);
+            return;
         }
 
         std::vector<std::set<int>> workGraph = graph;
-        std::vector<bool> removed(intervals.size(), false);
+        std::vector<bool> removed(colorIntervals.size(), false);
         std::vector<int> stack;
-        stack.reserve(intervals.size());
-        int remaining = static_cast<int>(intervals.size());
+        stack.reserve(colorIntervals.size());
+        int remaining = static_cast<int>(colorIntervals.size());
 
         while (remaining > 0) {
             int pick = -1;
-            for (int i = 0; i < static_cast<int>(intervals.size()); i++) {
+            for (int i = 0; i < static_cast<int>(colorIntervals.size()); i++) {
                 if (!removed[i] && static_cast<int>(workGraph[i].size()) < K) {
-                    if (pick < 0 || intervalLength(intervals[i]) < intervalLength(intervals[pick])) {
+                    if (pick < 0 || intervalLength(colorIntervals[i]) < intervalLength(colorIntervals[pick])) {
                         pick = i;
                     }
                 }
             }
             if (pick < 0) {
-                for (int i = 0; i < static_cast<int>(intervals.size()); i++) {
+                for (int i = 0; i < static_cast<int>(colorIntervals.size()); i++) {
                     if (removed[i]) continue;
-                    if (pick < 0 ||
-                        static_cast<int>(workGraph[i].size()) > static_cast<int>(workGraph[pick].size()) ||
-                        (workGraph[i].size() == workGraph[pick].size() &&
-                         intervalLength(intervals[i]) > intervalLength(intervals[pick]))) {
+                    long long lhsCost = spillCost(colorIntervals[i], useWeight, physRegBlocked);
+                    long long rhsCost = pick < 0 ? -1 : spillCost(colorIntervals[pick], useWeight, physRegBlocked);
+                    if (pick < 0 || lhsCost < rhsCost ||
+                        (lhsCost == rhsCost &&
+                         static_cast<int>(workGraph[i].size()) > static_cast<int>(workGraph[pick].size()))) {
                         pick = i;
                     }
                 }
@@ -959,33 +1201,51 @@ private:
         while (!stack.empty()) {
             int idx = stack.back();
             stack.pop_back();
-            const auto &iv = intervals[idx];
+            const auto &iv = colorIntervals[idx];
             std::set<int> forbidden;
             for (int neighbor : graph[idx]) {
-                int color = intervals[neighbor].physReg;
+                int color = colorIntervals[neighbor].physReg;
                 if (color >= 0) forbidden.insert(color);
             }
 
             bool ivCrossesCall = crossesCall(iv, physRegBlocked);
             int chosen = -1;
+            long long bestCost = 0;
             for (int reg : preferredColorOrder(iv, allocRegs, ivCrossesCall)) {
                 if (forbidden.count(reg)) continue;
                 if (physRegBlockedForInterval(reg, iv, physRegBlocked)) continue;
-                chosen = reg;
-                break;
+                long long cost = colorChoiceCost(reg, iv, usedCalleeSaved, useWeight, physRegBlocked);
+                if (chosen < 0 || cost < bestCost) {
+                    chosen = reg;
+                    bestCost = cost;
+                }
             }
 
             if (chosen >= 0) {
-                intervals[idx].physReg = chosen;
+                colorIntervals[idx].physReg = chosen;
                 if (isCalleeSaved(chosen)) usedCalleeSaved.insert(chosen);
             } else {
-                intervals[idx].spillSlot = nextSpillSlot++;
+                colorIntervals[idx].spillSlot = nextSpillSlot++;
             }
         }
 
-        long long colorCost = allocationCost(intervals, usedCalleeSaved, physRegBlocked);
-        long long fallbackCost = allocationCost(fallbackIntervals, fallbackCalleeSaved, physRegBlocked);
-        if (fallbackCost <= colorCost) {
+        auto coloredByRoot = buildIndex(colorIntervals);
+        int maxSpillSlot = nextSpillSlot;
+        for (auto &iv : intervals) {
+            int root = alias.count(iv.vreg) ? alias[iv.vreg] : iv.vreg;
+            int idx = coloredByRoot.count(root) ? coloredByRoot[root] : -1;
+            if (idx < 0) continue;
+            iv.physReg = colorIntervals[idx].physReg;
+            iv.spillSlot = colorIntervals[idx].spillSlot;
+            if (iv.spillSlot >= maxSpillSlot) maxSpillSlot = iv.spillSlot + 1;
+        }
+        nextSpillSlot = maxSpillSlot;
+
+        auto colorStats = allocationStats(intervals, usedCalleeSaved, copyHints,
+                                          useWeight, physRegBlocked);
+        auto fallbackStats = allocationStats(fallbackIntervals, fallbackCalleeSaved,
+                                             copyHints, useWeight, physRegBlocked);
+        if (!graphColoringIsBetter(colorStats, fallbackStats)) {
             intervals = std::move(fallbackIntervals);
             nextSpillSlot = fallbackSpillSlots;
             usedCalleeSaved = std::move(fallbackCalleeSaved);
