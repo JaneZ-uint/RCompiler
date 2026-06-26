@@ -72,6 +72,7 @@ private:
         int size = 0;
         int reg = -1;
         int storeIndex = -1;
+        int storeLength = 0;
     };
 
     struct FrameAddressValue {
@@ -294,6 +295,80 @@ private:
         return true;
     }
 
+    bool isTrackedLargeStackLoad(const std::vector<ASMInstr> &instrs,
+                                 size_t index,
+                                 int &base,
+                                 long long &offset,
+                                 int &size) const {
+        if (index + 2 >= instrs.size()) return false;
+        const auto &li = instrs[index];
+        const auto &add = instrs[index + 1];
+        const auto &ld = instrs[index + 2];
+        if (li.op != ASMOp::LI ||
+            li.rd.type != OperandType::REG ||
+            li.rd.value == 0 ||
+            li.imm.type != OperandType::IMM ||
+            add.op != ASMOp::ADD ||
+            add.rd.type != OperandType::REG ||
+            add.rs1.type != OperandType::REG ||
+            add.rs2.type != OperandType::REG ||
+            add.rd.value != li.rd.value ||
+            add.rs1.value != li.rd.value ||
+            add.rs2.value != 8 ||
+            ld.op != ASMOp::LD ||
+            ld.rd.type != OperandType::REG ||
+            ld.rs1.type != OperandType::REG ||
+            ld.imm.type != OperandType::IMM ||
+            ld.rd.value != li.rd.value ||
+            ld.rs1.value != li.rd.value ||
+            ld.imm.value != 0 ||
+            !li.funcName.empty() ||
+            !add.funcName.empty() ||
+            !ld.funcName.empty()) {
+            return false;
+        }
+        base = (int)add.rs2.value;
+        offset = li.imm.value;
+        size = RISCV_XLEN_BYTES;
+        return true;
+    }
+
+    bool isTrackedLargeStackStore(const std::vector<ASMInstr> &instrs,
+                                  size_t index,
+                                  int &base,
+                                  long long &offset,
+                                  int &size) const {
+        if (index + 2 >= instrs.size()) return false;
+        const auto &li = instrs[index];
+        const auto &add = instrs[index + 1];
+        const auto &sd = instrs[index + 2];
+        if (li.op != ASMOp::LI ||
+            li.rd.type != OperandType::REG ||
+            li.imm.type != OperandType::IMM ||
+            add.op != ASMOp::ADD ||
+            add.rd.type != OperandType::REG ||
+            add.rs1.type != OperandType::REG ||
+            add.rs2.type != OperandType::REG ||
+            add.rd.value != li.rd.value ||
+            add.rs1.value != li.rd.value ||
+            add.rs2.value != 8 ||
+            sd.op != ASMOp::SD ||
+            sd.rs1.type != OperandType::REG ||
+            sd.rs2.type != OperandType::REG ||
+            sd.imm.type != OperandType::IMM ||
+            sd.rs1.value != li.rd.value ||
+            sd.imm.value != 0 ||
+            !li.funcName.empty() ||
+            !add.funcName.empty() ||
+            !sd.funcName.empty()) {
+            return false;
+        }
+        base = (int)add.rs2.value;
+        offset = li.imm.value;
+        size = RISCV_XLEN_BYTES;
+        return true;
+    }
+
     bool sameSlot(const StackSlotValue &slot, int base, long long offset, int size) const {
         return slot.base == base && slot.offset == offset && slot.size == size;
     }
@@ -338,14 +413,23 @@ private:
                       long long offset,
                       int size,
                       int reg,
-                      int storeIndex = -1) const {
+                      int storeIndex = -1,
+                      int storeLength = 0) const {
         int idx = findKnownSlot(known, base, offset, size);
         if (idx >= 0) {
             known[idx].reg = reg;
             known[idx].storeIndex = storeIndex;
+            known[idx].storeLength = storeLength;
             return;
         }
-        known.push_back(StackSlotValue{base, offset, size, reg, storeIndex});
+        known.push_back(StackSlotValue{base, offset, size, reg, storeIndex, storeLength});
+    }
+
+    void markDeadStore(std::set<int> &deadStoreIndices, int storeIndex, int storeLength) const {
+        if (storeIndex < 0 || storeLength <= 0) return;
+        for (int i = 0; i < storeLength; i++) {
+            deadStoreIndices.insert(storeIndex + i);
+        }
     }
 
     bool cleanupRedundantStackAccesses(std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
@@ -357,16 +441,71 @@ private:
             std::set<int> deadStoreIndices;
             out.reserve(block->instrs.size());
 
-            for (const auto &instr : block->instrs) {
+            for (size_t i = 0; i < block->instrs.size();) {
+                const auto &instr = block->instrs[i];
                 int base = -1;
                 int size = 0;
                 long long offset = 0;
+
+                if (isTrackedLargeStackLoad(block->instrs, i, base, offset, size)) {
+                    int dst = (int)block->instrs[i + 2].rd.value;
+                    int idx = findKnownSlot(known, base, offset, size);
+                    int src = idx >= 0 ? known[idx].reg : -1;
+                    int storeIndex = idx >= 0 ? known[idx].storeIndex : -1;
+                    int storeLength = idx >= 0 ? known[idx].storeLength : 0;
+                    eraseKnownReg(known, dst);
+                    if (idx >= 0 && src >= 0) {
+                        if (src != dst) {
+                            ASMInstr mv;
+                            mv.op = ASMOp::MV;
+                            mv.rd = block->instrs[i + 2].rd;
+                            mv.rs1 = Operand(OperandType::REG, src);
+                            out.push_back(mv);
+                        }
+                        rememberSlot(known, base, offset, size, dst, storeIndex, storeLength);
+                        changed = true;
+                    } else {
+                        out.push_back(block->instrs[i]);
+                        out.push_back(block->instrs[i + 1]);
+                        out.push_back(block->instrs[i + 2]);
+                        rememberSlot(known, base, offset, size, dst);
+                    }
+                    i += 3;
+                    continue;
+                }
+
+                if (isTrackedLargeStackStore(block->instrs, i, base, offset, size)) {
+                    int addrReg = (int)block->instrs[i].rd.value;
+                    int src = (int)block->instrs[i + 2].rs2.value;
+                    int idx = findKnownSlot(known, base, offset, size);
+                    int previousStore = idx >= 0 ? known[idx].storeIndex : -1;
+                    int previousLength = idx >= 0 ? known[idx].storeLength : 0;
+                    int currentStore = -1;
+                    if (idx >= 0 && known[idx].reg == src) {
+                        changed = true;
+                    } else {
+                        markDeadStore(deadStoreIndices, previousStore, previousLength);
+                        if (previousStore >= 0) changed = true;
+                        eraseOverlappingSlots(known, base, offset, size);
+                        eraseKnownReg(known, addrReg);
+                        currentStore = static_cast<int>(out.size());
+                        out.push_back(block->instrs[i]);
+                        out.push_back(block->instrs[i + 1]);
+                        out.push_back(block->instrs[i + 2]);
+                    }
+                    rememberSlot(known, base, offset, size, src,
+                                 currentStore >= 0 ? currentStore : previousStore,
+                                 currentStore >= 0 ? 3 : previousLength);
+                    i += 3;
+                    continue;
+                }
 
                 if (isTrackedStackLoad(instr, base, offset, size)) {
                     int dst = (int)instr.rd.value;
                     int idx = findKnownSlot(known, base, offset, size);
                     int src = idx >= 0 ? known[idx].reg : -1;
                     int storeIndex = idx >= 0 ? known[idx].storeIndex : -1;
+                    int storeLength = idx >= 0 ? known[idx].storeLength : 0;
                     eraseKnownReg(known, dst);
                     if (idx >= 0 && src >= 0) {
                         if (src != dst) {
@@ -376,12 +515,13 @@ private:
                             mv.rs1 = Operand(OperandType::REG, src);
                             out.push_back(mv);
                         }
-                        rememberSlot(known, base, offset, size, dst, storeIndex);
+                        rememberSlot(known, base, offset, size, dst, storeIndex, storeLength);
                         changed = true;
                     } else {
                         out.push_back(instr);
                         rememberSlot(known, base, offset, size, dst);
                     }
+                    i++;
                     continue;
                 }
 
@@ -389,32 +529,35 @@ private:
                     int src = (int)instr.rs2.value;
                     int idx = findKnownSlot(known, base, offset, size);
                     int previousStore = idx >= 0 ? known[idx].storeIndex : -1;
+                    int previousLength = idx >= 0 ? known[idx].storeLength : 0;
                     int currentStore = -1;
                     if (idx >= 0 && known[idx].reg == src) {
                         changed = true;
                     } else {
-                        if (previousStore >= 0) {
-                            deadStoreIndices.insert(previousStore);
-                            changed = true;
-                        }
+                        markDeadStore(deadStoreIndices, previousStore, previousLength);
+                        if (previousStore >= 0) changed = true;
                         eraseOverlappingSlots(known, base, offset, size);
                         currentStore = static_cast<int>(out.size());
                         out.push_back(instr);
                     }
                     rememberSlot(known, base, offset, size, src,
-                                 currentStore >= 0 ? currentStore : previousStore);
+                                 currentStore >= 0 ? currentStore : previousStore,
+                                 currentStore >= 0 ? 1 : previousLength);
+                    i++;
                     continue;
                 }
 
                 if (instr.op == ASMOp::CALL || !instr.funcName.empty()) {
                     known.clear();
                     out.push_back(instr);
+                    i++;
                     continue;
                 }
 
                 if (isStore(instr)) {
                     known.clear();
                     out.push_back(instr);
+                    i++;
                     continue;
                 }
 
@@ -435,6 +578,7 @@ private:
                     }
                 }
                 out.push_back(instr);
+                i++;
             }
 
             if (!deadStoreIndices.empty()) {
