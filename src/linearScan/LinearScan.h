@@ -16,7 +16,7 @@
 
 namespace JaneZ {
 static const int CALLER_SAVED[] = {5,6,7, 28,29, 10,11,12,13,14,15,16,17}; // t0-t2, t3-t4, a0-a7
-static const int CALLEE_SAVED[] = {9, 18,19,20,21,22,23,24,25,26,27}; // s1, s2-s11
+static const int CALLEE_SAVED[] = {9, 18,19,20,21,22,23,24,25,26}; // s1, s2-s10
 static const int SCRATCH1 = 30; // t5
 static const int SCRATCH2 = 31; // t6
 
