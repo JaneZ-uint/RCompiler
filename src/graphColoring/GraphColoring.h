@@ -761,6 +761,28 @@ private:
         return std::max(1, iv.end - iv.start + 1);
     }
 
+    long long allocationCost(
+        const std::vector<LiveInterval> &intervals,
+        const std::set<int> &usedCalleeSaved,
+        const std::unordered_map<int, std::vector<std::pair<int,int>>> &physRegBlocked) const {
+        long long cost = static_cast<long long>(usedCalleeSaved.size()) * 40;
+        for (const auto &iv : intervals) {
+            int len = intervalLength(iv);
+            if (iv.spillSlot >= 0) {
+                cost += 1000 + len * 20;
+                if (crossesCall(iv, physRegBlocked)) cost += 500;
+            } else if (iv.physReg >= 0) {
+                if (crossesCall(iv, physRegBlocked) && !isCalleeSaved(iv.physReg)) {
+                    cost += 200 + len;
+                }
+                if (isCalleeSaved(iv.physReg)) {
+                    cost += 8;
+                }
+            }
+        }
+        return cost;
+    }
+
     std::vector<int> preferredColorOrder(const LiveInterval &iv,
                                          const std::vector<int> &allocRegs,
                                          bool ivCrossesCall) const {
@@ -873,9 +895,16 @@ private:
             intervals[i].physReg = -1;
             intervals[i].spillSlot = -1;
         }
+        auto fallbackIntervals = intervals;
+        int fallbackSpillSlots = 0;
+        std::set<int> fallbackCalleeSaved;
+        linearScanFallback(fallbackIntervals, allocRegs, physRegBlocked,
+                           fallbackSpillSlots, fallbackCalleeSaved);
         const long long n = static_cast<long long>(intervals.size());
         if (n > 600 || n * n > 360000) {
-            linearScanFallback(intervals, allocRegs, physRegBlocked, nextSpillSlot, usedCalleeSaved);
+            intervals = std::move(fallbackIntervals);
+            nextSpillSlot = fallbackSpillSlots;
+            usedCalleeSaved = std::move(fallbackCalleeSaved);
             return;
         }
 
@@ -950,6 +979,14 @@ private:
             } else {
                 intervals[idx].spillSlot = nextSpillSlot++;
             }
+        }
+
+        long long colorCost = allocationCost(intervals, usedCalleeSaved, physRegBlocked);
+        long long fallbackCost = allocationCost(fallbackIntervals, fallbackCalleeSaved, physRegBlocked);
+        if (fallbackCost <= colorCost) {
+            intervals = std::move(fallbackIntervals);
+            nextSpillSlot = fallbackSpillSlots;
+            usedCalleeSaved = std::move(fallbackCalleeSaved);
         }
     }
 
