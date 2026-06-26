@@ -271,12 +271,12 @@ private:
             }
         }
 
-        std::vector<int> blockWeight(cfg.size(), 1);
+        std::vector<long long> blockWeight(cfg.size(), 1);
         for (const auto& b : cfg) {
             for (int succ : b.succs) {
                 if (succ <= b.id) {
                     for (int i = succ; i <= b.id && i < (int)blockWeight.size(); i++) {
-                        blockWeight[i] = std::max(blockWeight[i], 8);
+                        blockWeight[i] = std::min<long long>(blockWeight[i] * 8, 4096);
                     }
                 }
             }
