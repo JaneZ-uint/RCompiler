@@ -107,7 +107,7 @@ private:
             (reg >= 10 && reg <= 17)) {
             return true;
         }
-        return reg == 9 || (reg >= 18 && reg <= 26);
+        return reg == 9 || (reg >= 18 && reg <= 27);
     }
 
     bool isAddressTempReg(const Operand &op, bool allowPhysical) const {
