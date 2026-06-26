@@ -274,8 +274,8 @@ private:
             }
             int idx = b.startIdx;
             for (auto& instr : b.asmBlock->instrs) {
-                auto uses = getUses(instr);
-                auto defs = getDefs(instr);
+                auto uses = uniqueRegs(getUses(instr));
+                auto defs = uniqueRegs(getDefs(instr));
                 for (int r : uses) {
                     if (r >= 32 || isAllocatable(r))
                         extendInterval(intervals, r, idx, idx);
@@ -476,8 +476,8 @@ private:
                     continue;
                 }
 
-                auto uses = getUses(instr);
-                auto defs = getDefs(instr);
+                auto uses = uniqueRegs(getUses(instr));
+                auto defs = uniqueRegs(getDefs(instr));
 
                 std::unordered_map<int, int> spillLoadMap; // vreg → scratch reg used
                 int scratchIdx = 0;
@@ -743,6 +743,16 @@ private:
             default: break;
         }
         return uses;
+    }
+
+    std::vector<int> uniqueRegs(std::vector<int> regs) {
+        std::vector<int> unique;
+        std::unordered_set<int> seen;
+        unique.reserve(regs.size());
+        for (int r : regs) {
+            if (seen.insert(r).second) unique.push_back(r);
+        }
+        return unique;
     }
 
     void computeDefUse(CFGBlock& b) {
