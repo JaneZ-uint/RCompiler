@@ -56,6 +56,7 @@ struct LiveInterval {
     int physReg = -1;  
     int spillSlot = -1;
     long long useWeight = 1;
+    std::vector<std::pair<int,int>> ranges;
 };
 
 struct RematValue {
@@ -314,27 +315,17 @@ private:
         std::unordered_map<int, long long> useWeight;
         std::unordered_map<int, std::vector<int>> copyHints;
         for (auto& b : cfg) {
-            for (int r : b.liveIn) {
-                extendInterval(intervals, r, b.startIdx, b.startIdx);
-            }
-            for (int r : b.liveOut) {
-                extendInterval(intervals, r, b.endIdx - 1, b.endIdx - 1);
-            }
             int idx = b.startIdx;
             for (auto& instr : b.asmBlock->instrs) {
                 auto uses = uniqueRegs(getUses(instr));
                 auto defs = uniqueRegs(getDefs(instr));
                 for (int r : uses) {
-                    if (r >= 32 || isAllocatable(r)) {
-                        extendInterval(intervals, r, idx, idx);
-                        if (r >= 32) useWeight[r] += blockWeight[b.id];
+                    if (r >= 32) {
+                        useWeight[r] += blockWeight[b.id];
                     }
                 }
                 for (int r : defs) {
-                    if (r >= 32 || isAllocatable(r)) {
-                        extendInterval(intervals, r, idx, idx);
-                        if (r >= 32 && useWeight.find(r) == useWeight.end()) useWeight[r] = 1;
-                    }
+                    if (r >= 32 && useWeight.find(r) == useWeight.end()) useWeight[r] = 1;
                 }
                 if (instr.op == ASMOp::MV &&
                     instr.rd.type == OperandType::REG &&
@@ -349,10 +340,42 @@ private:
             }
         }
 
+        for (auto& b : cfg) {
+            std::set<int> live = b.liveOut;
+            for (int i = (int)b.asmBlock->instrs.size() - 1; i >= 0; i--) {
+                int idx = b.startIdx + i;
+                auto uses = uniqueRegs(getUses(b.asmBlock->instrs[i]));
+                auto defs = uniqueRegs(getDefs(b.asmBlock->instrs[i]));
+                std::set<int> liveBefore = live;
+                for (int r : defs) {
+                    if (r >= 32 || isAllocatable(r)) {
+                        liveBefore.erase(r);
+                    }
+                }
+                for (int r : uses) {
+                    if (r >= 32 || isAllocatable(r)) {
+                        liveBefore.insert(r);
+                    }
+                }
+                for (int r : liveBefore) {
+                    if (r >= 32 || isAllocatable(r)) {
+                        extendInterval(intervals, r, idx, idx);
+                    }
+                }
+                for (int r : defs) {
+                    if (r >= 32 || isAllocatable(r)) {
+                        extendInterval(intervals, r, idx, idx);
+                    }
+                }
+                live = std::move(liveBefore);
+            }
+        }
+
         std::vector<LiveInterval> vregIntervals;
         for (auto& [reg, iv] : intervals) {
             if (reg >= 32) {
                 iv.useWeight = std::max<long long>(1, useWeight[reg]);
+                normalizeRanges(iv);
                 vregIntervals.push_back(iv);
             }
         }
@@ -363,9 +386,6 @@ private:
         std::string funcName = blocks[fStart]->label;
 
         auto allocRegs = getAllocRegs();
-        int numRegs = (int)allocRegs.size();
-        std::set<int> freeRegs(allocRegs.begin(), allocRegs.end());
-        std::vector<LiveInterval*> active;
 
         std::unordered_map<int, std::vector<std::pair<int,int>>> physRegBlocked;
         for (auto& b : cfg) {
@@ -394,11 +414,28 @@ private:
             }
         }
 
-        auto isBlocked = [&](int physReg, int start, int end) -> bool {
+        auto regBlockedForInterval = [&](int physReg, const LiveInterval& iv) -> bool {
             auto it = physRegBlocked.find(physReg);
             if (it == physRegBlocked.end()) return false;
-            for (auto& [bs, be] : it->second) {
-                if (bs <= end && be >= start) return true;
+            for (auto& [rs, re] : iv.ranges) {
+                for (auto& [bs, be] : it->second) {
+                    if (bs <= re && be >= rs) return true;
+                }
+            }
+            return false;
+        };
+
+        auto intervalsOverlap = [&](const LiveInterval& a, const LiveInterval& b) -> bool {
+            size_t i = 0, j = 0;
+            while (i < a.ranges.size() && j < b.ranges.size()) {
+                auto [as, ae] = a.ranges[i];
+                auto [bs, be] = b.ranges[j];
+                if (as <= be && bs <= ae) return true;
+                if (ae < be) {
+                    i++;
+                } else {
+                    j++;
+                }
             }
             return false;
         };
@@ -406,32 +443,57 @@ private:
         int nextSpillSlot = 0;
         std::set<int> usedCalleeSaved;
         std::unordered_map<int, int> assignedPhys;
+        std::unordered_map<int, std::vector<LiveInterval*>> assignedByReg;
 
         auto spillPriority = [](const LiveInterval& iv) -> long long {
-            long long length = std::max(1, iv.end - iv.start + 1);
+            long long length = 0;
+            for (auto& [s, e] : iv.ranges) {
+                length += std::max(1, e - s + 1);
+            }
+            if (length <= 0) length = std::max(1, iv.end - iv.start + 1);
             return (std::max<long long>(1, iv.useWeight) * 1024) / length;
         };
 
-        for (auto& iv : vregIntervals) {
-            active.erase(
-                std::remove_if(active.begin(), active.end(),
-                    [&](LiveInterval* j) {
-                        if (j->end < iv.start) {
-                            freeRegs.insert(j->physReg);
-                            return true;
-                        }
-                        return false;
-                    }),
-                active.end()
-            );
-            int chosen = -1;
-            bool crossesCall = false;
-            for (auto& [bs, be] : physRegBlocked.count(1) ? physRegBlocked[1] : std::vector<std::pair<int,int>>()) {
-                if (bs >= iv.start && bs <= iv.end) { 
-                    crossesCall = true; 
-                    break; 
-                }
+        auto canAssignReg = [&](int reg, const LiveInterval& iv) -> bool {
+            if (regBlockedForInterval(reg, iv)) return false;
+            auto it = assignedByReg.find(reg);
+            if (it == assignedByReg.end()) return true;
+            for (auto* other : it->second) {
+                if (other->physReg == reg && intervalsOverlap(*other, iv)) return false;
             }
+            return true;
+        };
+
+        auto assignReg = [&](LiveInterval& iv, int reg) {
+            iv.physReg = reg;
+            if (isCalleeSaved(reg)) usedCalleeSaved.insert(reg);
+            assignedPhys[iv.vreg] = reg;
+            assignedByReg[reg].push_back(&iv);
+        };
+
+        auto unassignReg = [&](LiveInterval* iv) {
+            int reg = iv->physReg;
+            if (reg == -1) return;
+            auto& list = assignedByReg[reg];
+            list.erase(std::remove(list.begin(), list.end(), iv), list.end());
+            assignedPhys.erase(iv->vreg);
+            iv->physReg = -1;
+        };
+
+        auto pruneAssignedBefore = [&](int start) {
+            for (auto& [reg, list] : assignedByReg) {
+                list.erase(std::remove_if(list.begin(), list.end(),
+                    [&](LiveInterval* other) {
+                        return other->physReg != reg || other->end < start;
+                    }),
+                    list.end());
+            }
+        };
+
+        for (auto& iv : vregIntervals) {
+            pruneAssignedBefore(iv.start);
+            int chosen = -1;
+            bool crossesCall = regBlockedForInterval(1, iv);
 
             auto tryCopyHint = [&]() {
                 auto it = copyHints.find(iv.vreg);
@@ -440,7 +502,7 @@ private:
                     auto physIt = assignedPhys.find(related);
                     if (physIt == assignedPhys.end()) continue;
                     int reg = physIt->second;
-                    if (freeRegs.count(reg) && !isBlocked(reg, iv.start, iv.end)) {
+                    if (canAssignReg(reg, iv)) {
                         chosen = reg;
                         return;
                     }
@@ -452,7 +514,7 @@ private:
                 if (chosen == -1 || !isCalleeSaved(chosen)) {
                     chosen = -1;
                     for (int r : CALLEE_SAVED) {
-                        if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                        if (canAssignReg(r, iv)) {
                             chosen = r; break;
                         }
                     }
@@ -460,42 +522,39 @@ private:
             }
             if (chosen == -1) {
                 for (int r : allocRegs) {
-                    if (freeRegs.count(r) && !isBlocked(r, iv.start, iv.end)) {
+                    if (canAssignReg(r, iv)) {
                         chosen = r; break;
                     }
                 }
             }
 
             if (chosen != -1) {
-                iv.physReg = chosen;
-                freeRegs.erase(chosen);
-                if (isCalleeSaved(chosen)) usedCalleeSaved.insert(chosen);
-                assignedPhys[iv.vreg] = chosen;
-                active.push_back(&iv);
-                std::sort(active.begin(), active.end(),
-                    [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
+                assignReg(iv, chosen);
             } else {
                 LiveInterval* spill = nullptr;
-                for (auto* candidate : active) {
-                    if (candidate->end > iv.end && !isBlocked(candidate->physReg, iv.start, iv.end)) {
-                        if (!spill ||
-                            spillPriority(*candidate) < spillPriority(*spill) ||
-                            (spillPriority(*candidate) == spillPriority(*spill) &&
-                             candidate->end > spill->end)) {
-                            spill = candidate;
+                int spillReg = -1;
+                for (int r : allocRegs) {
+                    if (regBlockedForInterval(r, iv)) continue;
+                    std::vector<LiveInterval*> blockers;
+                    for (auto* candidate : assignedByReg[r]) {
+                        if (candidate->physReg == r && intervalsOverlap(*candidate, iv)) {
+                            blockers.push_back(candidate);
                         }
+                    }
+                    if (blockers.size() != 1) continue;
+                    auto* candidate = blockers[0];
+                    if (!spill ||
+                        spillPriority(*candidate) < spillPriority(*spill) ||
+                        (spillPriority(*candidate) == spillPriority(*spill) &&
+                         candidate->end > spill->end)) {
+                        spill = candidate;
+                        spillReg = r;
                     }
                 }
                 if (spill && spillPriority(*spill) <= spillPriority(iv)) {
-                    iv.physReg = spill->physReg;
-                    spill->physReg = -1;
+                    unassignReg(spill);
                     spill->spillSlot = nextSpillSlot++;
-                    assignedPhys.erase(spill->vreg);
-                    active.erase(std::remove(active.begin(), active.end(), spill), active.end());
-                    assignedPhys[iv.vreg] = iv.physReg;
-                    active.push_back(&iv);
-                    std::sort(active.begin(), active.end(),
-                        [](LiveInterval* a, LiveInterval* b) { return a->end < b->end; });
+                    assignReg(iv, spillReg);
                 } else {
                     iv.spillSlot = nextSpillSlot++;
                     assignedPhys.erase(iv.vreg);
@@ -506,9 +565,11 @@ private:
         std::unordered_map<int, int> vregToPhys;
         std::unordered_map<int, int> vregToSpill;
         int compactSpillSlots = 0;
+        usedCalleeSaved.clear();
         for (auto& iv : vregIntervals) {
             if (iv.physReg != -1) {
                 vregToPhys[iv.vreg] = iv.physReg;
+                if (isCalleeSaved(iv.physReg)) usedCalleeSaved.insert(iv.physReg);
             } else {
                 if (rematValues.count(iv.vreg)) {
                     vregToSpill[iv.vreg] = -1;
@@ -903,11 +964,32 @@ private:
             iv.vreg = reg;
             iv.start = start;
             iv.end = end;
+            iv.ranges.push_back({start, end});
             intervals[reg] = iv;
         } else {
             it->second.start = std::min(it->second.start, start);
             it->second.end = std::max(it->second.end, end);
+            it->second.ranges.push_back({start, end});
         }
+    }
+
+    void normalizeRanges(LiveInterval& iv) {
+        if (iv.ranges.empty()) {
+            iv.ranges.push_back({iv.start, iv.end});
+            return;
+        }
+        std::sort(iv.ranges.begin(), iv.ranges.end());
+        std::vector<std::pair<int,int>> merged;
+        for (auto [start, end] : iv.ranges) {
+            if (merged.empty() || start > merged.back().second + 1) {
+                merged.push_back({start, end});
+            } else {
+                merged.back().second = std::max(merged.back().second, end);
+            }
+        }
+        iv.ranges = std::move(merged);
+        iv.start = iv.ranges.front().first;
+        iv.end = iv.ranges.back().second;
     }
 
     int computeAllocaSize(std::vector<CFGBlock>& cfg) {
