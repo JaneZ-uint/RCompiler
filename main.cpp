@@ -9,7 +9,7 @@
 #include "src/semantic/NameResolver.h"
 #include "src/semantic/checker.h"
 #include "src/semantic/ConstEvaluator.h"
-#include "src/linearScan/regalloc.h"
+#include "src/graphColoring/regalloc.h"
 #include "src/optimize/mem2reg.h"
 #include "src/optimize/dominantTree.h"
 #include "src/optimize/functionInline.h"
@@ -113,7 +113,7 @@ int main(){
     deadCodeEliminate.optimize(code_generator.irRoot);
 
     //codegen
-    JaneZ::regalloc cg;
+    JaneZ::graphColoringRegalloc cg;
     cg.generate(code_generator.irRoot);
 
     std::ifstream builtin("builtin.s");
