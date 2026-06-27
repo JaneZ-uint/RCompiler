@@ -565,6 +565,7 @@ private:
         std::unordered_map<int, int> vregToPhys;
         std::unordered_map<int, int> vregToSpill;
         int compactSpillSlots = 0;
+        std::vector<std::vector<LiveInterval*>> spillSlotIntervals;
         usedCalleeSaved.clear();
         for (auto& iv : vregIntervals) {
             if (iv.physReg != -1) {
@@ -574,7 +575,26 @@ private:
                 if (rematValues.count(iv.vreg)) {
                     vregToSpill[iv.vreg] = -1;
                 } else {
-                    vregToSpill[iv.vreg] = compactSpillSlots++;
+                    int chosenSlot = -1;
+                    for (int slot = 0; slot < (int)spillSlotIntervals.size(); slot++) {
+                        bool conflict = false;
+                        for (auto* other : spillSlotIntervals[slot]) {
+                            if (intervalsOverlap(iv, *other)) {
+                                conflict = true;
+                                break;
+                            }
+                        }
+                        if (!conflict) {
+                            chosenSlot = slot;
+                            break;
+                        }
+                    }
+                    if (chosenSlot == -1) {
+                        chosenSlot = compactSpillSlots++;
+                        spillSlotIntervals.push_back({});
+                    }
+                    spillSlotIntervals[chosenSlot].push_back(&iv);
+                    vregToSpill[iv.vreg] = chosenSlot;
                 }
             }
         }
