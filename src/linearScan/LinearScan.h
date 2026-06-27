@@ -445,35 +445,13 @@ private:
         std::unordered_map<int, int> assignedPhys;
         std::unordered_map<int, std::vector<LiveInterval*>> assignedByReg;
 
-        auto intervalLength = [](const LiveInterval& iv) -> long long {
+        auto spillPriority = [](const LiveInterval& iv) -> long long {
             long long length = 0;
             for (auto& [s, e] : iv.ranges) {
                 length += std::max(1, e - s + 1);
             }
             if (length <= 0) length = std::max(1, iv.end - iv.start + 1);
-            return length;
-        };
-
-        auto spillPriority = [&](const LiveInterval& iv) -> long long {
-            long long priority = (std::max<long long>(1, iv.useWeight) * 1024) / intervalLength(iv);
-            if (rematValues.count(iv.vreg)) {
-                priority = std::max<long long>(1, priority / 8);
-            }
-            return priority;
-        };
-
-        auto shouldPreferRemat = [&](const LiveInterval& iv) -> bool {
-            if (!rematValues.count(iv.vreg)) return false;
-            long long length = intervalLength(iv);
-            if (length < 32) return false;
-            long long density = (std::max<long long>(1, iv.useWeight) * 1024) / length;
-            return density <= 256;
-        };
-
-        auto spillInterval = [&](LiveInterval& iv) {
-            iv.physReg = -1;
-            iv.spillSlot = nextSpillSlot++;
-            assignedPhys.erase(iv.vreg);
+            return (std::max<long long>(1, iv.useWeight) * 1024) / length;
         };
 
         auto canAssignReg = [&](int reg, const LiveInterval& iv) -> bool {
@@ -516,11 +494,6 @@ private:
             pruneAssignedBefore(iv.start);
             int chosen = -1;
             bool crossesCall = regBlockedForInterval(1, iv);
-
-            if (shouldPreferRemat(iv)) {
-                spillInterval(iv);
-                continue;
-            }
 
             auto tryCopyHint = [&]() {
                 auto it = copyHints.find(iv.vreg);
@@ -580,10 +553,11 @@ private:
                 }
                 if (spill && spillPriority(*spill) <= spillPriority(iv)) {
                     unassignReg(spill);
-                    spillInterval(*spill);
+                    spill->spillSlot = nextSpillSlot++;
                     assignReg(iv, spillReg);
                 } else {
-                    spillInterval(iv);
+                    iv.spillSlot = nextSpillSlot++;
+                    assignedPhys.erase(iv.vreg);
                 }
             }
         }
