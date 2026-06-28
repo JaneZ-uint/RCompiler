@@ -17,6 +17,8 @@ public:
         if (removeFallthroughJumps) {
             changed |= cleanupRedundantStackAccesses(blocks);
             changed |= reuseMaterializedFrameAddresses(blocks);
+        } else {
+            changed |= inlineModuloHelperCalls(blocks);
         }
         auto useCounts = countUses(blocks);
         for (size_t i = 0; i < blocks.size(); i++) {
@@ -66,6 +68,24 @@ public:
     }
 
 private:
+    enum class ModHelperKind {
+        ADD,
+        SUB,
+    };
+
+    struct ModHelperInfo {
+        ModHelperKind kind;
+        long long mod = 0;
+    };
+
+    enum class RegClass {
+        UNKNOWN,
+        PARAM0,
+        PARAM1,
+        MAIN_VALUE,
+        CORRECTED_VALUE,
+    };
+
     struct StackSlotValue {
         int base = -1;
         long long offset = 0;
@@ -118,6 +138,390 @@ private:
 
     bool fitsSigned12(long long value) const {
         return value >= -2048 && value <= 2047;
+    }
+
+    ASMInstr makeR(ASMOp op, int rd, int rs1, int rs2) const {
+        ASMInstr instr;
+        instr.op = op;
+        instr.rd = Operand(OperandType::REG, rd);
+        instr.rs1 = Operand(OperandType::REG, rs1);
+        instr.rs2 = Operand(OperandType::REG, rs2);
+        return instr;
+    }
+
+    ASMInstr makeI(ASMOp op, int rd, int rs1, long long imm) const {
+        ASMInstr instr;
+        instr.op = op;
+        instr.rd = Operand(OperandType::REG, rd);
+        instr.rs1 = Operand(OperandType::REG, rs1);
+        instr.imm = Operand(OperandType::IMM, imm);
+        return instr;
+    }
+
+    ASMInstr makeLi(int rd, long long imm) const {
+        ASMInstr instr;
+        instr.op = ASMOp::LI;
+        instr.rd = Operand(OperandType::REG, rd);
+        instr.imm = Operand(OperandType::IMM, imm);
+        return instr;
+    }
+
+    int maxRegInOperand(int current, const Operand &op) const {
+        if (op.type == OperandType::REG) {
+            current = std::max(current, static_cast<int>(op.value));
+        }
+        return current;
+    }
+
+    int findNextVirtualReg(const std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        int maxReg = 31;
+        for (const auto &block : blocks) {
+            if (!block) continue;
+            for (const auto &instr : block->instrs) {
+                maxReg = maxRegInOperand(maxReg, instr.rd);
+                maxReg = maxRegInOperand(maxReg, instr.rs1);
+                maxReg = maxRegInOperand(maxReg, instr.rs2);
+            }
+        }
+        return std::max(32, maxReg + 1);
+    }
+
+    RegClass classOfReg(const std::unordered_map<int, RegClass> &regClass, int reg) const {
+        auto it = regClass.find(reg);
+        return it == regClass.end() ? RegClass::UNKNOWN : it->second;
+    }
+
+    bool constOfReg(const std::unordered_map<int, long long> &regConst,
+                    int reg,
+                    long long &value) const {
+        auto it = regConst.find(reg);
+        if (it == regConst.end()) return false;
+        value = it->second;
+        return true;
+    }
+
+    void clearRegFacts(std::unordered_map<int, RegClass> &regClass,
+                       std::unordered_map<int, long long> &regConst,
+                       int reg) const {
+        regClass.erase(reg);
+        regConst.erase(reg);
+    }
+
+    bool samePositiveMod(long long &current, long long candidate) const {
+        if (candidate <= 0) return false;
+        if (current == 0) {
+            current = candidate;
+            return true;
+        }
+        return current == candidate;
+    }
+
+    bool detectModuloHelper(const std::vector<ASMInstr> &instrs,
+                            ModHelperInfo &info) const {
+        std::unordered_map<int, RegClass> regClass;
+        std::unordered_map<int, long long> regConst;
+        regClass[10] = RegClass::PARAM0;
+        regClass[11] = RegClass::PARAM1;
+
+        int mainAddCount = 0;
+        int mainSubCount = 0;
+        int correctionAddCount = 0;
+        int correctionSubCount = 0;
+        int addCompareCount = 0;
+        int subCompareCount = 0;
+        int invertBoolCount = 0;
+        long long addMod = 0;
+        long long subMod = 0;
+        bool invalid = false;
+
+        auto isParamPair = [](RegClass lhs, RegClass rhs) {
+            return (lhs == RegClass::PARAM0 && rhs == RegClass::PARAM1) ||
+                   (lhs == RegClass::PARAM1 && rhs == RegClass::PARAM0);
+        };
+        auto isMainValueConst = [&](const Operand &lhs,
+                                    const Operand &rhs,
+                                    long long &mod) {
+            if (lhs.type != OperandType::REG || rhs.type != OperandType::REG) return false;
+            if (classOfReg(regClass, lhs.value) != RegClass::MAIN_VALUE) return false;
+            return constOfReg(regConst, rhs.value, mod);
+        };
+
+        for (const auto &instr : instrs) {
+            if (!instr.funcName.empty()) {
+                if (instr.funcName == "__PROLOGUE__" || instr.funcName == "__EPILOGUE__") {
+                    continue;
+                }
+                invalid = true;
+                break;
+            }
+
+            switch (instr.op) {
+                case ASMOp::MV: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG) {
+                        invalid = true;
+                        break;
+                    }
+                    int dst = instr.rd.value;
+                    int src = instr.rs1.value;
+                    clearRegFacts(regClass, regConst, dst);
+                    auto cls = classOfReg(regClass, src);
+                    if (cls != RegClass::UNKNOWN) regClass[dst] = cls;
+                    long long c = 0;
+                    if (constOfReg(regConst, src, c)) regConst[dst] = c;
+                    break;
+                }
+                case ASMOp::LI:
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.imm.type != OperandType::IMM) {
+                        invalid = true;
+                        break;
+                    }
+                    clearRegFacts(regClass, regConst, instr.rd.value);
+                    regConst[instr.rd.value] = instr.imm.value;
+                    break;
+                case ASMOp::ADDW: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.rs2.type != OperandType::REG) {
+                        invalid = true;
+                        break;
+                    }
+                    int dst = instr.rd.value;
+                    auto lhsClass = classOfReg(regClass, instr.rs1.value);
+                    auto rhsClass = classOfReg(regClass, instr.rs2.value);
+                    long long mod = 0;
+                    clearRegFacts(regClass, regConst, dst);
+                    if (isParamPair(lhsClass, rhsClass)) {
+                        mainAddCount++;
+                        regClass[dst] = RegClass::MAIN_VALUE;
+                    } else if (isMainValueConst(instr.rs1, instr.rs2, mod) ||
+                               isMainValueConst(instr.rs2, instr.rs1, mod)) {
+                        if (!samePositiveMod(subMod, mod)) {
+                            invalid = true;
+                            break;
+                        }
+                        correctionAddCount++;
+                        regClass[dst] = RegClass::CORRECTED_VALUE;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                }
+                case ASMOp::SUBW: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.rs2.type != OperandType::REG) {
+                        invalid = true;
+                        break;
+                    }
+                    int dst = instr.rd.value;
+                    auto lhsClass = classOfReg(regClass, instr.rs1.value);
+                    auto rhsClass = classOfReg(regClass, instr.rs2.value);
+                    long long mod = 0;
+                    clearRegFacts(regClass, regConst, dst);
+                    if (lhsClass == RegClass::PARAM0 && rhsClass == RegClass::PARAM1) {
+                        mainSubCount++;
+                        regClass[dst] = RegClass::MAIN_VALUE;
+                    } else if (isMainValueConst(instr.rs1, instr.rs2, mod)) {
+                        if (!samePositiveMod(addMod, mod)) {
+                            invalid = true;
+                            break;
+                        }
+                        correctionSubCount++;
+                        regClass[dst] = RegClass::CORRECTED_VALUE;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                }
+                case ASMOp::SLT: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.rs2.type != OperandType::REG) {
+                        invalid = true;
+                        break;
+                    }
+                    long long mod = 0;
+                    clearRegFacts(regClass, regConst, instr.rd.value);
+                    if (classOfReg(regClass, instr.rs1.value) == RegClass::MAIN_VALUE &&
+                        constOfReg(regConst, instr.rs2.value, mod) &&
+                        samePositiveMod(addMod, mod)) {
+                        addCompareCount++;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                }
+                case ASMOp::SLTI: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.imm.type != OperandType::IMM) {
+                        invalid = true;
+                        break;
+                    }
+                    clearRegFacts(regClass, regConst, instr.rd.value);
+                    if (classOfReg(regClass, instr.rs1.value) == RegClass::MAIN_VALUE &&
+                        instr.imm.value == 0) {
+                        subCompareCount++;
+                    } else if (classOfReg(regClass, instr.rs1.value) == RegClass::MAIN_VALUE &&
+                               instr.imm.value > 0 &&
+                               samePositiveMod(addMod, instr.imm.value)) {
+                        addCompareCount++;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                }
+                case ASMOp::XORI:
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.imm.type != OperandType::IMM ||
+                        instr.imm.value != 1) {
+                        invalid = true;
+                        break;
+                    }
+                    clearRegFacts(regClass, regConst, instr.rd.value);
+                    invertBoolCount++;
+                    break;
+                case ASMOp::BNEZ:
+                case ASMOp::J:
+                case ASMOp::JR:
+                    break;
+                case ASMOp::ADDI:
+                    if (instr.rd.type == OperandType::REG &&
+                        instr.rs1.type == OperandType::REG &&
+                        instr.imm.type == OperandType::IMM &&
+                        instr.imm.value == 0) {
+                        int dst = instr.rd.value;
+                        int src = instr.rs1.value;
+                        clearRegFacts(regClass, regConst, dst);
+                        auto cls = classOfReg(regClass, src);
+                        if (cls != RegClass::UNKNOWN) regClass[dst] = cls;
+                        long long c = 0;
+                        if (constOfReg(regConst, src, c)) regConst[dst] = c;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                default:
+                    invalid = true;
+                    break;
+            }
+
+            if (invalid) break;
+        }
+
+        bool returnsModValue = classOfReg(regClass, 10) == RegClass::CORRECTED_VALUE;
+
+        if (!invalid &&
+            returnsModValue &&
+            mainAddCount == 1 &&
+            mainSubCount == 0 &&
+            correctionSubCount == 1 &&
+            correctionAddCount == 0 &&
+            addCompareCount >= 1 &&
+            subCompareCount == 0 &&
+            invertBoolCount >= 1 &&
+            addMod > 0) {
+            info.kind = ModHelperKind::ADD;
+            info.mod = addMod;
+            return true;
+        }
+
+        if (!invalid &&
+            returnsModValue &&
+            mainSubCount == 1 &&
+            mainAddCount == 0 &&
+            correctionAddCount == 1 &&
+            correctionSubCount == 0 &&
+            subCompareCount >= 1 &&
+            addCompareCount == 0 &&
+            subMod > 0) {
+            info.kind = ModHelperKind::SUB;
+            info.mod = subMod;
+            return true;
+        }
+
+        return false;
+    }
+
+    std::unordered_map<std::string, ModHelperInfo>
+    detectModuloHelpers(const std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        std::unordered_map<std::string, ModHelperInfo> helpers;
+        for (size_t i = 0; i < blocks.size();) {
+            if (!blocks[i] || blocks[i]->label.empty() || blocks[i]->label[0] == '.') {
+                i++;
+                continue;
+            }
+
+            std::string funcName = blocks[i]->label;
+            std::vector<ASMInstr> instrs;
+            size_t j = i;
+            for (; j < blocks.size(); j++) {
+                if (j != i && blocks[j] && !blocks[j]->label.empty() &&
+                    blocks[j]->label[0] != '.') {
+                    break;
+                }
+                if (!blocks[j]) continue;
+                instrs.insert(instrs.end(), blocks[j]->instrs.begin(), blocks[j]->instrs.end());
+            }
+
+            ModHelperInfo info;
+            if (detectModuloHelper(instrs, info)) {
+                helpers[funcName] = info;
+            }
+            i = j;
+        }
+        return helpers;
+    }
+
+    void emitInlineModHelper(std::vector<ASMInstr> &out,
+                             const ModHelperInfo &helper,
+                             int &nextVReg) const {
+        int modReg = nextVReg++;
+        int maskReg = nextVReg++;
+        if (helper.kind == ModHelperKind::ADD) {
+            out.push_back(makeR(ASMOp::ADDW, 10, 10, 11));
+            out.push_back(makeLi(modReg, helper.mod));
+            out.push_back(makeR(ASMOp::SLT, maskReg, 10, modReg));
+            out.push_back(makeI(ASMOp::ADDI, maskReg, maskReg, -1));
+            out.push_back(makeR(ASMOp::AND, maskReg, maskReg, modReg));
+            out.push_back(makeR(ASMOp::SUBW, 10, 10, maskReg));
+            return;
+        }
+
+        out.push_back(makeR(ASMOp::SUBW, 10, 10, 11));
+        out.push_back(makeLi(modReg, helper.mod));
+        out.push_back(makeI(ASMOp::SRAI, maskReg, 10, 63));
+        out.push_back(makeR(ASMOp::AND, maskReg, maskReg, modReg));
+        out.push_back(makeR(ASMOp::ADDW, 10, 10, maskReg));
+    }
+
+    bool inlineModuloHelperCalls(std::vector<std::shared_ptr<ASMBlock>> &blocks) const {
+        auto helpers = detectModuloHelpers(blocks);
+        if (helpers.empty()) return false;
+
+        bool changed = false;
+        int nextVReg = findNextVirtualReg(blocks);
+        for (auto &block : blocks) {
+            if (!block) continue;
+            std::vector<ASMInstr> out;
+            out.reserve(block->instrs.size());
+            for (const auto &instr : block->instrs) {
+                if (instr.op == ASMOp::CALL && instr.callArgCount == 2) {
+                    auto it = helpers.find(instr.funcName);
+                    if (it != helpers.end()) {
+                        emitInlineModHelper(out, it->second, nextVReg);
+                        changed = true;
+                        continue;
+                    }
+                }
+                out.push_back(instr);
+            }
+            block->instrs = std::move(out);
+        }
+        return changed;
     }
 
     bool sameReg(const Operand &a, const Operand &b) const {
