@@ -128,6 +128,20 @@ public:
         return low;
     }
 
+    bool canBindArrayInitializerDirectly(Expression *expr, const std::shared_ptr<IRType> &targetType) {
+        if(!expr || !targetType) return false;
+        if(!std::dynamic_pointer_cast<IRArrayType>(targetType)) return false;
+        return dynamic_cast<ExprArray *>(expr) != nullptr;
+    }
+
+    void renameLocalBinding(const std::shared_ptr<IRVar> &var,
+                            const std::string &varName,
+                            const std::string &reName) {
+        if(!var) return;
+        var->varName = varName;
+        var->reName = reName;
+    }
+
     constInfo requireConstInfo(const std::string &name) {
         if(name.empty()){
             throw std::runtime_error("IRBuilder: empty constant name");
@@ -4956,6 +4970,15 @@ public:
                         block->blockList[block->blockList.size() -1]->instrList.push_back(storeInstr);
                     }
                 }else{
+                    if(canBindArrayInitializerDirectly(node.expression.get(), varType)){
+                        if(auto initVar = std::dynamic_pointer_cast<IRVar>(node.expression->ret)){
+                            if(sameTypeShape(initVar->type, varType)){
+                                renameLocalBinding(initVar, varName, reName);
+                                currentScope->addValueSymbol(varName, initVar);
+                                return block;
+                            }
+                        }
+                    }
                     auto memcpyInstr = std::make_shared<IRMemcpy>();
                     memcpyInstr->dest = currentVar;
                     if(auto var = std::dynamic_pointer_cast<IRVar>(node.expression->ret)){
