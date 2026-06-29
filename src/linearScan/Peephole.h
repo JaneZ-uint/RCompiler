@@ -71,6 +71,7 @@ private:
     enum class ModHelperKind {
         ADD,
         SUB,
+        NORMALIZE,
     };
 
     struct ModHelperInfo {
@@ -225,6 +226,7 @@ private:
 
         int mainAddCount = 0;
         int mainSubCount = 0;
+        int mainRemCount = 0;
         int correctionAddCount = 0;
         int correctionSubCount = 0;
         int addCompareCount = 0;
@@ -232,6 +234,7 @@ private:
         int invertBoolCount = 0;
         long long addMod = 0;
         long long subMod = 0;
+        long long normMod = 0;
         bool invalid = false;
 
         auto isParamPair = [](RegClass lhs, RegClass rhs) {
@@ -335,6 +338,27 @@ private:
                     }
                     break;
                 }
+                case ASMOp::REMW: {
+                    if (instr.rd.type != OperandType::REG ||
+                        instr.rs1.type != OperandType::REG ||
+                        instr.rs2.type != OperandType::REG) {
+                        invalid = true;
+                        break;
+                    }
+                    int dst = instr.rd.value;
+                    auto lhsClass = classOfReg(regClass, instr.rs1.value);
+                    long long mod = 0;
+                    clearRegFacts(regClass, regConst, dst);
+                    if (lhsClass == RegClass::PARAM0 &&
+                        constOfReg(regConst, instr.rs2.value, mod) &&
+                        samePositiveMod(normMod, mod)) {
+                        mainRemCount++;
+                        regClass[dst] = RegClass::MAIN_VALUE;
+                    } else {
+                        invalid = true;
+                    }
+                    break;
+                }
                 case ASMOp::SLT: {
                     if (instr.rd.type != OperandType::REG ||
                         instr.rs1.type != OperandType::REG ||
@@ -418,6 +442,7 @@ private:
             returnsModValue &&
             mainAddCount == 1 &&
             mainSubCount == 0 &&
+            mainRemCount == 0 &&
             correctionSubCount == 1 &&
             correctionAddCount == 0 &&
             addCompareCount >= 1 &&
@@ -433,6 +458,7 @@ private:
             returnsModValue &&
             mainSubCount == 1 &&
             mainAddCount == 0 &&
+            mainRemCount == 0 &&
             correctionAddCount == 1 &&
             correctionSubCount == 0 &&
             subCompareCount >= 1 &&
@@ -440,6 +466,22 @@ private:
             subMod > 0) {
             info.kind = ModHelperKind::SUB;
             info.mod = subMod;
+            return true;
+        }
+
+        if (!invalid &&
+            returnsModValue &&
+            mainRemCount == 1 &&
+            mainAddCount == 0 &&
+            mainSubCount == 0 &&
+            correctionAddCount == 1 &&
+            correctionSubCount == 0 &&
+            subCompareCount >= 1 &&
+            addCompareCount == 0 &&
+            normMod > 0 &&
+            subMod == normMod) {
+            info.kind = ModHelperKind::NORMALIZE;
+            info.mod = normMod;
             return true;
         }
 
@@ -491,6 +533,15 @@ private:
             return;
         }
 
+        if (helper.kind == ModHelperKind::NORMALIZE) {
+            out.push_back(makeLi(modReg, helper.mod));
+            out.push_back(makeR(ASMOp::REMW, 10, 10, modReg));
+            out.push_back(makeI(ASMOp::SRAI, maskReg, 10, 63));
+            out.push_back(makeR(ASMOp::AND, maskReg, maskReg, modReg));
+            out.push_back(makeR(ASMOp::ADDW, 10, 10, maskReg));
+            return;
+        }
+
         out.push_back(makeR(ASMOp::SUBW, 10, 10, 11));
         out.push_back(makeLi(modReg, helper.mod));
         out.push_back(makeI(ASMOp::SRAI, maskReg, 10, 63));
@@ -509,9 +560,11 @@ private:
             std::vector<ASMInstr> out;
             out.reserve(block->instrs.size());
             for (const auto &instr : block->instrs) {
-                if (instr.op == ASMOp::CALL && instr.callArgCount == 2) {
+                if (instr.op == ASMOp::CALL) {
                     auto it = helpers.find(instr.funcName);
-                    if (it != helpers.end()) {
+                    if (it != helpers.end() &&
+                        ((it->second.kind == ModHelperKind::NORMALIZE && instr.callArgCount == 1) ||
+                         (it->second.kind != ModHelperKind::NORMALIZE && instr.callArgCount == 2))) {
                         emitInlineModHelper(out, it->second, nextVReg);
                         changed = true;
                         continue;
