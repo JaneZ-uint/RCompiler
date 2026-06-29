@@ -1,756 +1,21 @@
-# RCompiler Optimization Plan
+# RCompiler 优化总结
 
-本文档记录下一阶段优化方向。`semantic-1`、`semantic-2`、`long-param` 只作为正确性回归集；优化收益以 OJ 的 17 个隐藏性能点为主，不再用 `semantic-2` 的静态汇编变化判断总体收益。
+本文档是当前优化工作的收束版，记录已经接入编译器的优化、基本实现方式、适用场景，以及当前真实的优化 pass 流程。后续维护时应以本文档和 `main.cpp`、`src/linearScan/regalloc.h` 的实际调用顺序为准。
 
-## 0. 当前约束
+## 0. 基本约束
 
-- IR 层优化已基本进入调参阶段；下一阶段允许做后端优化，但仍暂时不要新增 OJ 可能不接受的 RV64 asm 指令。
-- 继续保持 `usize/isize` 为 64-bit，不能破坏 `w64tag`、`isW64Stack`、`ld/sd` 和 64-bit 运算语义。
-- RV64 正确性验证必须用 qemu，不用 REIMU：
+- 目标后端是 RV64GC / lp64d 汇编。
+- `usize/isize` 是 64-bit，涉及栈槽、load/store、常量折叠和函数调用时都必须保持 64-bit 语义。
+- 后端优化尽量只使用已经确认可被 OJ 接受的 RV64 指令形态，避免再次触发 `CE_ASM`。
+- 正确性验证使用 `riscv64-linux-gnu-gcc -static` 和 `qemu-riscv64`，不要用只支持 RV32 的 REIMU。
+- OJ 优化分的主要瓶颈来自数组/结构体访问、循环、重复 helper call、分支、寄存器压力和 spill/reload。
 
-```bash
-cmake --build build
-bash /tmp/qemu_test.sh
-bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
-```
+## 1. 当前优化 Pipeline
 
-- 每完成一个优化单独 commit。提交前至少跑：
-  - `RCompiler-Testcases/long-param/src`
-  - `RCompiler-Testcases/semantic-2/src`
-  - `RCompiler-Testcases/semantic-1/src`
-
-## 1. OJ 隐藏性能点画像
-
-当前 OJ 优化性能点共 17 个：
-
-### 1.1 最新 OJ 反馈
-
-最新已知 OJ 反馈来自 `b231011 opt: tighten scalar memory inlining`，总分比 `d53bcc7` 略降。收紧 scalar-memory helper inline 是负优化：`sort_kmp`、`tree_hashmap`、`compression`、`inmemory` 下降，只有 `array`、`graph`、`string` 小幅上升。因此该调参已撤销，后续不继续沿“整体收紧 scalar-memory inline”方向推进。
-
-随后对 LICM 做保守化处理：cheap binary hoist 只保留服务 `getptr` 地址链的 `add/sub`，不再通过 cast 或贵表达式链继续泛化传播，也不再提前 `and/or/xor`。目标是保留数组地址计算收益，同时减少解释器、hash pipeline、状态机类样例中的 live range 膨胀。
-
-| 优先级 | Case | 当前得分 | 丢分 | 主要判断 |
-|---|---|---:|---:|---|
-| 1 | `opti_graph_algorithms_suite` | `3.27 / 8.00` | `4.73` | 图/邻接结构，地址计算、load/store 和寄存器压力 |
-| 2 | `opti_ntt_convolution` | `2.76 / 6.00` | `3.24` | 模乘、`%`、循环内数组访问 |
-| 3 | `opti_bytecode_vm_interpreter` | `2.69 / 6.00` | `3.31` | 解释器 dispatch、状态字段反复读写、分支和寄存器压力 |
-| 4 | `opti_range_structures_suite` | `3.89 / 7.00` | `3.11` | 树状/区间结构，结构字段和数组访问 |
-| 5 | `opti_inmemory_index_query` | `3.76 / 7.00` | `3.24` | 内存索引，结构体字段 alias 和 load forwarding |
-| 6 | `opti_block_hash_pipeline` | `4.79 / 7.00` | `2.21` | block hash 长 pipeline，CSE 和 inline/LICM 可能增加寄存器压力 |
-
-最近三项增强整体有收益，但 `opti_block_hash_pipeline` 从 `5.32` 降到 `4.90`，`opti_recursive_utility_pipeline`、`opti_dp_suite`、`opti_branch_state_machine` 也有小幅回退。优先怀疑 `69f5ec3` 的 `x * (2^k +/- 1)` 展开：RV64GC 中 `mul` 是单条指令，展开成 `slli + add/sub` 可能增加动态指令数和寄存器压力。
-
-当前短期调整状态：
-
-1. 已收紧 `near-power-of-two multiplies`，保留 `x * 2^k`、unsigned `/ % 2^k` 这类明确收益转换。
-2. 已增强 MemoryForward 的结构体字段 alias 精度，覆盖同根路径中不同常量字段的 disjoint 判断。
-3. 已在 LocalCSE 后重跑 MemoryForward/ConstantFold/CFGClean，让 getptr canonicalize 后的地址事实继续参与转发。
-4. 已为 MemoryForward 增加 dominated load cache，覆盖 `load p; ...; load p` 且中间无别名写入的场景。
-5. 已增强 LICM，并在 OJ 负反馈后收窄为只提前服务 getptr 地址链的 `add/sub` cheap binary。
-6. 已做 boolean branch peephole，减少解释器/状态机中 `seqz/snez/slti + bnez` 形态的临时值。
-7. 暂不做 `% const` 魔数除法/模乘 lowering；它通常需要 `mulh/mulhu` 或更复杂序列，先避免 OJ `CE_ASM` 风险。
-
-`d53bcc7` 相对上一轮的 OJ delta：
-
-- 明显提升：`opti_array_transform +0.47`、`opti_tree_hashmap_suite +0.27`、`opti_compression_match_finder +0.19`、`opti_graph_algorithms_suite +0.18`。
-- 明显回退：`opti_bytecode_vm_interpreter -0.23`、`opti_inmemory_index_query -0.17`、`opti_struct_pool_fold -0.14`、`opti_block_hash_pipeline -0.11`。
-- 判断：新增优化总体方向有效，但泛化的 inline / LICM / load reuse 可能在状态机和长 pipeline 上放大活跃区间。
-
-`b231011` 相对 `d53bcc7` 的 OJ delta：
-
-- 小幅提升：`opti_array_transform +0.06`、`opti_graph_algorithms_suite +0.06`、`opti_string_automata_suite +0.10`。
-- 明显回退：`opti_sort_kmp_suite -0.22`、`opti_inmemory_index_query -0.14`、`opti_tree_hashmap_suite -0.14`、`opti_compression_match_finder -0.08`、`opti_struct_pool_fold -0.06`。
-- 结论：收紧 scalar-memory inline 会伤害更多 case，撤销该调参；下一步优先验证收窄 LICM cheap binary hoist 后的 OJ 变化。
-
-### 1.2 和 O1 差距最大的当前瓶颈
-
-当前与 O1 的主要差距更像后端问题，而不是再缺一个单独的 IR pass。IR 层的 mem2reg、inline、CSE/GVN、MemoryForward、LICM、SCCP、SROA 已经覆盖基础优化；继续泛化 IR pass 很容易把 live range 拉长，使后端 spill 变多。
-
-最高优先级瓶颈：
-
-1. `LinearScan` 仍是单 live interval 模型，没有 live hole，也没有真正的 live range splitting。分支、循环和长 pipeline 会把短命临时拉成长活跃区间。
-2. spill/reload 质量仍不接近 O1。当前只做了局部 cleanup，没有跨 block spill value forwarding，也没有 rematerialization。
-3. copy coalescing 还不足。phi lowering、参数搬运、返回值搬运和 peephole 未覆盖的 `mv` 链会制造额外 live range。
-4. 指令选择和地址模式还不够强。O1 会更稳定地把地址临时折入 `ld/st offset(base)`，并减少常量 materialize 和 getptr 临时。
-5. call/frame 成本刚开始优化。实际参数 liveness、leaf frame、callee/caller saved 压力仍有空间。
-
-这些瓶颈最影响：
-
-- `opti_bytecode_vm_interpreter`
-- `opti_graph_algorithms_suite`
-- `opti_range_structures_suite`
-- `opti_ntt_convolution`
-- `opti_block_hash_pipeline`
-- `opti_inmemory_index_query`
-
-后续主线应集中在 B1/B2/B3：更准确的寄存器分配、更少 spill/reload、更强 copy coalescing。只有当后端内存流量明显下降后，再回头判断是否需要新的 IR loop/alias 优化。
-
-| Case | 主要热点判断 | 优先优化方向 |
-|---|---|---|
-| `opti_compute_hash_mix` | hash 混合、整数表达式、数组访问 | GVN, load forwarding, LICM |
-| `opti_recursive_utility_pipeline` | 小 helper、递归/调用链 | inline cost model, DCE, SCCP |
-| `opti_array_transform` | 大数组循环 | getptr/load CSE, LICM, strength reduction |
-| `opti_branch_state_machine` | 分支状态机 | SCCP, CFG clean, cross-block GVN |
-| `opti_struct_pool_fold` | 结构池、字段访问 | SROA, alias-aware memory forwarding |
-| `opti_range_structures_suite` | 树状/区间结构和数组 | load forwarding, loop CSE, LICM |
-| `opti_graph_algorithms_suite` | 图算法、邻接结构 | getptr CSE, load forwarding, reg pressure |
-| `opti_ntt_convolution` | 模乘、循环、数组 | LICM, strength reduction, CSE |
-| `opti_dp_suite` | DP 数组和嵌套循环 | loop-aware CSE, load forwarding |
-| `opti_sort_kmp_suite` | 排序/KMP，分支和数组 | getptr/load CSE, branch cleanup |
-| `opti_string_automata_suite` | 自动机表、字符串数组 | load CSE, loop invariant table access |
-| `opti_block_hash_pipeline` | 块 hash、长 pipeline | GVN, algebraic simplify, reg pressure |
-| `opti_compression_match_finder` | 滑窗/匹配查找 | loop CSE, load forwarding, LICM |
-| `opti_inmemory_index_query` | 内存索引查询 | alias-aware load forwarding, CSE |
-| `opti_tree_hashmap_suite` | 树/hashmap 混合 | load forwarding, GVN, branch cleanup |
-| `opti_bytecode_vm_interpreter` | 解释器 dispatch、状态读写 | load forwarding, branch cleanup, reg pressure |
-| `opti_image_signal_kernel` | stencil/kernel 循环 | LICM, getptr CSE, strength reduction |
-
-结论：
-
-- `Global2Local` 不是当前优先级最高的优化。当前前端主要把顶层 `const` 折成 literal，IR 中没有稳定看到实际生成 `IRGlobal` 的路径。
-- 隐藏点主要吃数组、结构体字段、循环、重复地址计算、重复 load、状态机分支和寄存器压力。
-
-## 2. 当前已完成优化
-
-当前已有并已接入的优化方向：
-
-- `Mem2Reg`
-- 支配树/SSA promotion
-- function inline
-- constant folding / algebraic simplification
-- CFG clean
-- IR DCE
-- memory forwarding 初版
-- alias-aware memory forwarding：
-  - store-load forwarding
-  - dead store elimination for same known location in one block
-  - known-field disjoint alias check
-  - dominated load reuse
-- local CSE 初版，含 binary/getptr/load 的局部处理
-- dominator-tree CSE/GVN for pure binary/getptr/cast and conservative load reuse
-- LICM，含 expensive scalar/getptr/cast hoist，以及地址链 cheap binary hoist
-- strength reduction，保留 power-of-two multiply and unsigned div/mod
-- SROA 小范围版本，含 int/pointer scalar fields
-- function inline cost model，含 scalar memory helper inline
-- SCCP，含：
-  - sparse executable edge propagation
-  - phi 常量传播
-  - branch 常量化
-  - legacy bool phi folding
-  - branch edge facts
-  - `x == const` / `x != const` 的分支内事实传播
-- 后端 peephole 和寄存器分配策略已有若干调整
-- boolean branch peephole for common compare-to-zero forms
-- post-regalloc spill cleanup：
-  - redundant reload reuse
-  - same-value spill store deletion
-  - overwritten spill store deletion
-
-当前后续优化不应重复做已完成的基础 pass。下一轮应先等 OJ 反馈，按 case 回归决定是否回滚或调参。
-
-## 3. 下一阶段优先级
-
-### P0: Loop-aware GetPtr/Load CSE
-
-目标：减少热循环中的重复地址计算和重复 load。
-
-状态：大部分已经由当前 dominator-tree `LocalCSE` 和 MemoryForward load cache 覆盖。后续只做 alias 精度和 pipeline 调度增强，不再另起一个重复 pass。
-
-第一版保持保守：
-
-- 在单个基本块内已经做过 local CSE，下一步扩展到 loop body 内的支配关系。
-- 只复用纯 `IRGetptr`、`IRBinaryop`、cast。
-- 对 `IRLoad` 只在以下条件下复用：
-  - 地址 key 完全相同。
-  - dominating load 到当前 use 之间没有 `IRStore`、`IRCall`、`IRGetint`、`IRMemcpy`、`IRMemset`。
-  - 不跨 loop backedge 做不安全复用。
-- 遇到未知 memory side effect 清空 load table。
-
-适用隐藏点：
-
-- `opti_array_transform`
-- `opti_dp_suite`
-- `opti_ntt_convolution`
-- `opti_image_signal_kernel`
-- `opti_graph_algorithms_suite`
-- `opti_string_automata_suite`
-
-风险：
-
-- alias 不清楚时必须保守。
-- 不能把 loop 上一次迭代的 load 错误复用到下一次迭代。
-
-建议 commit：
+入口在 `main.cpp`。当前实际 IR pipeline 是：
 
 ```text
-opt: extend cse across dominated blocks
-```
-
-### P1: LICM
-
-目标：把循环不变量移出循环。
-
-状态：已实现并增强。当前 hoist 范围是：
-
-- profitable binary: `mul/div/mod/shift`
-- pure getptr
-- casts
-- 服务于可提升 getptr 地址链的 cheap binary: `add/sub`
-
-当前仍不 hoist load，避免内存 alias 误判。
-
-实现步骤：
-
-1. 构建 CFG 和 predecessor。
-2. 利用现有支配信息或新增 helper 检测 natural loop：
-   - back edge `b -> h`
-   - `h` dominates `b`
-3. 为 loop header 创建 preheader，或复用唯一外部 predecessor。
-4. hoist 安全指令：
-   - `IRBinaryop`
-   - `IRSext` / `IRZext` / `IRTrunc`
-   - 纯 `IRGetptr`
-5. 暂不 hoist `IRLoad`，除非后续有更强 alias analysis。
-
-可 hoist 条件：
-
-- operands 定义在 loop 外，或来自已经 hoist 的 invariant。
-- 指令无副作用。
-- `DIV/MOD` 只在 divisor 是非零常量时 hoist。
-
-适用隐藏点：
-
-- `opti_ntt_convolution`
-- `opti_image_signal_kernel`
-- `opti_array_transform`
-- `opti_compute_hash_mix`
-- `opti_block_hash_pipeline`
-
-风险：
-
-- preheader 插入后必须维护 block 顺序和 phi predecessor。
-- 不要 hoist 可能依赖内存变化的 load。
-
-建议 commit：
-
-```text
-opt: hoist loop invariant scalar expressions
-```
-
-### P2: Alias-aware Memory Forwarding 增强
-
-目标：让结构体池、数组局部更新和解释器状态变量少走内存。
-
-状态：已完成当前安全版本。后续方向是继续提升地址规范化能力，尤其是把等价 getptr 链和相同动态 index 下的固定字段路径识别得更稳定。
-
-在现有 `memoryForward` 基础上增强：
-
-- 建立地址 key：
-  - 直接 alloca/global var
-  - `getptr(base, const index/type)` 的规范化 key
-  - 已知等价 getptr 的 alias key
-- 支持 dominated block 内 store-load forwarding：
-  - `store v, p` dominates `load p`
-  - 中间无 may-write memory side effect
-- 支持 dead store elimination：
-  - `store a, p; store b, p` 中间无 load/use/may-write，则删前一个 store
-- 对 call/getint/memcpy/memset 保守清空。
-
-适用隐藏点：
-
-- `opti_struct_pool_fold`
-- `opti_bytecode_vm_interpreter`
-- `opti_inmemory_index_query`
-- `opti_tree_hashmap_suite`
-- `opti_compression_match_finder`
-
-风险：
-
-- 没有完整 alias analysis 时，只认精确同地址或明确等价地址。
-- 对数组动态 index 不要跨未知 store 复用。
-
-建议 commit：
-
-```text
-opt: forward memory across dominated blocks
-```
-
-### P3: Cross-block GVN
-
-目标：跨基本块复用已支配的纯表达式。
-
-状态：当前 `LocalCSE` 实际已按 dominator tree 向下传播 pure expression table，覆盖 binary/getptr/cast；后续重点是降低由表达式替换带来的寄存器压力，而不是新增重复 GVN pass。
-
-范围：
-
-- `IRBinaryop`
-- cast
-- `IRGetptr`
-- 不包含 memory load，load 交给 P2。
-
-实现：
-
-- DFS dominator tree。
-- 进入 block 时继承 value table。
-- 离开 block 时回滚本 block 插入项。
-- 对 commutative op 规范化左右操作数。
-
-适用隐藏点：
-
-- `opti_branch_state_machine`
-- `opti_compute_hash_mix`
-- `opti_block_hash_pipeline`
-- `opti_recursive_utility_pipeline`
-
-风险：
-
-- 必须保证表达式纯且 flags 一致：`utag`、`i8tag`、`w64tag`、类型 key 都要进入 key。
-
-建议 commit：
-
-```text
-opt: add dominator-based gvn for pure expressions
-```
-
-### P4: SROA 小范围版本
-
-目标：拆小结构体字段或固定下标数组元素，减少结构体池和小对象内存访问。
-
-状态：已完成当前安全版本。支持小 struct/fixed array 的 int/pointer scalar fields，支持 `memset 0` 和候选间 `memcpy` copy init。指针字段会保留 pointer-storage 栈槽语义。
-
-第一版只做非常保守场景：
-
-- 局部 alloca。
-- 类型是小 struct 或小 fixed array。
-- 地址不逃逸。
-- 所有访问都是常量字段/常量 index。
-- 不处理 dynamic index。
-- 不处理作为参数传给函数的聚合地址。
-
-转换：
-
-- 每个字段/元素建独立 scalar alloca。
-- 后续交给 mem2reg / dominantTree promotion。
-
-适用隐藏点：
-
-- `opti_struct_pool_fold`
-- `opti_recursive_utility_pipeline`
-- 小对象密集代码
-
-风险：
-
-- 聚合 memcpy/memset、by-value 参数和 return pointer 场景先跳过。
-
-建议 commit：
-
-```text
-opt: scalarize simple aggregate locals
-```
-
-### P5: Function Inline Cost Model
-
-目标：更贴近隐藏点里的 helper 函数调用。
-
-状态：已完成当前安全版本。仍限制为无基本块、非递归、int/void 返回的小函数；已允许 scalar alloca/getptr/load/store helper inline，继续由 cost/growth budget 控制。
-
-增强方向：
-
-- 单调用小函数更激进 inline。
-- 纯 getter/setter/算术 wrapper 优先 inline。
-- long-param 或大聚合参数加惩罚，避免重新引入之前解释器点的寄存器压力问题。
-- 对递归函数不 inline。
-- 为 caller 设置 growth budget。
-
-适用隐藏点：
-
-- `opti_recursive_utility_pipeline`
-- `opti_compute_hash_mix`
-- `opti_block_hash_pipeline`
-
-风险：
-
-- inline 会放大寄存器压力；必须配合 DCE/SCCP/CFGClean。
-
-建议 commit：
-
-```text
-opt: tune function inline cost model
-```
-
-### P6: Register Pressure 和 Spill Cleanup
-
-目标：隐藏点里大型循环、解释器、图算法容易因为虚拟寄存器过多而 spill。
-
-状态：已完成当前安全版本。post-regalloc peephole 已覆盖同块 redundant reload、same-value store、overwritten store cleanup，不新增 asm 指令。
-
-IR 层优先：
-
-- 减少无用临时。
-- 合并 move chain。
-- 不要过度 inline long-param 函数。
-
-后端层保守增强：
-
-- 继续使用当前支持的 RV64GC 指令，不新增 OJ 可疑指令。
-- post-regalloc 局部 spill peephole：
-  - `ld r, slot; sd r, slot` 删除 store。
-  - `sd r, slot; ld r2, slot` 改 `mv r2, r`，中间无相关 clobber。
-  - 连续 `ld` 同 slot 复用。
-
-适用隐藏点：
-
-- `opti_bytecode_vm_interpreter`
-- `opti_graph_algorithms_suite`
-- `opti_range_structures_suite`
-- `opti_ntt_convolution`
-
-风险：
-
-- spill peephole 只做基本块内，不跨 label/call/branch。
-
-建议 commit：
-
-```text
-opt: clean redundant spill reloads
-```
-
-## 4. 后端优化计划
-
-IR 层已经覆盖了当前能安全做的大部分优化。下一阶段重点转到后端，目标不是新增激进指令，而是降低寄存器压力、减少 spill/reload、改进指令选择和清理冗余 asm。所有优化默认只使用当前已经输出过的 RV64GC/lp64d 指令形态，避免再次触发 OJ `CE_ASM`。
-
-后端优化的核心判断：当前最接近 O1 差距的不是算术 strength reduction，而是寄存器分配质量和 spill 流量。即使 IR pass 减少了表达式数量，只要 allocator 把 live range 过度拉长，热点循环仍会被 `ld/sd` 吞掉收益。
-
-### B0: 后端性能画像和统计
-
-目标：先让后端瓶颈可见，避免继续盲目调 pass。
-
-需要统计：
-
-- 每个函数的 asm 指令数。
-- `ld/sd` 总数，以及访问 `s0/sp` spill slot 的 `ld/sd` 数。
-- 每个函数的虚拟寄存器数、分配到物理寄存器数、spill slot 数。
-- prologue/epilogue 中保存恢复的 callee-saved 数。
-- call 数、跨 call live interval 数。
-- 大 frame 函数数量，以及 frame size 是否超过 12-bit offset。
-
-实现方式：
-
-- 在 debug flag 或临时本地脚本中统计，不影响默认 OJ 输出。
-- 优先对比 17 个 OJ 隐藏点对应方向的本地 microbench：解释器、图、NTT、hash pipeline、数组循环。
-- 每次后端优化后记录静态指标变化，再以 OJ 反馈为最终依据。
-
-建议 commit：
-
-```text
-docs/tooling: add backend asm statistics
-```
-
-### B1: 改进 liveness 和 live interval 精度
-
-目标：减少线性扫描把短生命周期虚拟寄存器错误拉成长区间造成的 spill。
-
-当前风险点：
-
-- `LinearScan` 目前用每个 vreg 的最小 start 和最大 end 形成单区间，不能表达 live hole。
-- block 入口/出口 live set 会把 interval 扩到 block 边界，循环和分支较多时容易放大寄存器压力。
-- `CALL` 当前按固定 caller-saved clobber 处理，但 call 的真实参数 use 和返回值 def 仍可进一步精确。
-
-已完成子项：
-
-- `CALL` 记录实际占用的 `a0-a7` 参数数，liveness 不再默认把所有 `a0-a7` 都视为 use。
-- 试过 spill victim 参考下一次 use，但已回退。当前实现的 next-use 只按线性编号判断，无法正确表达 loop-carried value，在解释器/状态机大循环中可能把动态上很快会用到的值误判成“以后不用”，导致热循环 spill 爆炸。
-
-第一阶段保守增强：
-
-- 继续完善指令编号，区分 use-before-def 和 def-before-use。
-- 只有在识别 CFG/loop 和 live hole 后，才重新引入 next-use/use-position 辅助 spill 决策。
-- 对没有后续 use 的 def 尽早交给 ASM DCE 删除，避免进入分配。
-
-第二阶段增强：
-
-- 支持 live range splitting 的轻量版：只在 spill 前后插入 reload/store，不把整个 vreg 固定成全函数 spill。
-- 允许在 block 内切开长 interval，让短热点片段优先留在物理寄存器。
-- 不做复杂 SSA-aware allocator，先保持现有 linear scan 框架。
-
-适用隐藏点：
-
-- `opti_bytecode_vm_interpreter`
-- `opti_graph_algorithms_suite`
-- `opti_ntt_convolution`
-- `opti_block_hash_pipeline`
-- `opti_range_structures_suite`
-
-风险：
-
-- liveness 错误会直接 WA，必须先用小函数、多分支、循环、call 的专门用例覆盖。
-- call 边界必须严格遵守 RISC-V ABI：caller-saved 不能跨 call 假定保留。
-
-建议 commit：
-
-```text
-opt: improve linear scan spill choice
-```
-
-### B2: Spill code 优化
-
-目标：减少每条指令周围重复的 `ld/sd`。
-
-当前已有：
-
-- 同基本块内 redundant reload 复用。
-- same-value spill store deletion。
-- overwritten spill store deletion。
-- 同一条指令内重复 use/def 的 spill rewrite 去重。
-
-下一步增强：
-
-- 在基本块内维护 `slot -> reg` 和 `reg -> slot` 状态，覆盖更多 `ld slot; ...; ld slot`，中间只要没有写同 slot 就复用。
-- 对 `ld r, slot; op ... r ...; sd r, slot`，如果 vreg 值未改变则删除 store。
-- 对连续 spill slot 访问尽量避免重复 materialize 大 offset 地址。
-- 大 frame 时优先用 `s0` 稳定访问 frame slot，避免每次 `li + add + ld/sd`。
-- 做轻量 rematerialization：常量 `li`、小 offset 地址、简单 `addi` 不一定要 spill slot，必要时重新生成可能更便宜。
-
-不做：
-
-- 不跨基本块做 spill value forwarding，除非后续有可靠的 CFG dataflow。
-- 不新增压缩指令或 OJ 未确认指令。
-
-适用隐藏点：
-
-- `opti_bytecode_vm_interpreter`
-- `opti_graph_algorithms_suite`
-- `opti_range_structures_suite`
-- `opti_inmemory_index_query`
-
-建议 commit：
-
-```text
-opt: reduce redundant spill traffic
-```
-
-### B3: Copy coalescing 和 move 消除
-
-目标：降低 `mv` 链和 move 引起的额外 live range。
-
-当前已有：
-
-- peephole 删除 self-move。
-- 局部 `mv` 合并到下一条 use。
-
-下一步增强：
-
-- 分配前收集 `mv v1, v2`，如果两者 live interval 不冲突，优先分到同一物理寄存器。
-- 对 phi lowering、call return、argument move 产生的 copy chain 做 coalescing。
-- 对 `li tmp, imm; mv dst, tmp`、`mv tmp, src; op dst, tmp` 这类单 use 模式继续扩大 peephole。
-- 保留 width 语义：涉及 `addw/subw`、显式 sign/zero extend 的 move 不能错误合并。
-
-执行优先级：
-
-- 先做非冲突 move coalescing，不改变 CFG。
-- 再尝试把 call argument staging 产生的 `mv` 链缩短。
-- 最后处理 phi/copy chain，避免一次改动过大。
-
-适用隐藏点：
-
-- `opti_recursive_utility_pipeline`
-- `opti_branch_state_machine`
-- `opti_bytecode_vm_interpreter`
-- `opti_sort_kmp_suite`
-
-建议 commit：
-
-```text
-opt: coalesce non-conflicting moves
-```
-
-### B4: 指令选择改进
-
-目标：在不新增风险指令的前提下，减少明显多余的临时寄存器和指令数。
-
-优先项：
-
-- 更积极使用 12-bit immediate：
-  - `add x, y, const` -> `addi`。
-  - `and/or/xor` with 12-bit const -> 对应 immediate 指令。
-  - compare with small const -> `slti/sltiu`。
-- load/store 地址选择：
-  - `addi addr, base, off; ld/st ..., 0(addr)` 合并为 `ld/st ..., off(base)`。
-  - getptr 常量偏移尽量延迟到 load/store offset。
-  - 大 offset 只 materialize 一次，避免每个访问都 `li + add`。
-- branch 选择：
-  - 已有 compare+branch peephole，继续覆盖 `xori bool, 1; bnez`、`seqz/snez` 的反向分支。
-  - 删除跳到下一块的无条件 `j`。
-- return path：
-  - 小函数单出口保留统一 epilogue；多 return 函数避免生成过长跳转链。
-
-风险：
-
-- 32-bit 和 64-bit 运算不能混淆。`usize/isize` 必须继续保持 64-bit。
-- pseudo `li/mv` 当前已在用，可以继续用；不要引入 OJ 未确认的 pseudo。
-
-适用隐藏点：
-
-- `opti_compute_hash_mix`
-- `opti_array_transform`
-- `opti_ntt_convolution`
-- `opti_image_signal_kernel`
-
-建议 commit：
-
-```text
-opt: select immediate forms in backend
-```
-
-### B5: Call/ABI 和栈帧优化
-
-目标：降低函数调用和栈帧维护成本，同时保持 ABI 正确。
-
-优先项：
-
-- 精确 call 参数 use：只把实际传参用到的 `a0-a7` 计入 use，避免所有 call 都把 `a0-a7` 拉进 liveness。
-- 精确 call 返回 def：只在有返回值时认为 `a0` 被定义。
-- leaf function 不保存 `ra`，没有使用 `s0` frame pointer 时考虑省略 `s0` 保存和设置。
-- 只保存实际分配到的 callee-saved，当前已有基础逻辑，继续检查大函数下是否过度使用 callee-saved。
-- 对没有 alloca、没有 spill、没有 call 的函数生成最小 frame 或无 frame。
-
-已完成子项：
-
-- leaf function 已跳过 `ra` save/restore。
-- 无 call、无 alloca、无 spill、无 callee-saved 的 leaf function 直接省略 `s0` save/restore 和 `sp/s0` frame setup。
-
-风险：
-
-- OJ runtime 和 gcc 链接遵守标准 ABI，任何 call-saved/caller-saved 误判都会 WA。
-- 省略 frame pointer 需要确认所有栈槽 offset 都能稳定基于 `sp` 表达；否则先只做 leaf/no-spill/no-alloca 的安全子集。
-
-适用隐藏点：
-
-- `opti_recursive_utility_pipeline`
-- `opti_compute_hash_mix`
-- `opti_sort_kmp_suite`
-- `opti_branch_state_machine`
-
-建议 commit：
-
-```text
-opt: reduce unnecessary stack frame work
-```
-
-### B6: 块布局和跳转清理
-
-目标：降低分支和跳转开销。
-
-当前已有：
-
-- post-regalloc peephole 可删除跳到下一块的 fallthrough jump。
-- leaf function 已跳过 `ra` save/restore；完全无栈需求的 leaf function 已省略整个 frame setup。
-
-下一步增强：
-
-- 按 CFG 调整 block 顺序，使 hot-looking fallthrough 更自然。没有 profile 时优先：
-  - loop backedge 仍保留跳转，loop body 顺序连续。
-  - if-else 中让非 exit 分支 fallthrough。
-  - exit/return block 放后面。
-- 合并只有一个 predecessor、一个 successor 的空 block。
-- 删除 `j L1; L1:`、`bnez x, L1; j L2; L1:` 可安全反转时的跳转。
-
-风险：
-
-- 改 block 顺序不能破坏 label 和 branch target。
-- 没有 profile 时只做结构性优化，不做猜测性大重排。
-
-适用隐藏点：
-
-- `opti_branch_state_machine`
-- `opti_bytecode_vm_interpreter`
-- `opti_string_automata_suite`
-
-建议 commit：
-
-```text
-opt: clean backend control flow
-```
-
-### B7: 后端优化执行顺序
-
-推荐顺序：
-
-1. B0 统计和样例画像。
-2. B1 live interval / live hole / 轻量 live range splitting。
-3. B2 spill traffic 清理和 rematerialization。
-4. B3 copy coalescing。
-5. B4 immediate/address 指令选择。
-6. B5 call/frame 优化。
-7. B6 block layout 和跳转清理。
-
-每完成一步都按单 commit 提交，并跑：
-
-```bash
-cmake --build build
-bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
-bash /tmp/qemu_test.sh
-```
-
-如果 `/tmp` 脚本不存在，用等价 qemu 流程跑 `semantic-2` 和 `long-param`。semantic-1 继续按 `global.json` 的 `compileexitcode` oracle 跑 222 个样例。
-
-## 5. Global2Local 位置
-
-`Global2Local` 暂时放低优先级。
-
-原因：
-
-- 当前代码中 `IRGlobal` 类型存在，但没有稳定看到实际生成 `IRGlobal` 的路径。
-- 顶层 `const` 已经由前端/IRBuilder 直接折成 literal。
-- OJ 隐藏点更像数组、循环、结构池和状态机热点，不像全局变量访问热点。
-
-如果未来要做，第一版只处理：
-
-- 标量 global/static。
-- 只被单个函数使用。
-- 地址不逃逸。
-- 所有 use 都是直接 load/store。
-- 在该函数入口创建 local alloca + 初始 store。
-- 删除 `IRGlobal`，后续交给 mem2reg。
-
-建议放在：
-
-```text
-Global2Local -> Mem2Reg -> DominantTree
-```
-
-但当前不作为下一步任务。
-
-## 6. 建议后续顺序
-
-已完成或已有等价实现：
-
-1. Loop-aware getptr/load CSE
-2. LICM
-3. Alias-aware memory forwarding
-4. Cross-block GVN
-5. SROA 小范围版本增强
-6. Inline cost model 调优
-7. Spill/reload cleanup
-
-短期后续优先级：
-
-1. 后续主线转到后端优化，先做 B0 后端统计，确认 spill、frame、call、branch 的真实占比。
-2. 按 B1-B6 顺序推进：先改 linear scan spill 选择和 interval 精度，再做 spill traffic、copy coalescing、指令选择、call/frame、block layout。
-3. 每个后端优化单独 commit，提交 OJ 后记录 17 个隐藏点变化；若出现负优化，按单 commit 回滚或收窄。
-4. IR 层后续只做有明确 case 证据的小修，不再继续泛化堆 pass。
-
-如果 OJ 分数仍不理想，再做：
-
-5. 更激进的 loop strength reduction，但需要警惕寄存器压力和 `CE_ASM`。
-6. 多 block inline。
-7. Global2Local。
-
-## 7. 当前推荐管线
-
-当前实际管线：
-
-```text
+IR generation
 SROA
 Mem2Reg
 DominantTree
@@ -773,55 +38,745 @@ CFGClean
 LICM
 DCE
 InstrSelect
-Peephole
+Peephole(pre-regalloc)
 ASM DCE
 LinearScan
-Peephole
+Peephole(post-regalloc)
 ASMPrinter
 ```
 
-说明：
+后端调用顺序在 `src/linearScan/regalloc.h`：
 
-- `FunctionInline` 后最好重新跑支配/SSA 或至少确认后续 pass 不依赖过期 CFG。
-- `LocalCSE` 后重跑 `MemoryForward` 是有意安排：getptr/address 经过 CSE 后，load/store 转发能看到更多等价地址。
-- `LICM` 放在第二轮 MemoryForward/CFGClean 后，避免提升已经能被转发/折叠掉的临时。
-- `MemoryForward` 后常会制造常量和死 load/store，应接 `ConstantFold/CFGClean/DCE`。
-- 后端后续优化集中在 `ASM DCE -> LinearScan -> Peephole` 这一段，优先降低 spill/reload 和 frame 成本。
+```text
+InstrSelect.select
+Peephole.optimize(..., false)
+LinearScan.deadCodeElimination
+LinearScan.process
+Peephole.optimize(..., true)
+ASMPrinter.print
+```
 
-## 8. 验证策略
+几个重复 pass 是有意安排：
 
-正确性：
+- `FunctionInline` 后重跑 `SCCP`，让内联暴露出的常量和分支继续传播。
+- `MemoryForward` 后重跑 `ConstantFold/CFGClean`，因为 load/store 转发经常制造常量分支和死块。
+- `LocalCSE` 后再跑一次 `MemoryForward`，因为 getptr 和地址表达式被合并后，内存转发能识别更多等价地址。
+- `LICM` 放在后段，避免提前 hoist 那些本来可以被转发、折叠或删除的临时。
+- 最后一轮 `DCE` 删除 LICM/CSE/Forwarding 后留下的纯死计算。
+
+## 2. IRBuilder 和 Lowering 阶段优化
+
+### 2.1 常量提前求值
+
+实现位置：
+
+- `src/semantic/ConstEvaluator.h`
+- `src/ir/IRBuilder.h`
+- `src/ir/IRGlobalbuilder.h`
+
+基本做法：
+
+- 顶层 `const` 和关联常量优先在语义/IR 构建阶段求值。
+- 对 `const path`、整数后缀、数组长度表达式做提前解析。
+- 让后续 IR pass 直接看到 literal，而不是全局内存读取。
+
+适用场景：
+
+- `opti_compute_hash_mix`
+- `opti_ntt_convolution`
+- 使用大量模数、数组长度、结构体关联常量的样例
+
+注意事项：
+
+- `usize/isize` 常量必须保留 64-bit 精度。
+- 不能把当前语言规范未支持的 Rust 类型当作优化方向。
+
+### 2.2 Typed Array Initializer Copy Elision
+
+实现位置：
+
+- `src/ir/IRBuilder.h`
+
+基本做法：
+
+- 对 `let a: [T; N] = [ ... ];` 这种显式数组初始化，如果 initializer 已经生成了同形状数组对象，直接把该对象绑定为局部变量。
+- 避免再分配一个目标数组并发出整块 `IRMemcpy`。
+
+适用场景：
+
+- 大数组初始化
+- 图/NTT/DP 中的临时数组构造
+- 隐藏点里局部数组初始化后马上进入热循环的情况
+
+收益来源：
+
+- 减少一次完整数组 copy。
+- 降低初始 IR 体积和后端内存流量。
+
+风险边界：
+
+- 只在类型形状完全一致时直接绑定。
+- 不能改变变量名绑定和作用域查找结果。
+
+## 3. IR 优化 Pass
+
+### 3.1 SROA
+
+实现位置：
+
+- `src/optimize/sroa.h`
+
+基本做法：
+
+- 识别局部 `alloca` 的小 struct 或小 fixed array。
+- 当前限制字段/元素数不超过 4。
+- 只拆标量字段：整数和指针。
+- 地址不逃逸、访问路径是常量字段/常量下标时，将聚合对象拆成多个 scalar alloca。
+- 支持安全的 `memset 0` 和候选对象之间的 `memcpy` 初始化。
+
+适用场景：
+
+- 小结构体频繁读写
+- 结构体池中的小对象
+- helper 函数里临时聚合对象
+
+典型收益：
+
+- 拆出来的字段能继续被 `Mem2Reg` 和 `DominantTree` 提升为 SSA 值。
+- 后续 `SCCP/ConstantFold/DCE` 可以直接处理字段级别的值。
+
+风险边界：
+
+- 动态下标数组不拆。
+- 传给未知函数、地址逃逸、复杂 memcpy 的聚合对象不拆。
+- 指针字段要保留 pointer-storage 语义。
+
+### 3.2 Mem2Reg
+
+实现位置：
+
+- `src/optimize/mem2reg.h`
+
+基本做法：
+
+- 删除完全未使用的 alloca。
+- 对只有单次 store 的局部变量，把后续 load 替换为该 store 的值。
+- 对单基本块内简单 store-load 链做局部传播。
+
+适用场景：
+
+- 普通局部变量
+- 简单临时变量
+- SROA 拆出的 scalar slot
+
+风险边界：
+
+- 指针绑定槽、指针存储槽和地址逃逸变量不能错误提升。
+- 只是基础 mem2reg，跨复杂 CFG 的 SSA promotion 交给下一步 `DominantTree`。
+
+### 3.3 DominantTree SSA Promotion
+
+实现位置：
+
+- `src/optimize/dominantTree.h`
+
+基本做法：
+
+- 构建 CFG、RPO、支配树和 dominance frontier。
+- 对可提升 alloca 插入 phi。
+- 使用 rename stack 沿支配树重命名变量。
+- 删除被提升变量的 alloca/load/store。
+
+适用场景：
+
+- 跨分支和循环的局部标量变量。
+- `if/else`、`while/loop` 中反复更新的计数器和状态值。
+
+收益来源：
+
+- 将内存形式的变量转换成 SSA 值。
+- 给 `SCCP`、`LocalCSE`、`LICM` 提供更干净的数据流。
+
+风险边界：
+
+- phi predecessor 必须与 CFG 保持一致。
+- 64-bit 栈槽和 `w64tag` 不能在 promotion 过程中丢失。
+
+### 3.4 SCCP
+
+实现位置：
+
+- `src/optimize/sccp.h`
+
+基本做法：
+
+- 使用三值 lattice：`Unknown / Constant / Overdefined`。
+- 只沿 executable edge 传播，避免把不可达分支的值混进 phi。
+- 对 `IRPHI`、legacy bool phi、二元运算、cast、分支做稀疏常量传播。
+- 支持 branch edge facts，例如 `x == c` 的 true edge 上记录 `x = c`，`x != c` 的 false edge 上记录 `x = c`。
+- 重写常量结果、常量分支、store/return 中的 literal。
+
+适用场景：
+
+- 状态机分支
+- helper inline 后暴露出的常量参数
+- bool 短路表达式
+- `if (x == const)` 后续重复使用 `x` 的代码
+
+收益来源：
+
+- 删除不可达分支。
+- 把 phi 折成常量或单值。
+- 给 `CFGClean` 和 `DCE` 制造机会。
+
+风险边界：
+
+- 内存 load、call、getint 默认 overdefined。
+- 分支事实只在对应 edge 上有效，不能全局传播。
+- 32-bit/64-bit cast 常量必须按目标类型归一化。
+
+### 3.5 Function Inline
+
+实现位置：
+
+- `src/optimize/functionInline.h`
+
+基本做法：
+
+- 收集函数、调用次数和调用图。
+- 排除 `main`、递归函数、多基本块函数和非 int/void 返回的大函数。
+- 用 cost model 控制 inline：
+  - 普通小函数限制较低。
+  - 单调用函数允许更高阈值。
+  - tiny 函数和 scalar memory helper 更容易 inline。
+  - 参数过多和复杂内存操作会增加成本。
+- inline 后把实参映射到形参，复制函数体，返回值用 move/store 接回 call site。
+
+适用场景：
+
+- 小算术 helper
+- getter/setter
+- 模运算 wrapper
+- 只调用一次的工具函数
+
+收益来源：
+
+- 消除 call/return 和参数搬运开销。
+- 暴露常量、地址表达式和 store-load 链给后续 pass。
+
+风险边界：
+
+- 过度 inline 会扩大 live range，增加 spill。
+- long-param、大聚合参数、解释器 dispatch 类代码不能盲目 inline。
+- 当前只处理无复杂 CFG 的小函数。
+
+### 3.6 ConstantFold 和代数化简
+
+实现位置：
+
+- `src/optimize/constantFold.h`
+
+基本做法：
+
+- 在基本块内维护常量表和 alias 表。
+- 折叠整数/布尔二元运算、cast、phi、getptr 常量下标。
+- 简化常见代数恒等式，例如：
+  - `x + 0 -> x`
+  - `x - 0 -> x`
+  - `x * 1 -> x`
+  - `x & -1 -> x`
+  - `x | 0 -> x`
+  - 相同操作数的部分比较/位运算
+- 常量分支改成无条件跳转。
+
+适用场景：
+
+- inline 后产生的常量计算。
+- SCCP 后的局部常量。
+- hash/NTT/array index 中的常量表达式。
+
+风险边界：
+
+- `addw/subw` 和普通 64-bit `add/sub` 语义不同。
+- `u32/i32/usize/isize` 常量必须按位宽和 signedness 处理。
+- 除法和取模不能折叠除以 0。
+
+### 3.7 CFGClean
+
+实现位置：
+
+- `src/optimize/cfgClean.h`
+
+基本做法：
+
+- 从函数入口收集 reachable blocks。
+- 删除不可达 basic block。
+- 清理 phi 中来自不可达 predecessor 的输入。
+- 将所有输入相同的 phi 替换为单值。
+
+适用场景：
+
+- SCCP/ConstantFold 把条件分支改成确定跳转之后。
+- inline 和 DCE 后出现空块或单值 phi。
+
+风险边界：
+
+- 删除 block 后必须同步 phi 输入。
+- legacy bool phi 和 `IRPHI` 都要处理。
+
+### 3.8 Dead Code Elimination
+
+实现位置：
+
+- `src/optimize/deadCodeEliminate.h`
+
+基本做法：
+
+- 从有副作用指令开始反向标记 live 值。
+- 沿 def-use 链继续标记依赖。
+- 删除没有 live def 的纯指令。
+- 迭代到不再变化。
+
+有副作用的指令包括：
+
+- store
+- call
+- getint
+- print/exit/return/branch
+- memcpy/memset 等内存操作
+
+适用场景：
+
+- SCCP/ConstantFold/MemoryForward/LICM 后留下的无用计算。
+- inline 后未使用的返回值或临时变量。
+
+风险边界：
+
+- 不能删除可能影响内存、IO、控制流的指令。
+
+### 3.9 MemoryForward
+
+实现位置：
+
+- `src/optimize/memoryForward.h`
+
+基本做法：
+
+- 构建 CFG、支配树和 def block map。
+- 沿支配树维护 memory state：
+  - `stores`: 已知地址最近一次 store 的值。
+  - `loads`: 已知地址最近一次 load 的结果。
+  - `addressFacts`: getptr 地址规范化信息。
+  - `replaceMap`: 可替换值。
+- 对同一精确地址做 store-load forwarding。
+- 对同一精确地址做 dominated load reuse。
+- 对后续 store 覆盖前一 store、且中间没有读取的情况删除前一 store。
+- 对结构体字段路径做保守 alias 判断：同根对象、不同常量字段可以认为不别名。
+- 遇到 call/getint/memcpy/memset/未知 store 时清空或收窄相关状态。
+
+适用场景：
+
+- 结构体字段反复读写。
+- 解释器状态字段 load 后马上使用。
+- 数组/结构池中同地址重复 load。
+- `store v, p; load p` 这种前端常见 lowering 形态。
+
+收益来源：
+
+- 减少 IR load/store。
+- 把 load 结果替换成 literal 或已有 SSA 值，继续触发 `ConstantFold/CFGClean/DCE`。
+
+风险边界：
+
+- 只做精确地址或明确 disjoint 字段路径。
+- 不跨可能写内存的未知 side effect 保留 load/store 事实。
+- 不把上一轮循环迭代的 load 错误复用到下一轮。
+
+### 3.10 StrengthReduction
+
+实现位置：
+
+- `src/optimize/strengthReduction.h`
+
+当前保留的转换：
+
+- `x * 2^k -> x << k`
+- unsigned `x / 2^k -> x >> k`
+- unsigned `x % 2^k -> x & (2^k - 1)`
+
+适用场景：
+
+- 数组 index 缩放。
+- hash 和 NTT 中的 power-of-two 运算。
+- u32/usize 的无符号除模。
+
+已放弃的方向：
+
+- `x * (2^k +/- 1)` 展开成 shift+add/sub 曾导致负优化。
+- RV64GC 有 `mul`，展开后可能增加指令数和寄存器压力。
+
+风险边界：
+
+- signed division/mod 不能直接替换成 shift/and。
+- 64-bit 和 32-bit mask 必须区分。
+
+### 3.11 LocalCSE / Dominator GVN
+
+实现位置：
+
+- `src/optimize/localCSE.h`
+
+基本做法：
+
+- 构建 CFG、RPO 和支配树。
+- 沿支配树传播表达式表。
+- 对纯表达式做 common subexpression elimination：
+  - `IRBinaryop`
+  - `IRGetptr`
+  - `IRSext/IRZext/IRTrunc`
+  - 保守 load CSE
+- key 中包含 op、操作数、类型、`utag/i8tag/w64tag` 等语义标记。
+- commutative op 规范化左右操作数。
+- 遇到可能写内存的操作时清空 load table。
+
+适用场景：
+
+- 数组地址重复计算。
+- hash/NTT/DP 中相同二元表达式重复出现。
+- 分支合流后同一 getptr/cast 被重复生成。
+
+收益来源：
+
+- 减少 IR 计算。
+- 让后端看到更短的地址链。
+- 让后续 MemoryForward 识别更多等价地址。
+
+风险边界：
+
+- load CSE 必须比纯表达式保守。
+- 不跨未知写内存的指令复用 load。
+- CSE 可能拉长 live range，过度泛化会让后端 spill 变多。
+
+### 3.12 LICM
+
+实现位置：
+
+- `src/optimize/licm.h`
+
+基本做法：
+
+- 构建 CFG、predecessor、支配关系。
+- 用 back edge 识别 natural loop。
+- 只处理有唯一 preheader 的循环。
+- loop 内存在 call-like barrier 时跳过该 loop。
+- hoist 循环不变量：
+  - 代价较高的 scalar binary，如 mul/div/mod/shift。
+  - 纯 getptr。
+  - cast。
+  - 服务 getptr 地址链的 cheap `add/sub`。
+- 不 hoist load。
+
+适用场景：
+
+- NTT、image kernel、array transform 中的循环不变地址/尺度计算。
+- 循环内重复 cast 和 getptr。
+
+收益来源：
+
+- 减少热循环内的重复算术和地址计算。
+
+风险边界：
+
+- 不能 hoist 可能受内存变化影响的 load。
+- cheap binary hoist 过度泛化会拉长 live range，所以当前只保留地址链相关的 `add/sub`。
+- loop 中有 call-like barrier 时保守跳过。
+
+## 4. 后端优化
+
+### 4.1 指令选择优化
+
+实现位置：
+
+- `src/linearScan/InstrSelect.h`
+
+基本做法：
+
+- 常量尽量用 `li` 或 12-bit immediate 形式。
+- 二元运算选择 immediate form，例如 `addi/andi/ori/xori/slti/sltiu`。
+- getptr 常量偏移尽量直接体现在地址计算中。
+- load/store 根据 `w64tag` 选择 `ld/sd`，普通 i32 使用 `lw/sw`。
+- 函数调用记录真实 `callArgCount`，供后端 liveness 使用。
+- 生成 frame placeholder，由寄存器分配阶段统一决定真实 prologue/epilogue。
+
+适用场景：
+
+- 小常量运算密集代码。
+- 数组/结构体字段访问。
+- 参数数量不同的 call。
+
+风险边界：
+
+- `u32/i32` 与 `usize/isize` 的扩展语义必须正确。
+- 栈上传参和隐藏 return pointer 不能破坏 ABI。
+
+### 4.2 Pre-regalloc Peephole
+
+实现位置：
+
+- `src/linearScan/Peephole.h`
+
+当前主要优化：
+
+- 删除 self move 和 `addi x, x, 0`。
+- 将 `seqz/snez/slt/slti + bnez` 折成直接条件分支。
+- 将 `addi/mv addr, base; load/store 0(addr)` 折成 `load/store off(base)`，要求 offset 能放入 12-bit。
+- 将单 use 的 `mv tmp, src; op ..., tmp` 折进下一条指令。
+- 识别小型 modular helper 并在 call site 内联：
+  - `add_mod(a, b)`
+  - `sub_mod(a, b)`
+  - `norm(x)` 取模后负数补模
+
+适用场景：
+
+- `opti_ntt_convolution` 的模加/模减。
+- `opti_graph_algorithms_suite` 中 `norm` helper。
+- 状态机/解释器中的 bool 比较后马上分支。
+- 数组访问中临时地址只用一次。
+
+收益来源：
+
+- 减少 call。
+- 减少 bool 临时寄存器。
+- 缩短地址链，降低寄存器压力。
+
+风险边界：
+
+- modular helper 通过函数体语义模式识别，不只靠函数名；但仍要求结构匹配。
+- 内联序列只使用当前已验证的 RV64 指令。
+
+### 4.3 ASM DCE
+
+实现位置：
+
+- `src/linearScan/LinearScan.h`
+
+基本做法：
+
+- 在寄存器分配前按函数构建 CFG。
+- 做物理/虚拟寄存器 live 分析。
+- 删除无副作用且结果不再使用的 asm 指令。
+- 删除 `j/jr` 之后同块内不可达指令。
+
+适用场景：
+
+- IR DCE 后仍残留的汇编级临时。
+- peephole 折叠后产生的无用 move/li。
+
+风险边界：
+
+- call、store、branch、jump、return 等必须保留。
+
+### 4.4 Linear Scan Register Allocation
+
+实现位置：
+
+- `src/linearScan/LinearScan.h`
+
+当前策略：
+
+- 按函数划分 asm blocks。
+- 构建 CFG 和 liveIn/liveOut。
+- 为虚拟寄存器构造 live ranges，并允许同一物理寄存器被非重叠 range 复用。
+- 对循环块加权，回边覆盖的 block use weight 更高，spill 选择优先保留热循环值。
+- 对跨 call 的 interval 优先尝试 callee-saved 寄存器。
+- call 只把实际使用的 `a0-a7` 参数寄存器计为 use，不再默认所有参数寄存器都 live。
+- 收集 `mv v1, v2` copy hints，尝试把相关虚拟寄存器分到同一物理寄存器。
+- 根据 weighted use density 选择 spill victim。
+- 对单定义 `li` 形式的可重建值，spill rewrite 时可重新 materialize，避免分配真实 spill slot。
+- 同一条指令中 use/def 都 spill 的虚拟寄存器复用 scratch，避免重复 load。
+
+适用场景：
+
+- 解释器大循环。
+- 图算法和 range structure 中长 live range。
+- NTT/hash pipeline 中临时多、call 少或 call 集中的函数。
+
+收益来源：
+
+- 降低热点循环中的 spill/reload。
+- 减少 call 周围不必要的 caller-saved 压力。
+- 降低 `mv` 链造成的虚拟寄存器数量。
+
+风险边界：
+
+- 当前仍不是完整图染色，也没有强 live range splitting。
+- 复杂 next-use spill 选择尝试过但回退，因为线性编号不能准确表达 loop-carried value。
+- 非重叠 spill slot 复用尝试过但回退，隐藏点出现明显负优化。
+
+### 4.5 栈帧和 ABI 优化
+
+实现位置：
+
+- `src/linearScan/LinearScan.h`
+
+当前优化：
+
+- leaf function 不保存/恢复 `ra`。
+- 没有 call、alloca、spill、callee-saved 使用的 leaf function 直接省略 frame setup。
+- 只保存实际用到的 callee-saved 寄存器。
+- frame size 16 字节对齐。
+- 大 frame offset 超出 12-bit 时使用 `li + add + ld/sd`。
+
+适用场景：
+
+- 小 helper 函数。
+- inline 后剩下的简单 leaf 函数。
+- 递归工具函数中非叶子/叶子混合场景。
+
+风险边界：
+
+- 任何 caller-saved/callee-saved 误判都会导致 WA。
+- 省略 frame 时必须保证没有本地栈槽、spill 或需要保存的寄存器。
+
+### 4.6 Post-regalloc Peephole
+
+实现位置：
+
+- `src/linearScan/Peephole.h`
+
+当前主要优化：
+
+- 删除跳到下一块的 fallthrough `j`。
+- 清理同基本块内冗余 stack access：
+  - `ld slot` 后重复 `ld slot`，改为 `mv` 或直接复用。
+  - `sd same-value slot` 删除。
+  - 被后续 store 覆盖且中间没有读取的 store 删除。
+  - 同时处理 12-bit offset 栈访问和 large-frame 的 `li + add + ld/sd` 形态。
+- 复用已 materialize 的 frame address：
+  - 重复 `li off; add addr, off, s0` 可改成 `mv addr, previousAddr`。
+- 再次做 address fold 和 move fold。
+
+适用场景：
+
+- spill 很多的大函数。
+- frame 很大的 long-param/隐藏性能点。
+- 图/解释器/索引类样例中大量局部状态落栈的函数。
+
+风险边界：
+
+- 只做同基本块内的数据流，不跨 label/call/branch。
+- 遇到未知 store、call、terminator 或 frame base 被改写时清空状态。
+
+## 5. 各类隐藏点对应的主要优化
+
+| 场景 | 主要优化 |
+|---|---|
+| 大数组循环 | Mem2Reg, LocalCSE, MemoryForward, LICM, address peephole |
+| NTT / 模运算 | ConstantFold, StrengthReduction, modular helper inline, LICM |
+| 图算法 | typed array copy elision, getptr CSE, MemoryForward, `norm` helper inline, spill cleanup |
+| 结构体池 | SROA, alias-aware MemoryForward, DCE |
+| 状态机/解释器 | SCCP, CFGClean, bool branch peephole, register allocation pressure control |
+| hash pipeline | FunctionInline, SCCP, ConstantFold, LocalCSE, conservative LICM |
+| long-param / 大 frame | actual call arg liveness, frame address reuse, large-frame stack cleanup |
+| 小 helper 密集调用 | FunctionInline, leaf frame omission, modular helper inline |
+
+## 6. 已尝试但当前不采用的方向
+
+### 6.1 Graph Coloring Register Allocation
+
+曾单独开分支实现图染色寄存器分配，但 OJ 表现不如当前 linear scan，且一度出现 codegen TLE 和 `opti_bytecode_vm_interpreter` 0 分。当前主线仍使用 `src/linearScan`。
+
+结论：
+
+- 图染色要达到收益，需要完整 coalescing、spill cost、callee-save cost、快速构图和可靠 rewrite。
+- 当前实现成本高、风险大，不适合作为最终主线。
+
+### 6.2 Aggressive Next-use Spill Choice
+
+尝试用下一次 use 选择 spill victim，后来回退。
+
+原因：
+
+- 当前 next-use 基于线性指令编号，不理解 loop-carried value。
+- 在解释器/状态机大循环中会把动态上很快使用的值误判为“很久不用”，导致热点循环 spill 爆炸。
+
+### 6.3 Non-overlapping Spill Slot Reuse
+
+尝试复用不重叠 spill slot，后来回退。
+
+原因：
+
+- 对性能没有稳定收益，并引入隐藏点负优化。
+- 当前更稳定的收益来自减少 spill traffic，而不是压缩 spill slot 个数。
+
+### 6.4 Near-power-of-two Multiply Expansion
+
+尝试 `x * (2^k +/- 1)` 展开，后来收窄。
+
+原因：
+
+- RV64GC 有 `mul`，展开成 `slli + add/sub` 不一定更快。
+- 展开会增加指令数和临时寄存器，可能造成更严重 spill。
+
+### 6.5 过度收紧/放宽 Inline 和 LICM
+
+多轮 OJ 反馈表明：
+
+- 过度 inline scalar-memory helper 会让部分样例受益，但伤害 sort/hashmap/compression/index 等更大样例。
+- LICM 过度 hoist cheap binary 会拉长 live range，解释器和长 pipeline 容易负优化。
+
+最终策略：
+
+- Inline 维持 cost model 和 growth budget。
+- LICM cheap binary 只保留服务 getptr 地址链的 `add/sub`。
+
+### 6.6 Global2Local
+
+当前未实现为主线 pass。
+
+原因：
+
+- 当前顶层 `const` 大多已经在前端/IRBuilder 折成 literal。
+- 没有稳定看到大量真实 `IRGlobal` load/store 热点。
+- 隐藏性能点更主要是数组、结构体、循环和后端寄存器压力。
+
+如果未来要做，第一版应只处理单函数使用、地址不逃逸、标量 load/store 的 global，并放在 `Mem2Reg` 前。
+
+## 7. 验证基线
+
+每次非文档改动后至少跑：
 
 ```bash
 cmake --build build
-bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
-bash /tmp/qemu_test.sh
 ```
 
-semantic-1 需要按 `Verdict:` 字段检查 222 个样例。
+然后用 RV64/qemu 流程跑：
 
-性能代理指标：
+```bash
+bash /tmp/qemu_test.sh
+bash /tmp/qt2.sh RCompiler-Testcases/long-param/src
+```
 
-- 本地 semantic-2 汇编行数只作为 sanity check，不代表 OJ 优化分。
-- 对本地构造的 loop/hash/array/struct microbench，记录：
-  - 编译是否成功
-  - RV64 asm 是否能过 `riscv64-linux-gnu-gcc -static`
-  - qemu 输出一致
-  - 指令数/汇编行数是否下降
+如果 `/tmp` 脚本不存在，用等价流程：
 
-OJ 隐藏点反馈优先级最高。每次 OJ 后记录：
+```bash
+./build/RCompiler < test.rx > test.s 2> test_builtin.s
+cat test_builtin.s >> test.s
+riscv64-linux-gnu-gcc -static -o test test.s
+qemu-riscv64 test < test.in > test.out
+```
 
-- 哪些 case 提升。
-- 哪些 case 下降。
-- 是否出现 CE/WA/CE_ASM。
-- 本次 pass 是否可能导致寄存器压力上升或代码体积膨胀。
+当前维护的基线口径：
 
-## 9. 风险清单
+- `semantic-2`: 50/50
+- `long-param`: 当前本地为 34/34
+- `semantic-1 compileexitcode`: 221/221 active
+- `semantic-1 RV64 link`: 114/114 pass cases
 
-- 所有 memory 优化必须保守处理 alias。遇到 call/getint/memcpy/memset/未知 store 时清空相关状态。
-- 循环优化不能把本轮迭代的 load 复用到下一轮迭代。
-- CFG 修改必须同步 phi predecessor。
-- `usize/isize` folding 和替换必须保留 64-bit 语义。
-- `addw/subw` 的 32-bit sign-extension 语义不能被普通 `mv/add` 错误替代。
-- Inline 调优不能重新制造解释器 hidden case 的巨大寄存器压力。
-- 后端不新增未经 OJ 验证的伪指令或扩展指令。
+## 8. 后续维护建议
+
+- 不要再盲目堆 IR pass；当前 IR 层基础优化已经比较完整。
+- 新优化优先用隐藏点或本地等价 microbench 证明瓶颈存在。
+- 任何可能增加 live range 的优化都要同时观察 spill/reload。
+- 后端仍是和 O1 差距最大的方向，但要避免再次切换到未成熟图染色。
+- 若继续优化，优先方向是更精确的 live range splitting、跨块 spill value dataflow、以及更强但可控的 copy coalescing。
