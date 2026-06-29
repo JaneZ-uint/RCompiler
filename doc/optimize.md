@@ -120,6 +120,8 @@ ASMPrinter.print
 
 ## 3. IR 优化 Pass
 
+CR 时建议重点讲下面几项。`Mem2Reg`、`DominantTree`、`ConstantFold`、`CFGClean`、`DCE` 和 `StrengthReduction` 仍然在真实 pipeline 里，但文档里只作为辅助清理 pass 简述，不再单独展开。
+
 ### 3.1 SROA
 
 实现位置：
@@ -136,73 +138,16 @@ ASMPrinter.print
 
 适用场景：
 
-- 小结构体频繁读写
-- 结构体池中的小对象
-- helper 函数里临时聚合对象
+- 小结构体频繁读写。
+- 结构体池中的小对象。
+- helper 函数里的临时聚合对象。
 
-典型收益：
+核心收益：
 
-- 拆出来的字段能继续被 `Mem2Reg` 和 `DominantTree` 提升为 SSA 值。
-- 后续 `SCCP/ConstantFold/DCE` 可以直接处理字段级别的值。
+- 把“结构体/小数组内存访问”拆成独立标量。
+- 拆出来的字段可以继续被 SSA promotion、SCCP、CSE 和 DCE 优化。
 
-风险边界：
-
-- 动态下标数组不拆。
-- 传给未知函数、地址逃逸、复杂 memcpy 的聚合对象不拆。
-- 指针字段要保留 pointer-storage 语义。
-
-### 3.2 Mem2Reg
-
-实现位置：
-
-- `src/optimize/mem2reg.h`
-
-基本做法：
-
-- 删除完全未使用的 alloca。
-- 对只有单次 store 的局部变量，把后续 load 替换为该 store 的值。
-- 对单基本块内简单 store-load 链做局部传播。
-
-适用场景：
-
-- 普通局部变量
-- 简单临时变量
-- SROA 拆出的 scalar slot
-
-风险边界：
-
-- 指针绑定槽、指针存储槽和地址逃逸变量不能错误提升。
-- 只是基础 mem2reg，跨复杂 CFG 的 SSA promotion 交给下一步 `DominantTree`。
-
-### 3.3 DominantTree SSA Promotion
-
-实现位置：
-
-- `src/optimize/dominantTree.h`
-
-基本做法：
-
-- 构建 CFG、RPO、支配树和 dominance frontier。
-- 对可提升 alloca 插入 phi。
-- 使用 rename stack 沿支配树重命名变量。
-- 删除被提升变量的 alloca/load/store。
-
-适用场景：
-
-- 跨分支和循环的局部标量变量。
-- `if/else`、`while/loop` 中反复更新的计数器和状态值。
-
-收益来源：
-
-- 将内存形式的变量转换成 SSA 值。
-- 给 `SCCP`、`LocalCSE`、`LICM` 提供更干净的数据流。
-
-风险边界：
-
-- phi predecessor 必须与 CFG 保持一致。
-- 64-bit 栈槽和 `w64tag` 不能在 promotion 过程中丢失。
-
-### 3.4 SCCP
+### 3.2 SCCP
 
 实现位置：
 
@@ -210,32 +155,25 @@ ASMPrinter.print
 
 基本做法：
 
-- 使用三值 lattice：`Unknown / Constant / Overdefined`。
+- 使用 `Unknown / Constant / Overdefined` 三值 lattice。
 - 只沿 executable edge 传播，避免把不可达分支的值混进 phi。
-- 对 `IRPHI`、legacy bool phi、二元运算、cast、分支做稀疏常量传播。
-- 支持 branch edge facts，例如 `x == c` 的 true edge 上记录 `x = c`，`x != c` 的 false edge 上记录 `x = c`。
-- 重写常量结果、常量分支、store/return 中的 literal。
+- 折叠 `IRPHI`、legacy bool phi、二元运算、cast 和常量分支。
+- 支持 branch edge facts，例如 `x == c` 的 true edge 上记录 `x = c`。
 
 适用场景：
 
-- 状态机分支
-- helper inline 后暴露出的常量参数
-- bool 短路表达式
-- `if (x == const)` 后续重复使用 `x` 的代码
+- inline 后暴露出的常量参数。
+- 状态机中的固定分支。
+- bool 短路表达式。
+- `if (x == const)` 分支内部继续使用 `x` 的代码。
 
-收益来源：
+核心收益：
 
 - 删除不可达分支。
 - 把 phi 折成常量或单值。
-- 给 `CFGClean` 和 `DCE` 制造机会。
+- 给 CFG clean 和 DCE 制造机会。
 
-风险边界：
-
-- 内存 load、call、getint 默认 overdefined。
-- 分支事实只在对应 edge 上有效，不能全局传播。
-- 32-bit/64-bit cast 常量必须按目标类型归一化。
-
-### 3.5 Function Inline
+### 3.3 Function Inline
 
 实现位置：
 
@@ -244,117 +182,28 @@ ASMPrinter.print
 基本做法：
 
 - 收集函数、调用次数和调用图。
-- 排除 `main`、递归函数、多基本块函数和非 int/void 返回的大函数。
-- 用 cost model 控制 inline：
-  - 普通小函数限制较低。
-  - 单调用函数允许更高阈值。
-  - tiny 函数和 scalar memory helper 更容易 inline。
-  - 参数过多和复杂内存操作会增加成本。
-- inline 后把实参映射到形参，复制函数体，返回值用 move/store 接回 call site。
+- 排除 `main`、递归函数、多基本块函数和复杂返回类型。
+- 用 cost model 控制 inline，单调用/tiny/scalar-memory helper 更容易 inline。
+- inline 后把实参映射到形参，复制函数体，返回值接回调用点。
 
 适用场景：
 
-- 小算术 helper
-- getter/setter
-- 模运算 wrapper
-- 只调用一次的工具函数
+- 小算术 helper。
+- getter/setter。
+- 模运算 wrapper。
+- 只调用一次的工具函数。
 
-收益来源：
+核心收益：
 
 - 消除 call/return 和参数搬运开销。
 - 暴露常量、地址表达式和 store-load 链给后续 pass。
 
 风险边界：
 
-- 过度 inline 会扩大 live range，增加 spill。
+- 过度 inline 会扩大 live range，增加后端 spill。
 - long-param、大聚合参数、解释器 dispatch 类代码不能盲目 inline。
-- 当前只处理无复杂 CFG 的小函数。
 
-### 3.6 ConstantFold 和代数化简
-
-实现位置：
-
-- `src/optimize/constantFold.h`
-
-基本做法：
-
-- 在基本块内维护常量表和 alias 表。
-- 折叠整数/布尔二元运算、cast、phi、getptr 常量下标。
-- 简化常见代数恒等式，例如：
-  - `x + 0 -> x`
-  - `x - 0 -> x`
-  - `x * 1 -> x`
-  - `x & -1 -> x`
-  - `x | 0 -> x`
-  - 相同操作数的部分比较/位运算
-- 常量分支改成无条件跳转。
-
-适用场景：
-
-- inline 后产生的常量计算。
-- SCCP 后的局部常量。
-- hash/NTT/array index 中的常量表达式。
-
-风险边界：
-
-- `addw/subw` 和普通 64-bit `add/sub` 语义不同。
-- `u32/i32/usize/isize` 常量必须按位宽和 signedness 处理。
-- 除法和取模不能折叠除以 0。
-
-### 3.7 CFGClean
-
-实现位置：
-
-- `src/optimize/cfgClean.h`
-
-基本做法：
-
-- 从函数入口收集 reachable blocks。
-- 删除不可达 basic block。
-- 清理 phi 中来自不可达 predecessor 的输入。
-- 将所有输入相同的 phi 替换为单值。
-
-适用场景：
-
-- SCCP/ConstantFold 把条件分支改成确定跳转之后。
-- inline 和 DCE 后出现空块或单值 phi。
-
-风险边界：
-
-- 删除 block 后必须同步 phi 输入。
-- legacy bool phi 和 `IRPHI` 都要处理。
-
-### 3.8 Dead Code Elimination
-
-实现位置：
-
-- `src/optimize/deadCodeEliminate.h`
-
-基本做法：
-
-- 从有副作用指令开始反向标记 live 值。
-- 沿 def-use 链继续标记依赖。
-- 删除没有 live def 的纯指令。
-- 迭代到不再变化。
-
-有副作用的指令包括：
-
-- store
-- call
-- getint
-- print/exit/return/branch
-- memcpy/memset 等内存操作
-
-适用场景：
-
-- SCCP/ConstantFold/MemoryForward/LICM 后留下的无用计算。
-- inline 后未使用的返回值或临时变量。
-
-风险边界：
-
-- 不能删除可能影响内存、IO、控制流的指令。
-
-### 3.9 MemoryForward
+### 3.4 MemoryForward
 
 实现位置：
 
@@ -362,65 +211,25 @@ ASMPrinter.print
 
 基本做法：
 
-- 构建 CFG、支配树和 def block map。
-- 沿支配树维护 memory state：
-  - `stores`: 已知地址最近一次 store 的值。
-  - `loads`: 已知地址最近一次 load 的结果。
-  - `addressFacts`: getptr 地址规范化信息。
-  - `replaceMap`: 可替换值。
+- 沿支配树维护已知 memory state。
 - 对同一精确地址做 store-load forwarding。
 - 对同一精确地址做 dominated load reuse。
-- 对后续 store 覆盖前一 store、且中间没有读取的情况删除前一 store。
+- 删除被后续 store 覆盖、且中间没有读取的旧 store。
 - 对结构体字段路径做保守 alias 判断：同根对象、不同常量字段可以认为不别名。
-- 遇到 call/getint/memcpy/memset/未知 store 时清空或收窄相关状态。
 
 适用场景：
 
 - 结构体字段反复读写。
 - 解释器状态字段 load 后马上使用。
 - 数组/结构池中同地址重复 load。
-- `store v, p; load p` 这种前端常见 lowering 形态。
+- `store v, p; load p` 这种 lowering 形态。
 
-收益来源：
+核心收益：
 
 - 减少 IR load/store。
-- 把 load 结果替换成 literal 或已有 SSA 值，继续触发 `ConstantFold/CFGClean/DCE`。
+- 把 load 结果替换成 literal 或已有 SSA 值，继续触发常量折叠和死代码删除。
 
-风险边界：
-
-- 只做精确地址或明确 disjoint 字段路径。
-- 不跨可能写内存的未知 side effect 保留 load/store 事实。
-- 不把上一轮循环迭代的 load 错误复用到下一轮。
-
-### 3.10 StrengthReduction
-
-实现位置：
-
-- `src/optimize/strengthReduction.h`
-
-当前保留的转换：
-
-- `x * 2^k -> x << k`
-- unsigned `x / 2^k -> x >> k`
-- unsigned `x % 2^k -> x & (2^k - 1)`
-
-适用场景：
-
-- 数组 index 缩放。
-- hash 和 NTT 中的 power-of-two 运算。
-- u32/usize 的无符号除模。
-
-已放弃的方向：
-
-- `x * (2^k +/- 1)` 展开成 shift+add/sub 曾导致负优化。
-- RV64GC 有 `mul`，展开后可能增加指令数和寄存器压力。
-
-风险边界：
-
-- signed division/mod 不能直接替换成 shift/and。
-- 64-bit 和 32-bit mask 必须区分。
-
-### 3.11 LocalCSE / Dominator GVN
+### 3.5 LocalCSE / Dominator GVN
 
 实现位置：
 
@@ -430,14 +239,12 @@ ASMPrinter.print
 
 - 构建 CFG、RPO 和支配树。
 - 沿支配树传播表达式表。
-- 对纯表达式做 common subexpression elimination：
+- 对纯表达式做 CSE/GVN：
   - `IRBinaryop`
   - `IRGetptr`
   - `IRSext/IRZext/IRTrunc`
   - 保守 load CSE
 - key 中包含 op、操作数、类型、`utag/i8tag/w64tag` 等语义标记。
-- commutative op 规范化左右操作数。
-- 遇到可能写内存的操作时清空 load table。
 
 适用场景：
 
@@ -445,19 +252,13 @@ ASMPrinter.print
 - hash/NTT/DP 中相同二元表达式重复出现。
 - 分支合流后同一 getptr/cast 被重复生成。
 
-收益来源：
+核心收益：
 
-- 减少 IR 计算。
+- 减少重复 IR 计算。
 - 让后端看到更短的地址链。
-- 让后续 MemoryForward 识别更多等价地址。
+- 让 MemoryForward 更容易识别等价地址。
 
-风险边界：
-
-- load CSE 必须比纯表达式保守。
-- 不跨未知写内存的指令复用 load。
-- CSE 可能拉长 live range，过度泛化会让后端 spill 变多。
-
-### 3.12 LICM
+### 3.6 LICM
 
 实现位置：
 
@@ -465,12 +266,11 @@ ASMPrinter.print
 
 基本做法：
 
-- 构建 CFG、predecessor、支配关系。
 - 用 back edge 识别 natural loop。
 - 只处理有唯一 preheader 的循环。
 - loop 内存在 call-like barrier 时跳过该 loop。
 - hoist 循环不变量：
-  - 代价较高的 scalar binary，如 mul/div/mod/shift。
+  - 较贵 scalar binary，如 mul/div/mod/shift。
   - 纯 getptr。
   - cast。
   - 服务 getptr 地址链的 cheap `add/sub`。
@@ -481,15 +281,24 @@ ASMPrinter.print
 - NTT、image kernel、array transform 中的循环不变地址/尺度计算。
 - 循环内重复 cast 和 getptr。
 
-收益来源：
+核心收益：
 
 - 减少热循环内的重复算术和地址计算。
 
 风险边界：
 
-- 不能 hoist 可能受内存变化影响的 load。
-- cheap binary hoist 过度泛化会拉长 live range，所以当前只保留地址链相关的 `add/sub`。
-- loop 中有 call-like barrier 时保守跳过。
+- 不提升 load，避免 alias 错误。
+- cheap binary hoist 只保留地址链相关场景，避免 live range 过长。
+
+### 3.7 辅助 IR 清理 Pass
+
+这些 pass 在实现中存在，也在 pipeline 中启用，但 CR 时可以一句带过：
+
+- `Mem2Reg / DominantTree`: 把局部标量栈槽提升到 SSA，给 SCCP/CSE/LICM 提供更干净的数据流。
+- `ConstantFold`: 折叠局部常量表达式、cast、常量 getptr 和常量分支。
+- `CFGClean`: 删除不可达块，清理 phi 输入，把单值 phi 替换成普通值。
+- `DCE`: 从 return/branch/store/call 等有副作用指令反向标记 live 值，删除无用纯计算。
+- `StrengthReduction`: 只保留明确安全的 power-of-two 转换，如 `x * 2^k -> x << k` 和 unsigned `/ % 2^k`。
 
 ## 4. 后端优化
 
