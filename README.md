@@ -54,7 +54,15 @@ cd build
 
 ### Register Allocation
 - Linear Scan Register Allocation Algorithm
-- Graph Coloring Register Allocation Algorithm TBD
+- CFG-aware liveness and live-range based allocation
+- Loop-weighted spill cost and call-aware callee-saved preference
+- Copy hints and simple rematerialization for cheap constants
+
+### Backend Optimization
+- Peephole optimization for compare-branch folding, address folding, and redundant move cleanup
+- Modular helper inlining for small `add_mod`, `sub_mod`, and normalization helpers
+- Leaf function frame reduction and stackless leaf frame omission
+- Post-register-allocation cleanup for redundant spill reloads, overwritten stores, and large-frame stack accesses
 
 ### IR Generation Optimization 
 - Mem2Reg 
